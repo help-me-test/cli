@@ -1,0 +1,181 @@
+name: Build and Release CLI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - '.github/workflows/build-release.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run tests
+        run: bun test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run build script
+        run: bun run build:release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: helpmetest-cli-all-platforms
+          path: test-archives/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get package version
+        id: package-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: helpmetest-cli-all-platforms
+          path: release-assets
+
+      - name: Verify checksums exist
+        run: |
+          ls -la release-assets/
+          echo "Checksums file:"
+          cat release-assets/helpmetest-cli_${{ steps.package-version.outputs.version }}_checksums.txt
+
+      - name: Check if release exists
+        id: check-release
+        run: |
+          if gh release view v${{ steps.package-version.outputs.version }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete existing release
+        if: steps.check-release.outputs.exists == 'true'
+        run: |
+          gh release delete v${{ steps.package-version.outputs.version }} --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate release notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          # HelpMeTest CLI v${{ steps.package-version.outputs.version }}
+          
+          ## 🚀 What's New
+          
+          - Automated release with cross-platform binaries
+          - Support for Linux, macOS, and Windows platforms
+          - Single binary distribution with embedded runtime
+          
+          ## 📦 Downloads
+          
+          Choose the appropriate binary for your platform:
+          
+          ### Linux
+          - **x86_64**: `helpmetest-cli_Linux_x86_64.tar.gz`
+          - **ARM64**: `helpmetest-cli_Linux_arm64.tar.gz`
+          - **i386**: `helpmetest-cli_Linux_i386.tar.gz`
+          
+          ### macOS
+          - **x86_64 (Intel)**: `helpmetest-cli_Darwin_x86_64.tar.gz`
+          - **ARM64 (Apple Silicon)**: `helpmetest-cli_Darwin_arm64.tar.gz`
+          
+          ### Windows
+          - **x86_64**: `helpmetest-cli_Windows_x86_64.zip`
+          - **ARM64**: `helpmetest-cli_Windows_arm64.zip`
+          - **i386**: `helpmetest-cli_Windows_i386.zip`
+          
+          ## 🔐 Verification
+          
+          Verify your download using the provided checksums:
+          ```bash
+          sha256sum -c helpmetest-cli_${{ steps.package-version.outputs.version }}_checksums.txt
+          ```
+          
+          ## 📖 Installation
+          
+          ### Linux/macOS
+          ```bash
+          # Download and extract
+          tar -xzf helpmetest-cli_Linux_x86_64.tar.gz
+          
+          # Install to system path
+          sudo mv helpmetest /usr/local/bin/helpmetest
+          sudo chmod +x /usr/local/bin/helpmetest
+          
+          # Verify installation
+          helpmetest --version
+          ```
+          
+          ### Windows
+          ```bash
+          # Extract the zip file
+          # Add helpmetest.exe to your PATH
+          # Or run directly: .\helpmetest.exe --version
+          ```
+          
+          ## 🛠️ Usage
+          
+          ```bash
+          # Send a health check heartbeat
+          helpmetest health "my-service" "5m"
+          
+          # View system metrics
+          helpmetest metrics
+          
+          # Get help
+          helpmetest --help
+          ```
+          
+          ## 🔧 Requirements
+          
+          - No external dependencies required (self-contained binary)
+          - Minimum system requirements: 64MB RAM, 100MB disk space
+          EOF
+
+      - name: Create release
+        run: |
+          gh release create v${{ steps.package-version.outputs.version }} \
+            --title "HelpMeTest CLI v${{ steps.package-version.outputs.version }}" \
+            --notes-file release-notes.md \
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

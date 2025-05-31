@@ -1,0 +1,167 @@
+name: Build and Release CLI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - '.github/workflows/build-release.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run tests
+        run: bun test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux builds
+          - target: linux-x64
+            os: linux
+            arch: x86_64
+            ext: ""
+          - target: linux-arm64
+            os: linux
+            arch: arm64
+            ext: ""
+          - target: linux-x86
+            os: linux
+            arch: i386
+            ext: ""
+          # macOS builds
+          - target: darwin-x64
+            os: darwin
+            arch: x86_64
+            ext: ""
+          - target: darwin-arm64
+            os: darwin
+            arch: arm64
+            ext: ""
+          # Windows builds
+          - target: windows-x64
+            os: windows
+            arch: x86_64
+            ext: ".exe"
+          - target: windows-arm64
+            os: windows
+            arch: arm64
+            ext: ".exe"
+          - target: windows-x86
+            os: windows
+            arch: i386
+            ext: ".exe"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Get package version
+        id: package-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        run: |
+          mkdir -p dist
+          bun build src/index.js --compile --target=bun-${{ matrix.target }} --outfile=dist/helpmetest${{ matrix.ext }} --minify
+
+      - name: Create archive directory
+        run: mkdir -p archives
+
+      - name: Create Linux/macOS archive
+        if: matrix.os != 'windows'
+        run: |
+          cd dist
+          tar -czf ../archives/helpmetest-cli_${{ steps.package-version.outputs.version }}_$(echo "${{ matrix.os }}" | sed 's/.*/\u&/')_${{ matrix.arch }}.tar.gz helpmetest${{ matrix.ext }}
+
+      - name: Create Windows archive
+        if: matrix.os == 'windows'
+        run: |
+          cd dist
+          zip ../archives/helpmetest-cli_${{ steps.package-version.outputs.version }}_$(echo "${{ matrix.os }}" | sed 's/.*/\u&/')_${{ matrix.arch }}.zip helpmetest${{ matrix.ext }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: helpmetest-cli-${{ matrix.target }}
+          path: archives/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get package version
+        id: package-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -name "*.tar.gz" -o -name "*.zip" | xargs -I {} cp {} release-assets/
+
+      - name: Generate checksums
+        run: |
+          cd release-assets
+          sha256sum * > helpmetest-cli_${{ steps.package-version.outputs.version }}_checksums.txt
+
+      - name: Check if release exists
+        id: check-release
+        run: |
+          if gh release view v${{ steps.package-version.outputs.version }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete existing release
+        if: steps.check-release.outputs.exists == 'true'
+        run: |
+          gh release delete v${{ steps.package-version.outputs.version }} --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release
+        run: |
+          gh release create v${{ steps.package-version.outputs.version }} \
+            --title "HelpMeTest CLI v${{ steps.package-version.outputs.version }}" \
+            --notes "Automated release of HelpMeTest CLI v${{ steps.package-version.outputs.version }}" \
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
