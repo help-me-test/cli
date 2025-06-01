@@ -26,7 +26,8 @@
     "package": "bun run build:binary && chmod +x dist/helpmetest",
     "release:local": "bun run clean && bun run build:linux-x64 && bun run build:darwin-arm64",
     "test:build": "scripts/test-build.sh",
-    "build:release": "scripts/build-release.sh"
+    "build:release": "scripts/build-release.sh",
+    "release:manual": "scripts/manual-release.sh"
   },
   "keywords": [
     "health-check",
