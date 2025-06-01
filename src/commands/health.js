@@ -30,6 +30,8 @@ import {
 async function healthCommand(name, gracePeriod, options) {
   configUtils.debug('Starting health check command')
   
+  const startTime = Date.now()
+  
   // Validate configuration first
   if (!validateConfiguration(config, options.verbose)) {
     output.error('Configuration validation failed')
@@ -44,15 +46,18 @@ async function healthCommand(name, gracePeriod, options) {
     // Step 2: Collect system metrics
     const metrics = await collectSystemMetrics()
     
-    // Step 3: Prepare heartbeat data
-    const heartbeatData = prepareHeartbeatData(processedArgs, metrics)
+    // Step 3: Calculate elapsed time for the health check operation
+    const elapsedTime = Date.now() - startTime
     
-    // Step 4: Display information (if verbose or dry-run)
+    // Step 4: Prepare heartbeat data
+    const heartbeatData = prepareHeartbeatData(processedArgs, metrics, elapsedTime)
+    
+    // Step 5: Display information (if verbose or dry-run)
     if (options.verbose || options.dryRun) {
       displayHealthCheckInfo(processedArgs, heartbeatData, options)
     }
     
-    // Step 5: Send heartbeat (unless dry-run)
+    // Step 6: Send heartbeat (unless dry-run)
     if (!options.dryRun) {
       await sendHeartbeat(processedArgs, heartbeatData, options)
     } else {
@@ -144,9 +149,10 @@ async function validateAndProcessArguments(name, gracePeriod, options) {
  * Prepare heartbeat data for API call
  * @param {Object} processedArgs - Processed arguments
  * @param {Object} metrics - System metrics
+ * @param {number} elapsedTime - Elapsed time in milliseconds (optional)
  * @returns {Object} Heartbeat data
  */
-function prepareHeartbeatData(processedArgs, metrics) {
+function prepareHeartbeatData(processedArgs, metrics, elapsedTime = 0) {
   configUtils.debug('Preparing heartbeat data')
   
   const envConfig = configUtils.getEnvironmentConfig()
@@ -164,7 +170,8 @@ function prepareHeartbeatData(processedArgs, metrics) {
       disk_usage: metrics.disk_usage,
     },
     platform_info: metrics.platform,
-    environment: envConfig.environment || null,
+    environment: envConfig.environment || 'dev',
+    elapsed_time: elapsedTime,
     custom_data: envConfig.customData || {},
   }
   
@@ -215,10 +222,8 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
   output.keyValue('Hostname', heartbeatData.hostname)
   output.keyValue('IP Address', heartbeatData.ip_address)
   output.keyValue('Timestamp', heartbeatData.timestamp)
-  
-  if (heartbeatData.environment) {
-    output.keyValue('Environment', heartbeatData.environment)
-  }
+  output.keyValue('Environment', heartbeatData.environment)
+  output.keyValue('Elapsed Time', `${heartbeatData.elapsed_time}ms`)
   
   // Display system metrics
   output.section('System Metrics:')
@@ -253,11 +258,11 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
 async function sendHeartbeat(processedArgs, heartbeatData, options) {
   configUtils.debug('Sending heartbeat to API')
   
-  const startTime = Date.now()
+  const apiStartTime = Date.now()
   
+  const endpoint = `/api/healthcheck/${encodeURIComponent(processedArgs.name)}/${encodeURIComponent(processedArgs.gracePeriod)}`
   try {
     // Construct API endpoint
-    const endpoint = `/api/healthcheck/${encodeURIComponent(processedArgs.name)}/${encodeURIComponent(processedArgs.gracePeriod)}`
     
     configUtils.debug(`API endpoint: ${endpoint}`)
     
@@ -265,15 +270,20 @@ async function sendHeartbeat(processedArgs, heartbeatData, options) {
     const apiClient = createApiClient()
     const response = await apiClient.post(endpoint, heartbeatData)
     
-    const duration = Date.now() - startTime
+    const apiDuration = Date.now() - apiStartTime
+    const totalDuration = heartbeatData.elapsed_time + apiDuration
     
-    // Display success message
+    if (response.status > 200) {
+      throw response
+    }
+
     if (!options.verbose) {
-      output.success(`Health check sent successfully (${duration}ms)`)
+      output.success(`Health check sent successfully (API: ${apiDuration}ms, Total: ${totalDuration}ms)`)
     } else {
       output.section('API Response:')
       output.keyValue('Status', 'Success')
-      output.keyValue('Duration', `${duration}ms`)
+      output.keyValue('API Duration', `${apiDuration}ms`)
+      output.keyValue('Total Duration', `${totalDuration}ms`)
       output.keyValue('Response Status', response.status)
       
       if (response.data) {
@@ -282,13 +292,13 @@ async function sendHeartbeat(processedArgs, heartbeatData, options) {
       
       output.success('Health check heartbeat sent successfully')
     }
-    
-    configUtils.debug(`Heartbeat sent successfully in ${duration}ms`)
+    configUtils.debug(`Heartbeat sent successfully in ${apiDuration}ms (total: ${totalDuration}ms)`)
     
   } catch (error) {
-    const duration = Date.now() - startTime
+    const apiDuration = Date.now() - apiStartTime
+    const totalDuration = heartbeatData.elapsed_time + apiDuration
     
-    configUtils.debug(`Heartbeat failed after ${duration}ms: ${error.message}`)
+    configUtils.debug(`Heartbeat failed after ${apiDuration}ms (total: ${totalDuration}ms): ${error.message}`)
     
     // Handle different types of API errors
     if (error.response) {
@@ -305,13 +315,13 @@ async function sendHeartbeat(processedArgs, heartbeatData, options) {
       } else if (status === 429) {
         throw new Error('Rate limit exceeded - please try again later')
       } else if (status >= 500) {
-        throw new Error(`Server error (${status}): ${statusText}`)
+        throw new Error(`Server error (${status}): ${statusText} ${endpoint}`)
       } else {
         throw new Error(`API error (${status}): ${statusText}`)
       }
     } else if (error.request) {
       // Network error
-      throw new Error(`Network error: Unable to reach API server at ${config.apiBaseUrl}`)
+      throw new Error('\n\t'+error.data.error)
     } else {
       // Other error
       throw new Error(`Request failed: ${error.message}`)
