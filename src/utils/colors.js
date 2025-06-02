@@ -118,6 +118,14 @@ const output = {
   verbose: (message) => {
     console.log(colors.dim('[VERBOSE]'), colors.dim(message))
   },
+
+  /**
+   * Dimmed output (faint text)
+   * @param {string} message - Message to dim
+   */
+  dim: (message) => {
+    console.log(colors.dim(message))
+  },
 }
 
 export {

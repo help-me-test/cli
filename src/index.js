@@ -9,6 +9,7 @@
 
 import { Command } from 'commander'
 import healthCommand from './commands/health.js'
+import statusCommand from './commands/status.js'
 import metricsCommand from './commands/metrics.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
@@ -24,9 +25,9 @@ program
 // Register the health command
 program
   .command('health')
-  .description('Send a health check heartbeat to HelpMeTest monitoring')
-  .argument('<name>', 'Unique identifier for this health check')
-  .argument('<grace_period>', 'Time to wait before marking as down (e.g., 30s, 5m, 2h, 1d)')
+  .description('Send health check heartbeats or view status of existing health checks')
+  .argument('[name]', 'Unique identifier for this health check')
+  .argument('[grace_period]', 'Time to wait before marking as down (e.g., 30s, 5m, 2h, 1d)')
   .option('--from-timer <timer>', 'Parse grace period from systemd timer file')
   .option('--dry-run', 'Show what would be sent without actually sending')
   .option('--verbose', 'Show detailed output')
@@ -97,6 +98,21 @@ ${colors.dim('Application Health Checks:')}
 `)
   .action(healthCommand)
 
+// Register the status command
+program
+  .command('status')
+  .description('Show status of all checks in the system')
+  .option('--json', 'Output in JSON format')
+  .option('--verbose', 'Show detailed information including system metrics')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest status')}                      ${colors.dim('# Show current health check status')}
+  ${colors.dim('$')} ${colors.command('helpmetest status')} ${colors.option('--json')}             ${colors.dim('# Output in JSON format')}
+  ${colors.dim('$')} ${colors.command('helpmetest status')} ${colors.option('--verbose')}          ${colors.dim('# Show detailed information')}
+  ${colors.dim('$')} ${colors.command('helpmetest status')} ${colors.option('--json --verbose')}   ${colors.dim('# JSON with all details')}
+`)
+  .action(statusCommand)
+
 // Register the metrics command
 program
   .command('metrics')
@@ -124,8 +140,9 @@ ${colors.subtitle('Use Cases:')}
 // Add global help examples
 program.addHelpText('after', `
 ${colors.subtitle('Examples:')}
-  ${colors.dim('$')} ${colors.command('helpmetest health')} ${colors.argument('"database-backup"')} ${colors.argument('"5m"')}
-  ${colors.dim('$')} ${colors.command('helpmetest health')} ${colors.argument('"api-server"')} ${colors.argument('"30s"')}
+  ${colors.dim('$')} ${colors.command('helpmetest health')}                         ${colors.dim('# Show status of all health checks')}
+  ${colors.dim('$')} ${colors.command('helpmetest health')} ${colors.argument('"database-backup"')} ${colors.argument('"5m"')}  ${colors.dim('# Send heartbeat for specific check')}
+  ${colors.dim('$')} ${colors.command('helpmetest health')} ${colors.argument('"api-server"')} ${colors.argument('"30s"')}      ${colors.dim('# Send heartbeat with 30s grace period')}
   ${colors.dim('$')} ${colors.highlight('ENV=production')} ${colors.command('helpmetest health')} ${colors.argument('"web-app"')} ${colors.argument('"1m"')}
   ${colors.dim('$')} ${colors.command('helpmetest health')} ${colors.argument('"backup-service"')} ${colors.option('--from-timer backup.timer')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--verbose')}
