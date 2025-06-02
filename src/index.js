@@ -28,6 +28,7 @@ program
   .description('Send health check heartbeats or view status of existing health checks')
   .argument('[name]', 'Unique identifier for this health check')
   .argument('[grace_period]', 'Time to wait before marking as down (e.g., 30s, 5m, 2h, 1d)')
+  .argument('[command...]', 'Optional command to execute. The health check will use its exit code and execution time.')
   .option('--from-timer <timer>', 'Parse grace period from systemd timer file')
   .option('--dry-run', 'Show what would be sent without actually sending')
   .option('--verbose', 'Show detailed output')

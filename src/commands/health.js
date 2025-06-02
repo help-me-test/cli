@@ -15,7 +15,7 @@ import {
   validateGracePeriod,
   displayTimerConfiguration,
   displayGracePeriodInfo,
-  isSystemdTimerFile
+  isSystemdTimerFile,
 } from '../utils/systemd.js'
 
 /**
@@ -27,10 +27,92 @@ import {
  * @param {boolean} options.dryRun - Show what would be sent without sending
  * @param {boolean} options.verbose - Show detailed output
  */
-async function healthCommand(name, gracePeriod, options) {
+async function healthCommand(name, gracePeriod, command, options) {
   configUtils.debug('Starting health check command')
   
   const startTime = Date.now()
+  
+  // Execute command if provided
+  let commandResult = null
+  if (command && command.length > 0) {
+    const commandStartTime = Date.now()
+    const commandStr = command.join(' ')
+    
+    try {
+      // Special case 1: Port check syntax ":port"
+      if (/^:\d+$/.test(commandStr)) {
+        const port = parseInt(commandStr.slice(1))
+        const { createServer } = await import('net')
+        
+        commandResult = await new Promise((resolve) => {
+          const server = createServer()
+          server.on('error', (error) => {
+            resolve({
+              success: false,
+              exitCode: 1,
+              error: `Port ${port} is not available: ${error.message}`,
+              elapsedTime: Date.now() - commandStartTime,
+              command: commandStr,
+            })
+          })
+          
+          server.listen(port, () => {
+            server.close()
+            resolve({
+              success: true,
+              exitCode: 0,
+              elapsedTime: Date.now() - commandStartTime,
+              command: commandStr,
+            })
+          })
+        })
+      }
+      // Special case 2: HTTP health check syntax "GET /health" or "POST /health"
+      else if (/^(GET|POST)\s+\S+$/.test(commandStr)) {
+        const [method, url] = commandStr.split(' ')
+        let finalUrl
+        
+        // Handle URLs with hostname:port format
+        if (url.match(/^[\w.-]+:\d+/)) {
+          finalUrl = `http://${url}`
+        } else {
+          finalUrl = url.startsWith('http') ? url : `http://localhost${url.startsWith('/') ? '' : '/'}${url}`
+        }
+        
+        const response = await fetch(finalUrl, { method })
+        const ok = response.status >= 200 && response.status < 300
+        
+        commandResult = {
+          success: ok,
+          exitCode: ok ? 0 : 1,
+          error: ok ? null : `HTTP ${response.status} ${response.statusText}`,
+          elapsedTime: Date.now() - commandStartTime,
+          command: commandStr,
+        }
+      }
+      // Default case: Execute shell command
+      else {
+        const { execSync } = await import('child_process')
+        execSync(commandStr)
+        commandResult = {
+          success: true,
+          exitCode: 0,
+          elapsedTime: Date.now() - commandStartTime,
+          command: commandStr,
+        }
+      }
+    } catch (error) {
+      if (!commandResult) {
+        commandResult = {
+          success: false,
+          exitCode: error.status || 1,
+          error: error.message,
+          elapsedTime: Date.now() - commandStartTime,
+          command: commandStr,
+        }
+      }
+    }
+  }
   
   // Validate configuration first
   if (!validateConfiguration(config, options.verbose)) {
@@ -50,7 +132,7 @@ async function healthCommand(name, gracePeriod, options) {
     const elapsedTime = Date.now() - startTime
     
     // Step 4: Prepare heartbeat data
-    const heartbeatData = prepareHeartbeatData(processedArgs, metrics, elapsedTime)
+    const heartbeatData = prepareHeartbeatData(processedArgs, metrics, elapsedTime, commandResult)
     
     // Step 5: Display information (if verbose or dry-run)
     if (options.verbose || options.dryRun) {
@@ -63,9 +145,14 @@ async function healthCommand(name, gracePeriod, options) {
     } else {
       output.warning('Dry run mode - heartbeat not sent')
     }
+
+    // If command failed, exit with its exit code after sending the heartbeat
+    if (commandResult && !commandResult.success && !options.dryRun) {
+      process.exit(commandResult.exitCode)
+    }
     
   } catch (error) {
-    output.error(`Health check failed: ${error.message}`)
+    output.error(`⨯ Health check failed: ${error.message}`)
     
     if (options.verbose) {
       output.section('Error Details:')
@@ -152,7 +239,7 @@ async function validateAndProcessArguments(name, gracePeriod, options) {
  * @param {number} elapsedTime - Elapsed time in milliseconds (optional)
  * @returns {Object} Heartbeat data
  */
-function prepareHeartbeatData(processedArgs, metrics, elapsedTime = 0) {
+function prepareHeartbeatData(processedArgs, metrics, elapsedTime = 0, commandResult = null) {
   configUtils.debug('Preparing heartbeat data')
   
   const envConfig = configUtils.getEnvironmentConfig()
@@ -173,8 +260,20 @@ function prepareHeartbeatData(processedArgs, metrics, elapsedTime = 0) {
     environment: envConfig.environment || 'dev',
     elapsed_time: elapsedTime,
     custom_data: envConfig.customData || {},
+    status: commandResult ? (commandResult.success ? 'PASS' : 'FAIL') : 'PASS',
   }
-  
+
+  // Add command execution information if available
+  if (commandResult) {
+    heartbeatData.command_info = {
+      command: commandResult.command,
+      success: commandResult.success,
+      exit_code: commandResult.exitCode,
+      elapsed_time: commandResult.elapsedTime,
+      error: commandResult.error,
+    }
+  }
+
   // Add timer information if available
   if (processedArgs.timerConfig) {
     heartbeatData.timer_info = {
@@ -198,6 +297,19 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
     output.title('Health Check Heartbeat')
   } else {
     output.title('Health Check Heartbeat (Dry Run)')
+  }
+
+  // Display command execution status if available
+  if (heartbeatData.command_info) {
+    output.section('Command Execution:')
+    output.keyValue('Command', heartbeatData.command_info.command)
+    output.keyValue('Status', heartbeatData.command_info.success ? 'Success' : 'Failed')
+    output.keyValue('Exit Code', heartbeatData.command_info.exit_code)
+    output.keyValue('Execution Time', `${heartbeatData.command_info.elapsed_time}ms`)
+    if (heartbeatData.command_info.error) {
+      output.keyValue('Error', heartbeatData.command_info.error)
+    }
+    console.log()
   }
   
   output.section('Health Check Configuration:')
@@ -278,7 +390,12 @@ async function sendHeartbeat(processedArgs, heartbeatData, options) {
     }
 
     if (!options.verbose) {
-      output.success(`Health check sent successfully (API: ${apiDuration}ms, Total: ${totalDuration}ms)`)
+      const message = `Health check sent ${heartbeatData.status === 'PASS' ? 'successfully' : 'as failed'} (API: ${apiDuration}ms, Total: ${totalDuration}ms)`
+      if (heartbeatData.status === 'PASS') {
+        output.success(`${message}`)
+      } else {
+        output.error(`${message}`)
+      }
     } else {
       output.section('API Response:')
       output.keyValue('Status', 'Success')

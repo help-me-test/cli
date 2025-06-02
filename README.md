@@ -9,6 +9,76 @@ A command-line tool for sending health check heartbeats to HelpMeTest monitoring
 - 🔧 Systemd timer integration
 - 🚀 Single binary compilation
 
+## Usage
+
+### Health Check Command
+
+```bash
+helpmetest health <name> <grace_period>
+```
+
+### Status Command
+
+```bash
+helpmetest status [options]
+```
+
+View the current status of all health checks in your environment. The command displays:
+- Health check name
+- Current status (up/down/unknown)
+- Last heartbeat time
+- Grace period
+- Environment
+
+### Special Command Syntax
+
+The health check command supports several special command formats for common monitoring scenarios:
+
+1. **HTTP Health Check**
+   ```bash
+   # Check HTTP endpoint (automatically adds http://localhost)
+   helpmetest health "api-health" "1m" "GET /health"
+   
+   # Check specific host:port
+   helpmetest health "api-check" "1m" "GET 127.0.0.1:3000/health"
+   
+   # Check full URL
+   helpmetest health "auth-service" "30s" "GET https://api.example.com/health"
+   ```
+
+2. **Port Availability Check**
+   ```bash
+   # Check if port 3000 is available
+   helpmetest health "port-3000" "1m" ":3000"
+   ```
+
+3. **Shell Command Execution**
+   ```bash
+   # Database connection check
+   helpmetest health "postgres-check" "5m" "psql -h localhost -c '\l'"
+   ```
+
+The command will report:
+- ✓ (green) for successful health checks
+- ✗ (red) for failed health checks that were successfully reported
+- ⨯ (red) for errors when the health check couldn't be sent
+
+### Examples
+
+```bash
+# Basic health check
+helpmetest health "database-backup" "5m"
+
+# With environment
+ENV=production helpmetest health "web-app" "1m"
+
+# View status of all health checks
+helpmetest status
+
+# View status for specific environment
+ENV=production helpmetest status
+```
+
 ## Installation
 
 ```bash
@@ -25,13 +95,21 @@ bun run build:all
 bun run package
 ```
 
-## Usage
+## Installation
 
 ```bash
-helpmetest health <name> <grace_period>
-```
+# Install dependencies
+bun install
 
-### Examples
+# Build single binary
+bun run build:binary
+
+# Or build both Node.js bundle and binary
+bun run build:all
+
+# Package binary with executable permissions
+bun run package
+```
 
 ```bash
 # Basic health check
@@ -43,6 +121,12 @@ ENV=production helpmetest health "web-app" "1m"
 # Conditional execution
 psql postgres://user:pass@localhost/db -c "SELECT 1;" && \
   helpmetest health "db-connection" "2m"
+
+# View status of all health checks
+helpmetest status
+
+# View status for specific environment
+ENV=production helpmetest status
 ```
 
 ## Environment Variables
