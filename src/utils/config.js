@@ -5,6 +5,9 @@
  * for the HelpMeTest CLI application using functional approach.
  */
 
+// Load environment variables from .env file first
+import 'dotenv/config'
+
 import { output } from './colors.js'
 import { getUserAgent } from './version.js'
 

@@ -19,9 +19,11 @@ if not VALID_TOKEN:
 
 # Set up environment variables for the MCP server
 env = os.environ.copy()
+api_url = os.getenv('HELPMETEST_API_URL', 'https://slava.helpmetest.com')
+print(f"Setting API URL to: {api_url}")
 env.update({
     'HELPMETEST_API_TOKEN': VALID_TOKEN,
-    'HELPMETEST_API_URL': os.getenv('HELPMETEST_API_URL', 'https://helpmetest.com'),
+    'HELPMETEST_API_URL': api_url,
     'HELPMETEST_DEBUG': 'true'
 })
 

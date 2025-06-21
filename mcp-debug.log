@@ -1,20 +1,20 @@
-MCP Server Debug Log - Started at 2025-06-21T11:30:13.285Z
+MCP Server Debug Log - Started at 2025-06-21T12:38:16.397Z
 
-[2025-06-21T11:30:13.290Z] STDIN_RAW: {
+[2025-06-21T12:38:16.401Z] STDIN_RAW: {
   "method": "initialize",
   "params": {
     "protocolVersion": "2025-06-18",
     "capabilities": {},
     "clientInfo": {
       "name": "simple-prompts-test",
-      "version": "1.0.1"
+      "version": "1.0.2"
     }
   },
   "jsonrpc": "2.0",
   "id": 0
 }
 
-[2025-06-21T11:30:13.291Z] STDOUT_RAW: {
+[2025-06-21T12:38:16.403Z] STDOUT_RAW: {
   "result": {
     "protocolVersion": "2025-06-18",
     "capabilities": {
@@ -24,24 +24,37 @@ MCP Server Debug Log - Started at 2025-06-21T11:30:13.285Z
     },
     "serverInfo": {
       "name": "helpmetest-mcp-server",
-      "version": "1.0.1"
+      "version": "1.0.2"
     }
   },
   "jsonrpc": "2.0",
   "id": 0
 }
 
-[2025-06-21T11:30:13.292Z] STDIN_RAW: {
-  "raw": "{\"method\":\"notifications/initialized\",\"jsonrpc\":\"2.0\"}\n{\"method\":\"tools/call\",\"params\":{\"name\":\"health_check\",\"arguments\":{\"url\":\"https://always-up.test.helpmetest.com\",\"timeout\":10}},\"jsonrpc\":\"2.0\",\"id\":1}\n",
-  "parseError": "JSON Parse error: Unable to parse JSON string"
+[2025-06-21T12:38:16.404Z] STDIN_RAW: {
+  "method": "notifications/initialized",
+  "jsonrpc": "2.0"
 }
 
-[2025-06-21T11:30:13.427Z] STDOUT_RAW: {
+[2025-06-21T12:38:16.404Z] STDIN_RAW: {
+  "method": "tools/call",
+  "params": {
+    "name": "health_check",
+    "arguments": {
+      "url": "https://always-up.test.helpmetest.com",
+      "timeout": 10
+    }
+  },
+  "jsonrpc": "2.0",
+  "id": 1
+}
+
+[2025-06-21T12:38:16.537Z] STDOUT_RAW: {
   "result": {
     "content": [
       {
         "type": "text",
-        "text": "{\"url\":\"https://always-up.test.helpmetest.com\",\"status\":200,\"statusText\":\"OK\",\"healthy\":true,\"responseTime\":134,\"timestamp\":\"2025-06-21T11:30:13.427Z\"}"
+        "text": "{\"url\":\"https://always-up.test.helpmetest.com\",\"status\":200,\"statusText\":\"OK\",\"healthy\":true,\"responseTime\":132,\"timestamp\":\"2025-06-21T12:38:16.537Z\"}"
       }
     ],
     "isError": false

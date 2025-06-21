@@ -5,6 +5,7 @@ Test MCP server tools functionality to identify bugs between versions
 import asyncio
 import json
 import sys
+import os
 from typing import Dict, Any, List
 
 # Load environment variables

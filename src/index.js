@@ -7,6 +7,9 @@
  * functionality for the HelpMeTest platform.
  */
 
+// Load environment variables from .env file
+import 'dotenv/config'
+
 import { Command } from 'commander'
 import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'

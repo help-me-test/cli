@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Set OpenAI API key from environment or use placeholder for testing
-os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY', 'sk-test-invalid-key-for-testing')
+os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY', 'test-invalid-openai-key-placeholder')
 
 # Get token from environment
 VALID_TOKEN = os.getenv('HELPMETEST_API_TOKEN')
