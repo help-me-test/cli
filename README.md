@@ -33,23 +33,67 @@ helpmetest health "backup" "1h" "CMD ./backup.sh"
 - **Flexible timing** (seconds, minutes, hours, days)
 - **Environment support** (dev/staging/prod)
 
+## � Commands
+
+### Health Check
+```bash
+helpmetest health <name> <grace_period> [check_command]
+```
+
+**Examples:**
+```bash
+# Basic health check
+helpmetest health "my-service" "5m"
+
+# HTTP endpoint check
+helpmetest health "api" "1m" "GET localhost:3000/health"
+
+# Port monitoring
+helpmetest health "db" "30s" "PORT 5432"
+
+# Command execution
+helpmetest health "backup" "1h" "CMD ./backup.sh"
+```
+
+### Other Commands
+```bash
+helpmetest status    # View system status
+helpmetest metrics   # View metrics
+helpmetest --version # Check CLI version
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `HELPMETEST_API_TOKEN` | ✅ | Your HelpMeTest API token |
+| `ENV` | ❌ | Environment (dev/staging/prod) |
+| `HELPMETEST_*` | ❌ | Custom metrics |
+| `DEBUG` | ❌ | Enable debug output |
+
+### Setup
+```bash
+export HELPMETEST_API_TOKEN="your-token-here"
+export ENV="production"  # Optional
+```
+
 ## 📚 Documentation
 
-- **[Complete Documentation](docs/README.md)** - Full guides and examples
 - **[Installation Guide](docs/installation.md)** - Detailed installation options
 - **[Usage Guide](docs/usage.md)** - Commands and syntax
 - **[Health Check Patterns](docs/health-checks.md)** - Best practices and troubleshooting
 - **[Integration Examples](docs/integrations.md)** - Docker, Kubernetes, cron jobs
+- **[MCP Setup](docs/mcp-setup.md)** - AI editor integration
+- **[Development Guide](docs/DEVELOPMENT.md)** - Build and contribution guide
 
-## 🔧 Configuration
+## 🧪 Testing
 
-Set your API token:
-```bash
-export HELPMETEST_API_TOKEN="your-token-here"
-```
+- **[Test Suite](tests/)** - Python and JavaScript tests
+- **[Examples](examples/)** - Working examples and configurations
 
 ## 🆘 Support
 
-- **Documentation**: [docs/README.md](docs/README.md)
-- **Issues**: GitHub issues
+- **Issues**: GitHub issues for bugs and feature requests
 - **Email**: contact@helpmetest.com
+- **Debug**: Use `DEBUG=1 helpmetest health "test" "1m"` for troubleshooting
