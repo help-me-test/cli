@@ -7,7 +7,8 @@
 
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { parse as parseTimespan } from 'timespan-parser'
+import timespanParser from 'timespan-parser'
+const { parse: parseTimespan } = timespanParser
 import { colors, output } from './colors.js'
 import { debug, config } from './config.js'
 

@@ -1,6 +1,6 @@
 {
   "name": "helpmetest-cli",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "HelpMeTest CLI tool for health check monitoring",
   "main": "src/index.js",
   "type": "module",
@@ -9,8 +9,15 @@
   },
   "scripts": {
     "start": "bun src/index.js",
+    "mcp:stdio": "bun src/index.js mcp",
+    "mcp:sse": "bun src/index.js mcp --sse",
+    "mcp:dev": "bun src/index.js mcp --verbose",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:mcp": "jest --testPathPattern=mcp",
+    "test:mcp:watch": "jest --testPathPattern=mcp --watch",
+    "docs:generate": "bun test src/tests/mcp-real-ai-e2e.test.js",
+    "docs:mcp": "scripts/generate-mcp-docs.sh",
     "build": "bun build src/index.js --outfile=dist/helpmetest --target=node --minify",
     "build:binary": "bun build src/index.js --compile --outfile=dist/helpmetest --minify",
     "build:all": "bun run clean && bun run build && bun run build:binary",
@@ -38,14 +45,18 @@
   "author": "HelpMeTest",
   "license": "MIT",
   "dependencies": {
-    "commander": "^11.1.0",
+    "@modelcontextprotocol/sdk": "^1.13.0",
     "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "fastmcp": "^3.4.0",
     "timespan-parser": "^1.2.0",
-    "chalk": "^4.1.2"
+    "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
     "jest": "^29.7.0",
-    "@types/jest": "^29.5.0"
+    "node-fetch": "^3.3.2"
   },
   "jest": {
     "testEnvironment": "node",

@@ -70,25 +70,7 @@ async function healthCommand(name, gracePeriod, command, options) {
       // Special case 2: HTTP health check syntax "GET /health" or "POST /health"
       else if (/^(GET|POST)\s+\S+$/.test(commandStr)) {
         const [method, url] = commandStr.split(' ')
-        let finalUrl
-        
-        // Handle URLs with hostname:port format
-        if (url.match(/^[\w.-]+:\d+/)) {
-          finalUrl = `http://${url}`
-        } else {
-          finalUrl = url.startsWith('http') ? url : `http://localhost${url.startsWith('/') ? '' : '/'}${url}`
-        }
-        
-        const response = await fetch(finalUrl, { method })
-        const ok = response.status >= 200 && response.status < 300
-        
-        commandResult = {
-          success: ok,
-          exitCode: ok ? 0 : 1,
-          error: ok ? null : `HTTP ${response.status} ${response.statusText}`,
-          elapsedTime: Date.now() - commandStartTime,
-          command: commandStr,
-        }
+        commandResult = await performHttpHealthCheck(url, method, commandStartTime)
       }
       // Default case: Execute shell command
       else {
@@ -362,6 +344,38 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
 }
 
 /**
+ * Perform HTTP health check
+ * @param {string} url - URL to check
+ * @param {string} method - HTTP method (GET or POST)
+ * @param {number} startTime - Start time for elapsed calculation
+ * @returns {Object} Health check result
+ */
+async function performHttpHealthCheck(url, method, startTime) {
+  let finalUrl
+  
+  // Handle URLs with hostname:port format
+  if (url.match(/^[\w.-]+:\d+/)) {
+    finalUrl = `http://${url}`
+  } else {
+    finalUrl = url.startsWith('http') ? url : `http://localhost${url.startsWith('/') ? '' : '/'}${url}`
+  }
+  
+  const response = await fetch(finalUrl, { method })
+  const ok = response.status >= 200 && response.status < 300
+  
+  return {
+    success: ok,
+    exitCode: ok ? 0 : 1,
+    error: ok ? null : `HTTP ${response.status} ${response.statusText}`,
+    elapsedTime: Date.now() - startTime,
+    command: `${method} ${url}`,
+    url: finalUrl,
+    status: response.status,
+    statusText: response.statusText,
+  }
+}
+
+/**
  * Send heartbeat to API
  * @param {Object} processedArgs - Processed arguments
  * @param {Object} heartbeatData - Heartbeat data
@@ -447,3 +461,4 @@ async function sendHeartbeat(processedArgs, heartbeatData, options) {
 }
 
 export default healthCommand
+export { performHttpHealthCheck }

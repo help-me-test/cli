@@ -1,0 +1,1 @@
+fastmcp run ./mcp.py

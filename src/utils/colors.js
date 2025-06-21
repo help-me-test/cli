@@ -43,7 +43,10 @@ const output = {
    * @param {string} message - Success message
    */
   success: (message) => {
-    console.log(colors.success('✓'), message)
+    // Use stderr for MCP compatibility (stdout is reserved for JSON-RPC)
+    const isStdioMode = process.argv.includes('mcp') && !process.argv.includes('--sse')
+    const outputStream = isStdioMode ? console.error : console.log
+    outputStream(colors.success('✓'), message)
   },
 
   /**
@@ -67,7 +70,10 @@ const output = {
    * @param {string} message - Info message
    */
   info: (message) => {
-    console.log(colors.info('ℹ'), message)
+    // Use stderr for MCP compatibility (stdout is reserved for JSON-RPC)
+    const isStdioMode = process.argv.includes('mcp') && !process.argv.includes('--sse')
+    const outputStream = isStdioMode ? console.error : console.log
+    outputStream(colors.info('ℹ'), message)
   },
 
   /**
@@ -116,7 +122,10 @@ const output = {
    * @param {string} message - Verbose message
    */
   verbose: (message) => {
-    console.log(colors.dim('[VERBOSE]'), colors.dim(message))
+    // Use stderr for MCP compatibility (stdout is reserved for JSON-RPC)
+    const isStdioMode = process.argv.includes('mcp') && !process.argv.includes('--sse')
+    const outputStream = isStdioMode ? console.error : console.log
+    outputStream(colors.dim('[VERBOSE]'), colors.dim(message))
   },
 
   /**

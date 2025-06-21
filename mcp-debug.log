@@ -1,0 +1,52 @@
+MCP Server Debug Log - Started at 2025-06-21T11:30:13.285Z
+
+[2025-06-21T11:30:13.290Z] STDIN_RAW: {
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "simple-prompts-test",
+      "version": "1.0.1"
+    }
+  },
+  "jsonrpc": "2.0",
+  "id": 0
+}
+
+[2025-06-21T11:30:13.291Z] STDOUT_RAW: {
+  "result": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {
+      "tools": {
+        "listChanged": true
+      }
+    },
+    "serverInfo": {
+      "name": "helpmetest-mcp-server",
+      "version": "1.0.1"
+    }
+  },
+  "jsonrpc": "2.0",
+  "id": 0
+}
+
+[2025-06-21T11:30:13.292Z] STDIN_RAW: {
+  "raw": "{\"method\":\"notifications/initialized\",\"jsonrpc\":\"2.0\"}\n{\"method\":\"tools/call\",\"params\":{\"name\":\"health_check\",\"arguments\":{\"url\":\"https://always-up.test.helpmetest.com\",\"timeout\":10}},\"jsonrpc\":\"2.0\",\"id\":1}\n",
+  "parseError": "JSON Parse error: Unable to parse JSON string"
+}
+
+[2025-06-21T11:30:13.427Z] STDOUT_RAW: {
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"url\":\"https://always-up.test.helpmetest.com\",\"status\":200,\"statusText\":\"OK\",\"healthy\":true,\"responseTime\":134,\"timestamp\":\"2025-06-21T11:30:13.427Z\"}"
+      }
+    ],
+    "isError": false
+  },
+  "jsonrpc": "2.0",
+  "id": 1
+}
+

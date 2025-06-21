@@ -6,6 +6,7 @@
  */
 
 import { output } from './colors.js'
+import { getUserAgent } from './version.js'
 
 /**
  * Default configuration values
@@ -14,7 +15,7 @@ const DEFAULT_CONFIG = {
   apiBaseUrl: 'https://helpmetest.com',
   timeout: 30000, // 30 seconds
   retries: 3,
-  userAgent: 'HelpMeTest-CLI/1.0.0',
+  userAgent: getUserAgent(),
 }
 
 /**

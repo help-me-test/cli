@@ -11,12 +11,12 @@ import { Command } from 'commander'
 import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'
 import metricsCommand from './commands/metrics.js'
+import mcpCommand from './commands/mcp.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
 
 const program = new Command()
 
-// Configure the main program
 program
   .name(colors.brand('helpmetest'))
   .description(colors.dim('HelpMeTest CLI tool for health check monitoring'))
@@ -137,6 +137,50 @@ ${colors.subtitle('Use Cases:')}
   ${colors.dim('•')} Monitor system resource usage
 `)
   .action(metricsCommand)
+
+// Register the MCP command
+program
+  .command('mcp')
+  .description('Start MCP (Model Context Protocol) server for AI integration')
+  .argument('[token]', 'HelpMeTest API token (required)')
+  .option('-u, --url <url>', 'HelpMeTest API base URL (optional)', 'https://helpmetest.com')
+  .option('--sse', 'Use HTTP Server-Sent Events transport instead of stdio')
+  .option('-p, --port <number>', 'Port for SSE transport', '31337')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')}                    ${colors.dim('# Start with stdio transport')}
+  ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('--sse')}             ${colors.dim('# Use SSE transport')}
+  ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('-u https://slava.helpmetest.com')} ${colors.dim('# Custom API URL')}
+  ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('--verbose')}         ${colors.dim('# Enable verbose logging')}
+  ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('--sse --port 8080')} ${colors.dim('# SSE on custom port')}
+
+${colors.subtitle('Environment Variables (Alternative):')}
+  ${colors.dim('You can also use environment variables instead of command line arguments:')}
+  ${colors.dim('$')} ${colors.highlight('HELPMETEST_API_TOKEN=HELP-abc123...')} ${colors.command('helpmetest mcp')}
+  ${colors.dim('$')} ${colors.highlight('HELPMETEST_API_TOKEN=HELP-abc123... HELPMETEST_API_URL=https://slava.helpmetest.com')} ${colors.command('helpmetest mcp')}
+
+${colors.subtitle('Transport Types:')}
+  ${colors.key('stdio')}    Standard input/output (for AI clients like Claude Desktop) - Default
+  ${colors.key('sse')}      HTTP Server-Sent Events (for web-based integrations)
+
+${colors.subtitle('Available Tools:')}
+  ${colors.dim('•')} ${colors.key('health_check')}         Perform health checks on URLs
+  ${colors.dim('•')} ${colors.key('system_status')}        Get system metrics and status
+  ${colors.dim('•')} ${colors.key('health_checks_status')} Get status of all health checks
+
+${colors.subtitle('Integration:')}
+  ${colors.dim('Add to Claude Desktop config.json:')}
+  ${colors.dim('{')}
+  ${colors.dim('  "mcpServers": {')}
+  ${colors.dim('    "helpmetest": {')}
+  ${colors.dim('      "command": "helpmetest",')}
+  ${colors.dim('      "args": ["mcp", "HELP-your-token-here"]')}
+  ${colors.dim('    }')}
+  ${colors.dim('  }')}
+  ${colors.dim('}')}
+`)
+  .action(mcpCommand)
 
 // Add global help examples
 program.addHelpText('after', `
