@@ -6,14 +6,11 @@
 
 import { output, colors } from '../utils/colors.js'
 import { config, validateConfiguration } from '../utils/config.js'
-import { getAllHealthChecks, getAllTests, getTestStatus, getUserInfo } from '../utils/api.js'
 import { 
   formatTimeSince, 
   getStatusFormat, 
-  multiSort, 
-  formatCheckForJson,
+  multiSort,
   collectStatusData,
-  formatStatusDataForJson,
   getFormattedStatusData
 } from '../utils/status-data.js'
 import Table from 'cli-table3'
