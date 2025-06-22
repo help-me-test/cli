@@ -185,30 +185,45 @@ const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}) =
 }
 
 /**
+ * Generic API GET request with retry and error handling
+ * @param {string} endpoint - API endpoint
+ * @param {Object} params - Query parameters
+ * @param {string} debugMessage - Debug message for logging
+ * @returns {Promise<Object>} API response data
+ */
+const apiGet = async (endpoint, params = {}, debugMessage = '') => {
+  const client = createApiClient()
+  
+  const requestInfo = {
+    endpoint,
+    params,
+  }
+
+  debug(config, debugMessage || `Making GET request to ${endpoint}`)
+
+  try {
+    const response = await retryWithBackoff(async () => {
+      return await client.get(endpoint, { params })
+    })
+
+    debug(config, `Request successful: ${response.status}`)
+    return response.data
+  } catch (error) {
+    throw handleApiError(error, requestInfo)
+  }
+}
+
+/**
  * Get health check details from the API
  * @param {string} name - Health check name
  * @returns {Promise<Object>} Health check data
  */
 const getHealthCheck = async (name) => {
-  const client = createApiClient()
-  
-  const requestInfo = {
-    name,
-    endpoint: `/api/healthcheck/${encodeURIComponent(name)}`,
-  }
-
-  debug(config, `Getting health check details for ${name}`)
-
-  try {
-    const response = await retryWithBackoff(async () => {
-      return await client.get(requestInfo.endpoint)
-    })
-
-    debug(config, `Health check details retrieved: ${response.status}`)
-    return response.data
-  } catch (error) {
-    throw handleApiError(error, requestInfo)
-  }
+  return apiGet(
+    `/api/healthcheck/${encodeURIComponent(name)}`,
+    {},
+    `Getting health check details for ${name}`
+  )
 }
 
 /**
@@ -217,25 +232,32 @@ const getHealthCheck = async (name) => {
  * @returns {Promise<Object>} List of health checks
  */
 const getAllHealthChecks = async (filters = {}) => {
-  const client = createApiClient()
-  
-  const requestInfo = {
-    endpoint: '/api/healthchecks',
-    filters,
-  }
+  return apiGet('/api/healthchecks', filters, 'Getting all health checks')
+}
 
-  debug(config, 'Getting all health checks')
+/**
+ * Get all tests from the API
+ * @param {Object} filters - Optional filters
+ * @returns {Promise<Object>} List of tests
+ */
+const getAllTests = async (filters = {}) => {
+  return apiGet('/api/test', filters, 'Getting all tests')
+}
 
-  try {
-    const response = await retryWithBackoff(async () => {
-      return await client.get(requestInfo.endpoint, { params: filters })
-    })
+/**
+ * Get test status from the API
+ * @returns {Promise<Object>} Test status data
+ */
+const getTestStatus = async () => {
+  return apiGet('/api/status/tests', {}, 'Getting test status')
+}
 
-    debug(config, `Health checks retrieved: ${response.status}`)
-    return response.data
-  } catch (error) {
-    throw handleApiError(error, requestInfo)
-  }
+/**
+ * Get user information from the API
+ * @returns {Promise<Object>} User data including company information
+ */
+const getUserInfo = async () => {
+  return apiGet('/api/user', {}, 'Getting user information')
 }
 
 /**
@@ -342,9 +364,13 @@ const getApiConfig = () => {
 // Export API functions
 export {
   ApiError,
+  apiGet,
   sendHealthCheckHeartbeat,
   getHealthCheck,
   getAllHealthChecks,
+  getAllTests,
+  getTestStatus,
+  getUserInfo,
   testConnection,
   displayApiError,
   validateResponse,
@@ -357,9 +383,13 @@ export {
 
 // Export default object for convenience
 export default {
+  apiGet,
   sendHealthCheckHeartbeat,
   getHealthCheck,
   getAllHealthChecks,
+  getAllTests,
+  getTestStatus,
+  getUserInfo,
   testConnection,
   displayApiError,
   validateResponse,

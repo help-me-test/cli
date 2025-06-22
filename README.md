@@ -33,6 +33,10 @@ helpmetest health "backup" "1h" "CMD ./backup.sh"
 - **Flexible timing** (seconds, minutes, hours, days)
 - **Environment support** (dev/staging/prod)
 
+## 🤖 MCP - AI Integration
+
+MCP adds AI integration to the HelpMeTest CLI. It is configured with a simple setup and works out of the box. See [MCP Setup](docs/mcp-setup.md) for instructions and [MCP Real AI Examples](mcp-real-ai-examples.md) for practical usage.
+
 ## � Commands
 
 ### Health Check
@@ -86,6 +90,7 @@ export ENV="production"  # Optional
 - **[Integration Examples](docs/integrations.md)** - Docker, Kubernetes, cron jobs
 - **[MCP Setup](docs/mcp-setup.md)** - AI editor integration
 - **[Development Guide](docs/DEVELOPMENT.md)** - Build and contribution guide
+- **[MCP Real AI Examples](mcp-real-ai-examples.md)** - Real AI examples for MCP
 
 ## 🧪 Testing
 

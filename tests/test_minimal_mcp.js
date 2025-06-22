@@ -6,7 +6,6 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { z } from 'zod'
 import { getVersion } from './src/utils/version.js'
 
 async function main() {

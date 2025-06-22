@@ -53,12 +53,34 @@ export const TOOL_CONFIGS = {
       required: ['url'],
     },
   },
-  system_status: {
-    name: 'system_status',
-    description: 'Get current system status and metrics',
+  // system_status: {
+  //   name: 'system_status',
+  //   description: 'Get current system status and metrics',
+  //   inputSchema: {
+  //     type: 'object',
+  //     properties: {},
+  //   },
+  // },
+  health_checks_status: {
+    name: 'health_checks_status',
+    description: 'Get status of all health checks in the helpmetest system',
     inputSchema: {
       type: 'object',
       properties: {},
+    },
+  },
+  status: {
+    name: 'status',
+    description: 'Get comprehensive status of all tests and health checks in the helpmetest system',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        verbose: {
+          type: 'boolean',
+          description: 'Enable verbose output with debug information',
+          default: false,
+        },
+      },
     },
   },
 }

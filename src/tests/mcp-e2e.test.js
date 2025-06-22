@@ -4,7 +4,6 @@
  * Tests the complete MCP protocol communication using the official MCP SDK client
  */
 
-import { spawn } from 'child_process'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import path from 'path'
@@ -76,6 +75,7 @@ describe('MCP End-to-End Tests', () => {
       expect(toolNames).toContain('health_check')
       expect(toolNames).toContain('system_status')
       expect(toolNames).toContain('health_checks_status')
+      expect(toolNames).toContain('status')
     })
 
     test('should provide tool descriptions', async () => {
@@ -89,6 +89,11 @@ describe('MCP End-to-End Tests', () => {
       const systemStatusTool = result.tools.find(tool => tool.name === 'system_status')
       expect(systemStatusTool).toBeDefined()
       expect(systemStatusTool.description).toBe('Get current system status and metrics using helpmetest metrics collection')
+      
+      const statusTool = result.tools.find(tool => tool.name === 'status')
+      expect(statusTool).toBeDefined()
+      expect(statusTool.description).toBe('Get comprehensive status of all tests and health checks in the helpmetest system')
+      expect(statusTool.inputSchema).toBeDefined()
     })
   })
 
@@ -234,6 +239,86 @@ describe('MCP End-to-End Tests', () => {
         if (responseData.timestamp) {
           expect(responseData.timestamp).toBeDefined()
         }
+      }
+    })
+  })
+
+  describe('Complete Status Tool', () => {
+    test('should call status tool', async () => {
+      const result = await client.callTool({
+        name: 'status',
+        arguments: {}
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData).toBeDefined()
+      
+      // Should contain comprehensive status data or error information
+      if (responseData.error) {
+        // If there's an error, it should be properly formatted
+        expect(responseData.message).toBeDefined()
+        expect(responseData.timestamp).toBeDefined()
+        expect(responseData.debug).toBeDefined()
+      } else {
+        // If successful, should have complete status structure
+        expect(responseData.company).toBeDefined()
+        expect(responseData.total).toBeDefined()
+        expect(responseData.tests).toBeDefined()
+        expect(responseData.healthchecks).toBeDefined()
+        expect(responseData.timestamp).toBeDefined()
+        expect(Array.isArray(responseData.tests)).toBe(true)
+        expect(Array.isArray(responseData.healthchecks)).toBe(true)
+        
+        // Each test should have proper structure
+        responseData.tests.forEach(test => {
+          expect(test.name).toBeDefined()
+          expect(test.status).toBeDefined()
+          expect(test.emoji).toBeDefined()
+          expect(test.lastHeartbeatFormatted).toBeDefined()
+        })
+        
+        // Each healthcheck should have proper structure
+        responseData.healthchecks.forEach(hc => {
+          expect(hc.name).toBeDefined()
+          expect(hc.status).toBeDefined()
+          expect(hc.emoji).toBeDefined()
+          expect(hc.lastHeartbeatFormatted).toBeDefined()
+        })
+      }
+    })
+
+    test('should call status tool with verbose option', async () => {
+      const result = await client.callTool({
+        name: 'status',
+        arguments: {
+          verbose: true
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData).toBeDefined()
+      
+      // Should work with verbose flag (same structure expected)
+      if (!responseData.error) {
+        expect(responseData.company).toBeDefined()
+        expect(responseData.total).toBeDefined()
+        expect(responseData.tests).toBeDefined()
+        expect(responseData.healthchecks).toBeDefined()
+        expect(responseData.timestamp).toBeDefined()
       }
     })
   })

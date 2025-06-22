@@ -16,7 +16,7 @@ This directory contains comprehensive integration tests for the MCP (Model Conte
 - **Status**: ✅ All 12 tests passing
 - **Coverage**: Complete stdio MCP protocol functionality
 - Tests MCP server initialization, tool listing, tool execution
-- Validates health_check, system_status, and health_checks_status tools
+- Validates health_check and health_checks_status tools
 - Tests error handling and parameter validation
 
 #### 3. MCP HTTP Simple Tests (`mcp-http-simple.test.js`)

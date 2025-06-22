@@ -61,3 +61,4 @@ dev/
 *.bash
 debug*
 test-*
+.aider*

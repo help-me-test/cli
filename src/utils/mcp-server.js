@@ -15,12 +15,11 @@ import path from 'path'
 import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
-import { collectSystemMetrics } from './metrics.js'
+// import { collectSystemMetrics } from './metrics.js'
 import { getAllHealthChecks } from './api.js'
+import { getFormattedStatusData } from './status-data.js'
 import { 
-  MCP_SERVER_DEFAULTS, 
-  TOOL_CONFIGS, 
-  SERVER_CAPABILITIES,
+  TOOL_CONFIGS,
   getMcpServerConfig,
   validateMcpConfig 
 } from './mcp-config.js'
@@ -114,9 +113,9 @@ export function createMcpServer(options = {}) {
 
   // Register health_check tool
   server.registerTool(
-    'health_check',
+    'helpmetest_health_check',
     {
-      title: 'Health Check Tool',
+      title: 'Help Me Test: Health Check Tool',
       description: 'Perform a health check on a specified URL',
       inputSchema: {
         url: z.string().describe('URL to check'),
@@ -130,30 +129,46 @@ export function createMcpServer(options = {}) {
   )
 
   // Register system_status tool
-  server.registerTool(
-    'system_status',
-    {
-      title: 'System Status Tool',
-      description: 'Get current system status and metrics using helpmetest metrics collection',
-      inputSchema: {},
-    },
-    async (args) => {
-      debug(config, `System status tool called with args: ${JSON.stringify(args)}`)
-      return await handleSystemStatus(args)
-    }
-  )
+  // // server.registerTool(
+  // //   'system_status',
+  // //   {
+  / ///     title: 'System Status Tool',
+  // //     description: 'Get current system status and metrics using helpmetest metrics collection',
+  // //     inputSchema: {},
+  // //   },
+  / ///   async (args) => {
+  // //     debug(config, `System status tool called with args: ${JSON.stringify(args)}`)
+  // //     return await handleSystemStatus(args)
+  // //  //  }
+  // )
 
   // Register health_checks_status tool
   server.registerTool(
-    'health_checks_status',
+    'helpmetest_health_checks_status',
     {
-      title: 'Health Checks Status Tool',
+      title: 'Help Me Test: Health Checks Status Tool',
       description: 'Get status of all health checks in the helpmetest system',
       inputSchema: {},
     },
     async (args) => {
       debug(config, `Health checks status tool called with args: ${JSON.stringify(args)}`)
       return await handleHealthChecksStatus(args)
+    }
+  )
+
+  // Register status tool (comprehensive status including tests and healthchecks)
+  server.registerTool(
+    'helpmetest_status',
+    {
+      title: 'Help Me Test: Complete Status Tool',
+      description: 'Get comprehensive status of all tests and health checks in the helpmetest system',
+      inputSchema: {
+        verbose: z.boolean().optional().default(false).describe('Enable verbose output with debug information'),
+      },
+    },
+    async (args) => {
+      debug(config, `Status tool called with args: ${JSON.stringify(args)}`)
+      return await handleStatus(args)
     }
   )
 
@@ -223,15 +238,15 @@ async function handleHealthCheck(args) {
  * @param {Object} args - Tool arguments (unused)
  * @returns {Object} System status result
  */
-async function handleSystemStatus(args) {
-  return createMcpResponse(
-    async () => {
-      debug(config, 'Collecting system metrics for MCP client')
-      return await collectSystemMetrics()
-    },
-    'Error collecting system metrics'
-  )
-}
+// async function handleSystemStatus(args) {
+//   return createMcpResponse(
+//     async () => {
+//       debug(config, 'Collecting system metrics for MCP client')
+//       return await collectSystemMetrics()
+//     },
+//     'Error collecting system metrics'
+//   )
+// }
 
 /**
  * Handle health checks status tool call
@@ -304,6 +319,76 @@ async function handleHealthChecksStatus(args) {
         hasToken: !!config.apiToken,
         status: error.status || null,
         endpoint: error.request?.endpoint || '/api/healthchecks'
+      }
+    }
+    
+    // Add specific error details if available
+    if (error.status === 401) {
+      errorResponse.suggestion = 'Check your HELPMETEST_API_TOKEN environment variable'
+    } else if (error.status === 403) {
+      errorResponse.suggestion = 'Your API token may not have permission for this operation'
+    } else if (error.status === 404) {
+      errorResponse.suggestion = 'The API endpoint was not found - check your HELPMETEST_API_URL'
+    } else if (error.status >= 500) {
+      errorResponse.suggestion = 'Server error - please try again later'
+    } else if (!error.status) {
+      errorResponse.suggestion = 'Check your internet connection and API URL configuration'
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle comprehensive status tool call
+ * @param {Object} args - Tool arguments
+ * @param {boolean} [args.verbose=false] - Enable verbose output
+ * @returns {Object} Complete status result
+ */
+async function handleStatus(args) {
+  const { verbose = false } = args
+  
+  debug(config, 'Getting comprehensive status for MCP client')
+  debug(config, `API Config: ${JSON.stringify({
+    baseURL: config.apiBaseUrl,
+    hasToken: !!config.apiToken,
+    tokenPrefix: config.apiToken ? config.apiToken.substring(0, 10) + '...' : 'none'
+  })}`)
+  
+  try {
+    const statusData = await getFormattedStatusData({ verbose })
+    debug(config, `Retrieved status data: ${statusData.total} total items (${statusData.tests.length} tests, ${statusData.healthchecks.length} healthchecks)`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(statusData),
+        },
+      ],
+    }
+  } catch (error) {
+    debug(config, `Error getting comprehensive status: ${error.message}`)
+    
+    // Return detailed error information
+    const errorResponse = {
+      error: true,
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: new Date().toISOString(),
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null,
+        verbose
       }
     }
     
