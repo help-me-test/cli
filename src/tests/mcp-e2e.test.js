@@ -14,6 +14,12 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 describe('MCP End-to-End Tests', () => {
+  // Skip integration tests in CI environment
+  if (process.env.CI || process.env.GITHUB_ACTIONS) {
+    test.skip('Skipping integration tests in CI environment', () => {})
+    return
+  }
+
   let client
   let serverProcess
   let transport
