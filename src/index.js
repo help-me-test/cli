@@ -15,6 +15,7 @@ import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'
 import metricsCommand from './commands/metrics.js'
 import mcpCommand from './commands/mcp.js'
+import { runTestCommand, listTestsCommand } from './commands/test.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
 
@@ -171,6 +172,8 @@ ${colors.subtitle('Available Tools:')}
   ${colors.dim('•')} ${colors.key('health_check')}         Perform health checks on URLs
   ${colors.dim('•')} ${colors.key('system_status')}        Get system metrics and status
   ${colors.dim('•')} ${colors.key('health_checks_status')} Get status of all health checks
+  ${colors.dim('•')} ${colors.key('run_test')}             Run a test by name, tag, or ID
+  ${colors.dim('•')} ${colors.key('list_tests')}           List all available tests
 
 ${colors.subtitle('Integration:')}
   ${colors.dim('Add to Claude Desktop config.json:')}
@@ -185,6 +188,60 @@ ${colors.subtitle('Integration:')}
 `)
   .action(mcpCommand)
 
+// Register the test command with subcommands
+const testCommand = program
+  .command('test')
+  .description('Run tests or list available tests')
+
+// Test run subcommand
+testCommand
+  .command('run')
+  .description('Run a test by name, tag, or ID')
+  .argument('<identifier>', 'Test name, tag (tag:tagname), or ID to run')
+  .option('--verbose', 'Show detailed output')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('"My Test Name"')}         ${colors.dim('# Run test by name')}
+  ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('tag:smoke')}              ${colors.dim('# Run all tests with "smoke" tag')}
+  ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('abc123def456...')}        ${colors.dim('# Run test by ID')}
+  ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('"API Test"')} ${colors.option('--verbose')}  ${colors.dim('# Run with detailed output')}
+
+${colors.subtitle('Test Identifiers:')}
+  ${colors.key('Name')}     Test name as shown in the web interface
+  ${colors.key('Tag')}      Use ${colors.highlight('tag:tagname')} to run all tests with a specific tag
+  ${colors.key('ID')}       Unique test identifier (long alphanumeric string)
+
+${colors.subtitle('Output:')}
+  ${colors.dim('•')} Test execution status (PASS/FAIL)
+  ${colors.dim('•')} Execution time and duration
+  ${colors.dim('•')} Streaming log output during execution
+  ${colors.dim('•')} Exit code reflects test result (0=pass, 1=fail)
+`)
+  .action(async (identifier, options) => {
+    await runTestCommand(identifier, options)
+  })
+
+// Test list subcommand
+testCommand
+  .command('list')
+  .description('List all available tests')
+  .option('--verbose', 'Show detailed information including descriptions and IDs')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest test list')}                    ${colors.dim('# List all available tests')}
+  ${colors.dim('$')} ${colors.command('helpmetest test list')} ${colors.option('--verbose')}         ${colors.dim('# List tests with descriptions and IDs')}
+`)
+  .action(async (options) => {
+    await listTestsCommand(options)
+  })
+
+// Default test command action (show help)
+testCommand
+  .action(() => {
+    testCommand.outputHelp()
+    process.exit(1)
+  })
+
 // Add global help examples
 program.addHelpText('after', `
 ${colors.subtitle('Examples:')}
@@ -193,6 +250,9 @@ ${colors.subtitle('Examples:')}
   ${colors.dim('$')} ${colors.command('helpmetest health')} ${colors.argument('"api-server"')} ${colors.argument('"30s"')}      ${colors.dim('# Send heartbeat with 30s grace period')}
   ${colors.dim('$')} ${colors.highlight('ENV=production')} ${colors.command('helpmetest health')} ${colors.argument('"web-app"')} ${colors.argument('"1m"')}
   ${colors.dim('$')} ${colors.command('helpmetest health')} ${colors.argument('"backup-service"')} ${colors.option('--from-timer backup.timer')}
+  ${colors.dim('$')} ${colors.command('helpmetest test list')}                    ${colors.dim('# List all available tests')}
+  ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('"My Test"')}               ${colors.dim('# Run a specific test')}
+  ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('tag:smoke')}              ${colors.dim('# Run tests with smoke tag')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--verbose')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--json')} ${colors.option('--basic')}
 

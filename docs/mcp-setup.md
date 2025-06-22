@@ -51,16 +51,39 @@ Settings.json:
 
 Simple prompts that actually work:
 
-- **"status API"** - checks system status
+### Health & System Monitoring
+### Health & System Monitoring
+- **"status API"** - compreomprehensivensive system status
 - **"check https://always-up.test.helpmetest.com"** - health check URL  
 - **"system metrics"** - CPU/memory/disk usage
 - **"health status"** - all health checks status
 
+### Test Management ✨ NEW
+- **"what tests do I have"** - list all available tests
+- **"run uptime tests"** - execute tests by tag
+- **"run the Google search test"** - execute specific test by name
+- **"execute test abc123"** - run test by ID
+- **"run all critical tests"** - execute tagged test suites
+
 ## Test It
 
+### Basic Test
 Ask your AI: **"status API"**
-
 Should return CPU, memory, disk usage, uptime.
+
+### Test Management ✨ NEW
+Ask your AI: **"what tests do I have available?"**
+Should list all your configured tests with IDs, names, and tags.
+
+Then try: **"run uptime tests"**
+Should execute all tests tagged with 'uptime' and show results.
+
+### Test Management ✨ NEW
+Ask your AI: **"what tests do I have available?"**
+Should list all your configured tests with IDs, names, and tags.
+
+Then try: **"run uptime tests"**
+Should execute all tests tagged with 'uptime' and show results.
 
 ---
 

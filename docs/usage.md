@@ -45,6 +45,85 @@ The status command displays:
 - Grace period
 - Environment
 
+### Test Command
+
+```bash
+helpmetest test <subcommand> [options]
+```
+
+#### List Tests
+```bash
+helpmetest test list [--verbose]
+```
+
+Lists all available tests with their descriptions and tags:
+```bash
+# List all tests
+helpmetest test list
+
+# List with detailed information
+helpmetest test list --verbose
+```
+
+Example output:
+```
+Available Tests (10)
+Name                    Description                    Tags           
+netdata.helpmetest.com  Is netdata.helpmetest.com up?  uptime         
+login.helpmetest.com    Is login.helpmetest.com up?    uptime         
+Landing -> /docs                                       landing, flaky 
+Login                                                  cuj, flaky     
+```
+
+#### Run Tests
+```bash
+helpmetest test run <identifier>
+```
+
+Runs tests by name, tag, or ID with real-time progress tracking:
+
+**Test Identifiers:**
+- **By name**: `helpmetest test run "/docs"`
+- **By tag**: `helpmetest test run "tag:flaky"`
+- **By ID**: `helpmetest test run "test-id-123"`
+
+**Single Test Example:**
+```bash
+helpmetest test run /docs
+ℹ 🚀 Running test: /docs
+ℹ 🚀 Starting: /docs
+✓   ✓ As  Test User (0.130711s)
+✓   ✓ Go To  https://helpmetest.slava.helpmetest.com/docs (0.656305s)
+✓   ✓ Get Text  .doc-card h3 (0.145528s)
+✓   ✓ Click  .doc-card:first-child (0.174929s)
+✓   ✓ Wait Until Network Is Idle (1.749152s)
+✓ ✅ /docs completed (3.053986s)
+```
+
+**Multiple Tests Example (Tag-based):**
+```bash
+helpmetest test run tag:uptime
+ℹ 🚀 Running tests with tag: uptime
+Test Execution Progress
+Status  Test Name               Duration   Current Step 
+✅      netdata.helpmetest.com  0.196777s  Completed    
+✅      login.helpmetest.com    0.166981s  Completed    
+✅      ntfy.helpmetest.com     0.039632s  Completed    
+✅      helpmetest.com          0.027147s  Completed    
+✓ ✅ All 4 tests passed
+```
+
+**Features:**
+- **Dynamic Progress Table**: For multiple tests, shows real-time execution status with live duration updates
+- **Streaming Output**: For single tests, displays detailed step-by-step execution
+- **Status Indicators**: 
+  - ✅ Passed tests
+  - ❌ Failed tests  
+  - 🔄 Currently running
+  - ⏳ Pending/waiting
+- **Real-time Updates**: Table refreshes every 200ms during execution
+- **Error Handling**: Network connectivity issues and test failures are clearly reported
+
 ## Special Command Syntax
 
 ### HTTP Health Checks

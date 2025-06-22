@@ -245,6 +245,102 @@ const getAllTests = async (filters = {}) => {
 }
 
 /**
+ * Generic API POST request with retry and error handling
+ * @param {string} endpoint - API endpoint
+ * @param {Object} data - Request body data
+ * @param {string} debugMessage - Debug message for logging
+ * @returns {Promise<Object>} API response data
+ */
+const apiPost = async (endpoint, data = {}, debugMessage = '') => {
+  const client = createApiClient()
+  
+  const requestInfo = {
+    endpoint,
+    data,
+  }
+
+  debug(config, debugMessage || `Making POST request to ${endpoint}`)
+
+  try {
+    const response = await retryWithBackoff(async () => {
+      return await client.post(endpoint, data)
+    })
+
+    debug(config, `Request successful: ${response.status}`)
+    return response.data
+  } catch (error) {
+    throw handleApiError(error, requestInfo)
+  }
+}
+
+/**
+ * Generic streaming POST request using the STREAM function
+ * @param {string} endpoint - API endpoint
+ * @param {Object} data - Request body data
+ * @param {Function} onEvent - Callback for each streaming event
+ * @param {string} debugMessage - Debug message for logging
+ * @returns {Promise<Array>} Array of all streaming events
+ */
+const apiStreamPost = async (endpoint, data = {}, onEvent = () => {}, debugMessage = '') => {
+  debug(config, debugMessage || `Making streaming POST request to ${endpoint}`)
+
+  try {
+    // Import streaming function dynamically to avoid circular imports
+    const { STREAM } = await import('./stream.js')
+    
+    const events = await STREAM(endpoint, data, onEvent)
+    debug(config, `Streaming request completed with ${events.length} events`)
+    return events
+  } catch (error) {
+    throw handleApiError(error, { endpoint, data })
+  }
+}
+
+/**
+ * Run a test by name, tag, or ID with real-time streaming
+ * @param {string} identifier - Test name, tag (with tag: prefix), or ID
+ * @param {Function} onEvent - Callback for each streaming event
+ * @returns {Promise<Array>} Array of all streaming events
+ */
+const runTest = async (identifier, onEvent = () => {}) => {
+  // For names, we need to resolve to ID first
+  let resolvedIdentifier = identifier
+  
+  if (!identifier.startsWith('tag:') && (identifier.length < 15 || identifier.includes(' '))) {
+    // Treat as name - look up the test first
+    const tests = await getAllTests()
+    const matchingTest = tests.find(test => 
+      test.name === identifier || 
+      test.doc === identifier ||
+      test.id === identifier
+    )
+    
+    if (!matchingTest) {
+      throw new ApiError(`Test not found: ${identifier}`, 404)
+    }
+    
+    resolvedIdentifier = matchingTest.id
+  }
+
+  // Determine the endpoint based on identifier format
+  let endpoint
+  if (resolvedIdentifier.startsWith('tag:')) {
+    endpoint = `/api/run/${encodeURIComponent(resolvedIdentifier)}.json`
+  } else {
+    endpoint = `/api/run/${encodeURIComponent(resolvedIdentifier)}.json`
+  }
+
+  debug(config, `Running test: ${identifier} (resolved: ${resolvedIdentifier})`)
+
+  try {
+    const events = await apiStreamPost(endpoint, {}, onEvent, `Running test: ${identifier}`)
+    return events
+  } catch (error) {
+    throw handleApiError(error, { identifier, resolvedIdentifier, endpoint })
+  }
+}
+
+/**
  * Get test status from the API
  * @returns {Promise<Object>} Test status data
  */
@@ -365,10 +461,13 @@ const getApiConfig = () => {
 export {
   ApiError,
   apiGet,
+  apiPost,
+  apiStreamPost,
   sendHealthCheckHeartbeat,
   getHealthCheck,
   getAllHealthChecks,
   getAllTests,
+  runTest,
   getTestStatus,
   getUserInfo,
   testConnection,
@@ -384,10 +483,13 @@ export {
 // Export default object for convenience
 export default {
   apiGet,
+  apiPost,
+  apiStreamPost,
   sendHealthCheckHeartbeat,
   getHealthCheck,
   getAllHealthChecks,
   getAllTests,
+  runTest,
   getTestStatus,
   getUserInfo,
   testConnection,

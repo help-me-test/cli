@@ -16,7 +16,7 @@ import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
 // import { collectSystemMetrics } from './metrics.js'
-import { getAllHealthChecks } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { 
   TOOL_CONFIGS,
@@ -169,6 +169,36 @@ export function createMcpServer(options = {}) {
     async (args) => {
       debug(config, `Status tool called with args: ${JSON.stringify(args)}`)
       return await handleStatus(args)
+    }
+  )
+
+  // Register run_test tool
+  server.registerTool(
+    'helpmetest_run_test',
+    {
+      title: 'Help Me Test: Run Test Tool',
+      description: 'Run a test by name, tag, or ID',
+      inputSchema: {
+        identifier: z.string().describe('Test name, tag (tag:tagname), or ID to run'),
+      },
+    },
+    async (args) => {
+      debug(config, `Run test tool called with args: ${JSON.stringify(args)}`)
+      return await handleRunTest(args)
+    }
+  )
+
+  // Register list_tests tool
+  server.registerTool(
+    'helpmetest_list_tests',
+    {
+      title: 'Help Me Test: List Tests Tool',
+      description: 'List all available tests with their metadata',
+      inputSchema: {},
+    },
+    async (args) => {
+      debug(config, `List tests tool called with args: ${JSON.stringify(args)}`)
+      return await handleListTests(args)
     }
   )
 
@@ -403,6 +433,166 @@ async function handleStatus(args) {
       errorResponse.suggestion = 'Server error - please try again later'
     } else if (!error.status) {
       errorResponse.suggestion = 'Check your internet connection and API URL configuration'
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle run test tool call
+ * @param {Object} args - Tool arguments
+ * @param {string} args.identifier - Test identifier (name, tag, or ID)
+ * @returns {Object} Test execution result
+ */
+async function handleRunTest(args) {
+  const { identifier } = args
+  
+  debug(config, `Running test with identifier: ${identifier}`)
+  
+  try {
+    // Collect all events from the test run
+    const events = []
+    
+    await runTest(identifier, (event) => {
+      if (event) {
+        events.push(event)
+      }
+    })
+    
+    // Process events to extract meaningful results
+    const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
+    const keywordEvents = events.filter(e => e.type === 'keyword')
+    
+    // Build response with test execution data
+    const response = {
+      identifier,
+      timestamp: new Date().toISOString(),
+      totalEvents: events.length,
+      testResults: testResults.map(result => ({
+        testId: result.attrs?.name || 'unknown',
+        status: result.attrs?.status || 'UNKNOWN',
+        duration: result.attrs?.elapsed_time ? `${result.attrs.elapsed_time}s` : 'N/A',
+        message: result.attrs?.doc || ''
+      })),
+      keywords: keywordEvents.map(kw => ({
+        keyword: kw.keyword,
+        status: kw.status,
+        duration: kw.elapsed_time || kw.elapsedtime || null
+      })),
+      allEvents: events // Include all raw events for debugging
+    }
+    
+    // Determine overall success
+    const hasFailures = testResults.some(r => r.status === 'FAIL')
+    response.success = !hasFailures && testResults.length > 0
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(response),
+        },
+      ],
+      isError: hasFailures,
+    }
+  } catch (error) {
+    debug(config, `Error running test: ${error.message}`)
+    
+    const errorResponse = {
+      error: true,
+      identifier,
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: new Date().toISOString(),
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null
+      }
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle list tests tool call
+ * @param {Object} args - Tool arguments (unused)
+ * @returns {Object} List of available tests
+ */
+async function handleListTests(args) {
+  debug(config, 'Getting list of tests for MCP client')
+  
+  try {
+    const tests = await getAllTests()
+    debug(config, `Retrieved ${tests?.length || 0} tests`)
+    
+    if (!tests?.length) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ 
+              total: 0, 
+              tests: [],
+              message: 'No tests found',
+              timestamp: new Date().toISOString()
+            }),
+          },
+        ],
+      }
+    }
+
+    // Format tests with verbose details (always verbose as requested)
+    const formattedTests = tests.map(test => ({
+      id: test.id,
+      name: test.name || test.id,
+      description: test.doc || test.description || '',
+      tags: test.tags || [],
+    }))
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            total: tests.length,
+            tests: formattedTests,
+            timestamp: new Date().toISOString(),
+          }),
+        },
+      ],
+    }
+  } catch (error) {
+    debug(config, `Error getting tests list: ${error.message}`)
+    
+    const errorResponse = {
+      error: true,
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: new Date().toISOString(),
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null
+      }
     }
     
     return {

@@ -35,7 +35,20 @@ helpmetest health "backup" "1h" "CMD ./backup.sh"
 
 ## 🤖 MCP - AI Integration
 
-MCP adds AI integration to the HelpMeTest CLI. It is configured with a simple setup and works out of the box. See [MCP Setup](docs/mcp-setup.md) for instructions and [MCP Real AI Examples](mcp-real-ai-examples.md) for practical usage.
+Transform your AI assistant into a powerful monitoring and testing companion! The HelpMeTest MCP server enables natural language interaction with your infrastructure.
+
+### What You Can Do
+- **Health Monitoring**: "How is my server doing?" → Get CPU, memory, disk usage
+- **Service Checks**: "Check if https://myapp.com is working" → Real-time health checks  
+- **Test Management** ✨ NEW: "Run all uptime tests" → Execute test suites with AI analysis
+- **Test Discovery** ✨ NEW: "What tests do I have?" → Discover and organize your tests
+
+### Quick Setup
+1. Install CLI: `curl -fsSL https://helpmetest.com/install | bash`
+2. Add to your AI editor config: `["helpmetest", "mcp", "YOUR-TOKEN"]`
+3. Ask your AI: "What tests do I have available?"
+
+See [MCP Setup](docs/mcp-setup.md) for detailed instructions and [MCP Test Management](docs/mcp-test-management.md) for the new test execution capabilities.
 
 ## � Commands
 
@@ -57,6 +70,15 @@ helpmetest health "db" "30s" "PORT 5432"
 
 # Command execution
 helpmetest health "backup" "1h" "CMD ./backup.sh"
+```
+
+### Test Commands
+```bash
+helpmetest test list                    # List all available tests
+helpmetest test list --verbose          # List tests with detailed info
+helpmetest test run "/docs"             # Run specific test by name
+helpmetest test run "tag:uptime"        # Run all tests with tag
+helpmetest test run "tag:flaky"         # Run flaky tests
 ```
 
 ### Other Commands

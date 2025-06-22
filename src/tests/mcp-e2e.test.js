@@ -72,25 +72,27 @@ describe('MCP End-to-End Tests', () => {
       
       // Check that our expected tools are present
       const toolNames = result.tools.map(tool => tool.name)
-      expect(toolNames).toContain('health_check')
-      expect(toolNames).toContain('system_status')
-      expect(toolNames).toContain('health_checks_status')
-      expect(toolNames).toContain('status')
+      expect(toolNames).toContain('helpmetest_health_check')
+      expect(toolNames).toContain('helpmetest_health_checks_status')
+      expect(toolNames).toContain('helpmetest_status')
+      expect(toolNames).toContain('helpmetest_run_test')
+      expect(toolNames).toContain('helpmetest_list_tests')
     })
 
     test('should provide tool descriptions', async () => {
       const result = await client.listTools()
       
-      const healthCheckTool = result.tools.find(tool => tool.name === 'health_check')
+      const healthCheckTool = result.tools.find(tool => tool.name === 'helpmetest_health_check')
       expect(healthCheckTool).toBeDefined()
       expect(healthCheckTool.description).toBe('Perform a health check on a specified URL')
       expect(healthCheckTool.inputSchema).toBeDefined()
       
-      const systemStatusTool = result.tools.find(tool => tool.name === 'system_status')
-      expect(systemStatusTool).toBeDefined()
-      expect(systemStatusTool.description).toBe('Get current system status and metrics using helpmetest metrics collection')
+      const healthChecksStatusTool = result.tools.find(tool => tool.name === 'helpmetest_health_checks_status')
+      expect(healthChecksStatusTool).toBeDefined()
+      expect(healthChecksStatusTool.description).toBe('Get status of all health checks in the helpmetest system')
+      expect(healthChecksStatusTool.inputSchema).toBeDefined()
       
-      const statusTool = result.tools.find(tool => tool.name === 'status')
+      const statusTool = result.tools.find(tool => tool.name === 'helpmetest_status')
       expect(statusTool).toBeDefined()
       expect(statusTool.description).toBe('Get comprehensive status of all tests and health checks in the helpmetest system')
       expect(statusTool.inputSchema).toBeDefined()
@@ -100,7 +102,7 @@ describe('MCP End-to-End Tests', () => {
   describe('Health Check Tool', () => {
     test('should call health_check tool with valid URL', async () => {
       const result = await client.callTool({
-        name: 'health_check',
+        name: 'helpmetest_health_check',
         arguments: {
           url: 'https://httpbin.org/status/200',
           timeout: 10
@@ -125,7 +127,7 @@ describe('MCP End-to-End Tests', () => {
 
     test('should handle health_check tool with invalid URL', async () => {
       const result = await client.callTool({
-        name: 'health_check',
+        name: 'helpmetest_health_check',
         arguments: {
           url: 'https://this-domain-should-not-exist-12345.com',
           timeout: 5
@@ -144,7 +146,7 @@ describe('MCP End-to-End Tests', () => {
 
     test('should reject health_check tool without URL', async () => {
       await expect(client.callTool({
-        name: 'health_check',
+        name: 'helpmetest_health_check',
         arguments: {
           timeout: 10
         }
@@ -153,7 +155,7 @@ describe('MCP End-to-End Tests', () => {
 
     test('should use default timeout when not specified', async () => {
       const result = await client.callTool({
-        name: 'health_check',
+        name: 'helpmetest_health_check',
         arguments: {
           url: 'https://httpbin.org/status/200'
         }
@@ -167,50 +169,12 @@ describe('MCP End-to-End Tests', () => {
     }, 15000)
   })
 
-  describe('System Status Tool', () => {
-    test('should call system_status tool', async () => {
-      const result = await client.callTool({
-        name: 'system_status',
-        arguments: {}
-      })
 
-      expect(result).toBeDefined()
-      expect(result.content).toBeDefined()
-      
-      const content = result.content[0]
-      expect(content.type).toBe('text')
-      
-      // Parse the JSON response
-      const responseData = JSON.parse(content.text)
-      expect(responseData).toBeDefined()
-      
-      // Should contain system metrics
-      expect(responseData.hostname).toBeDefined()
-      expect(responseData.platform).toBeDefined()
-      expect(responseData.platform.arch).toBeDefined()
-      expect(responseData.platform.platform).toBeDefined()
-      expect(responseData.cpu_usage).toBeDefined()
-      expect(responseData.memory_usage).toBeDefined()
-      expect(responseData.timestamp).toBeDefined()
-    })
-
-    test('should ignore extra parameters in system_status', async () => {
-      const result = await client.callTool({
-        name: 'system_status',
-        arguments: {
-          extraParam: 'should be ignored'
-        }
-      })
-
-      expect(result).toBeDefined()
-      // Should work despite extra parameters
-    })
-  })
 
   describe('Health Checks Status Tool', () => {
     test('should call health_checks_status tool', async () => {
       const result = await client.callTool({
-        name: 'health_checks_status',
+        name: 'helpmetest_health_checks_status',
         arguments: {}
       })
 
@@ -246,7 +210,7 @@ describe('MCP End-to-End Tests', () => {
   describe('Complete Status Tool', () => {
     test('should call status tool', async () => {
       const result = await client.callTool({
-        name: 'status',
+        name: 'helpmetest_status',
         arguments: {}
       })
 
@@ -296,7 +260,7 @@ describe('MCP End-to-End Tests', () => {
 
     test('should call status tool with verbose option', async () => {
       const result = await client.callTool({
-        name: 'status',
+        name: 'helpmetest_status',
         arguments: {
           verbose: true
         }
@@ -333,11 +297,146 @@ describe('MCP End-to-End Tests', () => {
 
     test('should handle malformed tool arguments', async () => {
       await expect(client.callTool({
-        name: 'health_check',
+        name: 'helpmetest_health_check',
         arguments: {
           url: 123 // Should be string
         }
       })).rejects.toThrow()
     })
+  })
+
+  describe('Test Management Tools', () => {
+    test('should call list_tests tool successfully', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_list_tests',
+        arguments: {}
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      expect(Array.isArray(result.content)).toBe(true)
+      expect(result.content.length).toBeGreaterThan(0)
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData.total).toBeDefined()
+      expect(responseData.tests).toBeDefined()
+      expect(Array.isArray(responseData.tests)).toBe(true)
+      expect(responseData.timestamp).toBeDefined()
+      
+      // If there are tests, check their structure
+      if (responseData.tests.length > 0) {
+        const firstTest = responseData.tests[0]
+        expect(firstTest.id).toBeDefined()
+        expect(firstTest.name).toBeDefined()
+        expect(firstTest.description).toBeDefined()
+        expect(Array.isArray(firstTest.tags)).toBe(true)
+      }
+    }, 10000)
+
+    test('should call run_test tool with test identifier', async () => {
+      // First get a list of tests to find a valid identifier
+      const listResult = await client.callTool({
+        name: 'helpmetest_list_tests',
+        arguments: {}
+      })
+      
+      const listData = JSON.parse(listResult.content[0].text)
+      
+      // Skip if no tests available
+      if (listData.tests.length === 0) {
+        console.log('No tests available, skipping run_test test')
+        return
+      }
+      
+      // Use the first available test
+      const testIdentifier = listData.tests[0].name || listData.tests[0].id
+      
+      const result = await client.callTool({
+        name: 'helpmetest_run_test',
+        arguments: {
+          identifier: testIdentifier
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      expect(Array.isArray(result.content)).toBe(true)
+      expect(result.content.length).toBeGreaterThan(0)
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData.identifier).toBe(testIdentifier)
+      expect(responseData.timestamp).toBeDefined()
+      expect(responseData.totalEvents).toBeDefined()
+      expect(responseData.success).toBeDefined()
+      expect(Array.isArray(responseData.testResults)).toBe(true)
+      expect(Array.isArray(responseData.keywords)).toBe(true)
+      expect(Array.isArray(responseData.allEvents)).toBe(true)
+    }, 30000) // Longer timeout for test execution
+
+    test('should handle run_test tool with invalid identifier', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_run_test',
+        arguments: {
+          identifier: 'non-existent-test-12345'
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      expect(result.isError).toBe(true)
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData.error).toBe(true)
+      expect(responseData.identifier).toBe('non-existent-test-12345')
+      expect(responseData.message).toBeDefined()
+    }, 10000)
+
+    test('should call run_test tool with tag identifier', async () => {
+      // Try running tests with a common tag like 'uptime'
+      const result = await client.callTool({
+        name: 'helpmetest_run_test',
+        arguments: {
+          identifier: 'tag:uptime'
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      expect(Array.isArray(result.content)).toBe(true)
+      expect(result.content.length).toBeGreaterThan(0)
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData.identifier).toBe('tag:uptime')
+      expect(responseData.timestamp).toBeDefined()
+      
+      // Handle both success and error cases
+      if (responseData.error) {
+        // If it's an error (e.g., no tests with this tag), that's also valid
+        expect(responseData.error).toBe(true)
+        expect(responseData.message).toBeDefined()
+      } else {
+        // If successful, check the structure
+        expect(responseData.totalEvents).toBeDefined()
+        expect(responseData.success).toBeDefined()
+        expect(Array.isArray(responseData.testResults)).toBe(true)
+        expect(Array.isArray(responseData.allEvents)).toBe(true)
+      }
+    }, 30000) // Longer timeout for multiple test execution
   })
 })
