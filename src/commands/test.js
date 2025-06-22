@@ -14,6 +14,84 @@ let dynamicTableActive = false
 let tableStartLine = 0
 let lastTableHeight = 0
 let updateTimer = null
+let isUpdatingTable = false
+
+// Track progress line timers
+const progressTimers = new Map()
+
+/**
+ * Format time consistently to 3 decimal places
+ * @param {number|string} duration - Duration in seconds
+ * @returns {string} Formatted time string
+ */
+function formatTime(duration) {
+  if (!duration) return ''
+  const time = typeof duration === 'string' ? parseFloat(duration) : duration
+  return time.toFixed(3)
+}
+
+/**
+ * Start progress counter for a keyword
+ * @param {string} keyword - The keyword being executed
+ */
+function startProgressCounter(keyword) {
+  if (progressTimers.has(keyword)) {
+    clearInterval(progressTimers.get(keyword))
+  }
+  
+  const startTime = Date.now()
+  const timer = setInterval(() => {
+    if (activeProgressLines.has(keyword)) {
+      const elapsed = (Date.now() - startTime) / 1000
+      const timeStr = colors.dim(`${formatTime(elapsed)}s `)
+      
+      // Move cursor up and clear line, then write updated content
+      process.stdout.write('\x1b[1A\x1b[2K')
+      console.log(`  ${timeStr}⏳ ${keyword}`)
+    } else {
+      clearInterval(timer)
+      progressTimers.delete(keyword)
+    }
+  }, 50) // Update every 50ms
+  
+  progressTimers.set(keyword, timer)
+}
+
+/**
+ * Stop progress counter for a keyword
+ * @param {string} keyword - The keyword that finished
+ */
+function stopProgressCounter(keyword) {
+  if (progressTimers.has(keyword)) {
+    clearInterval(progressTimers.get(keyword))
+    progressTimers.delete(keyword)
+  }
+}
+
+/**
+ * Clean up all timers and reset state
+ */
+function cleanupTimers() {
+  // Stop all progress timers
+  progressTimers.forEach((timer, keyword) => {
+    clearInterval(timer)
+  })
+  progressTimers.clear()
+  
+  // Stop table update timer
+  if (updateTimer) {
+    clearInterval(updateTimer)
+    updateTimer = null
+  }
+  
+  // Reset dynamic table state
+  dynamicTableActive = false
+  lastTableHeight = 0
+  isUpdatingTable = false
+  
+  // Clear active progress lines
+  activeProgressLines.clear()
+}
 
 /**
  * Create a clean table without borders and minimal padding
@@ -89,7 +167,7 @@ function initializeDynamicTable(testIds, testNames) {
     if (dynamicTableActive) {
       updateDynamicTable()
     }
-  }, 200) // Update every 200ms
+  }, 500) // Update every 500ms (less frequent to avoid cursor issues)
 }
 
 /**
@@ -139,17 +217,20 @@ const handleStreamingEvent = (event, verbose = false, testNames = new Map()) => 
       const testData = testExecutionData.get(testId)
       if (testData) {
         testData.status = status
-        testData.duration = duration ? `${duration}s` : 'N/A'
-        testData.currentStep = status === 'PASS' ? 'Completed' : 'Failed'
+        testData.duration = duration ? `${formatTime(duration)}s` : 'N/A'
+        // Keep the last step name, don't change to "Completed" or "Failed"
         updateDynamicTable()
       }
     } else {
       if (status === 'PASS') {
-        output.success(`✅ ${testName} completed${duration ? ` (${duration}s)` : ''}`)
+        const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
+        console.log(`${timeStr}${colors.success('✅')} ${testName} completed`)
       } else if (status === 'FAIL') {
-        output.error(`❌ ${testName} failed${duration ? ` (${duration}s)` : ''}`)
+        const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
+        console.log(`${timeStr}${colors.error('❌')} ${testName} failed`)
       } else {
-        output.info(`📋 ${testName} finished with status: ${status}${duration ? ` (${duration}s)` : ''}`)
+        const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
+        console.log(`${timeStr}${colors.info('📋')} ${testName} finished with status: ${status}`)
       }
     }
   } else if (event.type === 'keyword') {
@@ -181,24 +262,32 @@ const handleStreamingEvent = (event, verbose = false, testNames = new Map()) => 
           // Move cursor up and clear line, then write new content
           process.stdout.write('\x1b[1A\x1b[2K')
           activeProgressLines.delete(keyword)
+          stopProgressCounter(keyword)
         }
-        output.success(`  ✓ ${keyword}${duration ? ` (${duration}s)` : ''}`)
+        const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
+        console.log(`  ${timeStr}${colors.success('✓')} ${keyword}`)
       } else if (status === 'FAIL') {
         if (activeProgressLines.has(keyword)) {
           process.stdout.write('\x1b[1A\x1b[2K')
           activeProgressLines.delete(keyword)
+          stopProgressCounter(keyword)
         }
-        output.error(`  ✗ ${keyword}${duration ? ` (${duration}s)` : ''}`)
+        const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
+        console.log(`  ${timeStr}${colors.error('✗')} ${keyword}`)
       } else if (status === 'NOT SET') {
-        // This is a progress line - track it for later update
-        output.dim(`  ⏳ ${keyword}`)
+        // This is a progress line - start with initial display and counter
+        const timeStr = colors.dim('0.000s ')
+        console.log(`  ${timeStr}⏳ ${keyword}`)
         activeProgressLines.set(keyword, Date.now())
+        startProgressCounter(keyword)
       } else {
         if (activeProgressLines.has(keyword)) {
           process.stdout.write('\x1b[1A\x1b[2K')
           activeProgressLines.delete(keyword)
+          stopProgressCounter(keyword)
         }
-        output.info(`  📋 ${keyword}: ${status}${duration ? ` (${duration}s)` : ''}`)
+        const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
+        console.log(`  ${timeStr}${colors.info('📋')} ${keyword}: ${status}`)
       }
     }
   } else if (verbose && !dynamicTableActive) {
@@ -231,7 +320,9 @@ const handleStreamingEvent = (event, verbose = false, testNames = new Map()) => 
  * Update the dynamic table with current test execution state
  */
 function updateDynamicTable() {
-  if (!dynamicTableActive) return
+  if (!dynamicTableActive || isUpdatingTable) return
+  
+  isUpdatingTable = true
   
   // Prepare table data
   const headers = ['Status', 'Test Name', 'Duration', 'Current Step']
@@ -244,13 +335,16 @@ function updateDynamicTable() {
     let duration = test.duration
     if (test.status === 'RUNNING' && test.startTime) {
       const elapsed = (Date.now() - test.startTime) / 1000
-      duration = `${elapsed.toFixed(1)}s`
+      duration = `${formatTime(elapsed)}s`
     } else if (test.status === 'PENDING' && !test.startTime) {
       // Show live elapsed time since initialization for pending tests
-      duration = '0.0s'
+      duration = '0.000s'
     }
     
-    return [statusSymbol, test.name, duration, test.currentStep]
+    // Apply grey color to duration for consistency
+    const greyDuration = colors.dim(duration)
+    
+    return [statusSymbol, test.name, greyDuration, test.currentStep]
   })
   
   const tableString = createCleanTable(headers, rows)
@@ -261,33 +355,17 @@ function updateDynamicTable() {
     console.log(tableString)
     lastTableHeight = tableLines.length
   } else {
-    // Update existing table by overwriting lines
-    // Move cursor up to the beginning of the table
-    process.stdout.write(`\x1b[${lastTableHeight}A`)
-    
-    // Overwrite each line
-    tableLines.forEach((line, index) => {
-      // Clear the line and write new content
-      process.stdout.write('\x1b[2K' + line)
-      if (index < tableLines.length - 1) {
-        process.stdout.write('\n')
-      }
-    })
-    
-    // If new table is shorter, clear any remaining lines
-    if (tableLines.length < lastTableHeight) {
-      for (let i = tableLines.length; i < lastTableHeight; i++) {
-        process.stdout.write('\n\x1b[2K')
-      }
-      // Move cursor back up to end of table
-      process.stdout.write(`\x1b[${lastTableHeight - tableLines.length}A`)
+    // Simple approach: move cursor up and clear all lines, then redraw
+    for (let i = 0; i < lastTableHeight; i++) {
+      process.stdout.write('\x1b[1A\x1b[2K') // Move up one line and clear it
     }
     
-    // Position cursor at the end of the table for next output
-    process.stdout.write('\n')
-    
+    // Redraw the table
+    console.log(tableString)
     lastTableHeight = tableLines.length
   }
+  
+  isUpdatingTable = false
 }
 
 /**
@@ -296,13 +374,8 @@ function updateDynamicTable() {
 function finalizeDynamicTable() {
   if (!dynamicTableActive) return
   
-  dynamicTableActive = false
-  
-  // Clear the timer
-  if (updateTimer) {
-    clearInterval(updateTimer)
-    updateTimer = null
-  }
+  // Clean up all timers first
+  cleanupTimers()
   
   // Show final summary
   const results = Array.from(testExecutionData.values())
@@ -312,9 +385,9 @@ function finalizeDynamicTable() {
   
   console.log()
   if (failCount === 0) {
-    output.success(`✅ All ${totalTests} tests passed`)
+    console.log(`${colors.success('✅')} All ${totalTests} tests passed`)
   } else {
-    output.error(`❌ ${failCount}/${totalTests} tests failed, ${passCount} passed`)
+    console.log(`${colors.error('❌')} ${failCount}/${totalTests} tests failed, ${passCount} passed`)
   }
 }
 
@@ -384,6 +457,16 @@ const displayTestSummary = (events, identifier) => {
  */
 export const runTestCommand = async (identifier, options = {}) => {
   let finalStatus = null
+  
+  // Handle process interruption (Ctrl+C)
+  const handleInterrupt = () => {
+    cleanupTimers()
+    console.log('\n\nTest execution interrupted')
+    process.exit(130) // Standard exit code for SIGINT
+  }
+  
+  process.on('SIGINT', handleInterrupt)
+  process.on('SIGTERM', handleInterrupt)
   
   try {
     debug(config, `Running test with identifier: ${identifier}`)
@@ -465,6 +548,9 @@ export const runTestCommand = async (identifier, options = {}) => {
     }
     
   } catch (error) {
+    // Clean up any running timers on error
+    cleanupTimers()
+    
     if (error.name === 'ApiError') {
       displayApiError(error, options.verbose)
       
