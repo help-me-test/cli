@@ -19,10 +19,39 @@ The installer will automatically:
 
 ## Manual Installation Methods
 
-### From GitHub Releases
+### Platform-Specific Downloads
+
+Choose the appropriate binary for your platform:
+
+#### Linux
+- **x86_64**: `helpmetest-cli_Linux_x86_64.tar.gz`
+- **ARM64**: `helpmetest-cli_Linux_arm64.tar.gz`
+- **i386**: `helpmetest-cli_Linux_i386.tar.gz`
+
+#### macOS
+- **x86_64 (Intel)**: `helpmetest-cli_Darwin_x86_64.tar.gz`
+- **ARM64 (Apple Silicon)**: `helpmetest-cli_Darwin_arm64.tar.gz`
+
+#### Windows
+- **x86_64**: `helpmetest-cli_Windows_x86_64.zip`
+- **ARM64**: `helpmetest-cli_Windows_arm64.zip`
+- **i386**: `helpmetest-cli_Windows_i386.zip`
+
+### Verifying Downloads
+
+Verify your download using the provided checksums:
 ```bash
-# Download latest release
-curl -L -o helpmetest-cli.tar.gz https://github.com/your-org/helpmetest-cli/releases/latest/download/helpmetest-cli_Linux_x86_64.tar.gz
+# Download checksums file
+curl -L -o helpmetest-cli_1.1.2_checksums.txt https://github.com/help-me-test/cli/releases/download/v1.1.2/helpmetest-cli_1.1.2_checksums.txt
+
+# Verify download
+sha256sum -c helpmetest-cli_1.1.2_checksums.txt
+```
+
+### Linux/macOS Installation
+```bash
+# Download latest release (replace with your platform-specific URL)
+curl -L -o helpmetest-cli.tar.gz https://github.com/help-me-test/cli/releases/latest/download/helpmetest-cli_Linux_x86_64.tar.gz
 
 # Extract and install
 tar -xzf helpmetest-cli.tar.gz
@@ -31,6 +60,14 @@ sudo chmod +x /usr/local/bin/helpmetest
 
 # Test installation
 helpmetest --version
+```
+
+### Windows Installation
+```bash
+# Download the zip file from the releases page
+# Extract the zip file
+# Add helpmetest.exe to your PATH
+# Or run directly: .\helpmetest.exe --version
 ```
 
 ### Local Build

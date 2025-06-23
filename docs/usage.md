@@ -27,69 +27,74 @@ helpmetest health "db-connection" "2m" 'psql postgres://user:pass@localhost/db -
 
 ```bash
 helpmetest status [options]
+helpmetest status <subcommand> [options]
 ```
 
-View the current status of all health checks:
+View the current status of all tests and health checks:
 ```bash
-# View status of all health checks
+# View status of all tests and health checks
 helpmetest status
 
 # View status for specific environment
 ENV=production helpmetest status
+
+# View status with detailed information
+helpmetest status --verbose
+
+# Output in JSON format
+helpmetest status --json
 ```
 
 The status command displays:
-- Health check name
-- Current status (up/down/unknown)
-- Last heartbeat time
-- Grace period
-- Environment
+- Test/health check name
+- Current status (up/down/unknown or pass/fail/unknown)
+- Last run/heartbeat time
+- Duration/grace period
+- Tags and other metadata
 
-### Test Command
+#### Status Subcommands
 
+**View Tests Only:**
 ```bash
-helpmetest test <subcommand> [options]
+helpmetest status test [--verbose] [--json]
 ```
 
-#### List Tests
+**View Health Checks Only:**
 ```bash
-helpmetest test list [--verbose]
-```
-
-Lists all available tests with their descriptions and tags:
-```bash
-# List all tests
-helpmetest test list
-
-# List with detailed information
-helpmetest test list --verbose
+helpmetest status health [--verbose] [--json]
 ```
 
 Example output:
 ```
-Available Tests (10)
-Name                    Description                    Tags           
-netdata.helpmetest.com  Is netdata.helpmetest.com up?  uptime         
-login.helpmetest.com    Is login.helpmetest.com up?    uptime         
-Landing -> /docs                                       landing, flaky 
-Login                                                  cuj, flaky     
+Tests
+Status  Name                    Last Run      Duration  Tags           
+✅      netdata.helpmetest.com  2 hours ago   0.19s     uptime         
+✅      login.helpmetest.com    2 hours ago   0.16s     uptime         
+❌      Landing -> /docs        1 day ago     3.05s     landing, flaky 
+❔      Login                   Unknown       N/A       cuj, flaky     
+
+Healthchecks
+Status  Name           Last Heartbeat  Grace  Env        Host           Tags
+✅      api-server     2 minutes ago   30s    production  srv-01        api
+❌      backup-service 2 days ago      1h     staging     backup-01     backup
 ```
 
-#### Run Tests
+### Test Command
+
 ```bash
-helpmetest test run <identifier>
+helpmetest test <identifier> [options]
 ```
 
 Runs tests by name, tag, or ID with real-time progress tracking:
 
 **Test Identifiers:**
-- **By name**: `helpmetest test run "/docs"`
-- **By tag**: `helpmetest test run "tag:flaky"`
-- **By ID**: `helpmetest test run "test-id-123"`
+- **By name**: `helpmetest test "/docs"`
+- **By tag**: `helpmetest test "tag:flaky"`
+- **By ID**: `helpmetest test "test-id-123"`
 
 **Single Test Example:**
 ```bash
-helpmetest test run /docs
+helpmetest test /docs
 ℹ 🚀 Running test: /docs
 ℹ 🚀 Starting: /docs
 ✓   ✓ As  Test User (0.130711s)
@@ -102,7 +107,7 @@ helpmetest test run /docs
 
 **Multiple Tests Example (Tag-based):**
 ```bash
-helpmetest test run tag:uptime
+helpmetest test tag:uptime
 ℹ 🚀 Running tests with tag: uptime
 Test Execution Progress
 Status  Test Name               Duration   Current Step 
@@ -112,6 +117,8 @@ Status  Test Name               Duration   Current Step
 ✅      helpmetest.com          0.027147s  Completed    
 ✓ ✅ All 4 tests passed
 ```
+
+**Note:** To list available tests, use `helpmetest status test`
 
 **Features:**
 - **Dynamic Progress Table**: For multiple tests, shows real-time execution status with live duration updates
