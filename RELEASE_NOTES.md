@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.2.0 (2024-06-XX)
+
+### New Features
+
+- **Enhanced MCP Server**: Significantly improved MCP server implementation with better functionality and performance
+- **Command Structure**: Redesigned CLI command structure with more intuitive organization and help text
+- **Ramda Integration**: Added Ramda.js library for more functional programming capabilities
+
+### Improvements
+
+- **Status Command**: Completely revamped status command with better data handling and presentation
+- **Documentation**: Comprehensive updates to installation, usage, and MCP documentation
+- **Release Process**: Unified release script for both manual and GitHub Actions workflows
+- **Build System**: Streamlined build and release scripts for better maintainability
+
 ## v1.1.3 (2024-06-XX)
 
 ### Improvements
