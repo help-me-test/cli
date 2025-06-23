@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.1.1 (2024-06-XX)
+
+### Improvements
+
+- **Installation**: Added one-line curl installation method for easier setup
+- **Documentation**: Updated installation instructions in release notes
+
 ## v1.1.0 (2024-06-XX)
 
 ### New Features
