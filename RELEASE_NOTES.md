@@ -1,5 +1,27 @@
 # Release Notes
 
+## v1.1.3 (2024-06-XX)
+
+### Improvements
+
+- **Command Structure**: Enhanced status command with dedicated subcommands for tests and health checks
+- **MCP Integration**: Improved MCP tools with better descriptions and documentation
+- **Output Formatting**: Refined JSON output handling for better consistency
+- **Code Quality**: Refactored status data handling for improved maintainability
+
+### Bug Fixes
+
+- **Parameter Handling**: Fixed parameter handling in status command and related functions
+- **JSON Output**: Corrected JSON output filtering for test and health subcommands
+
+## v1.1.2 (2024-06-XX)
+
+### Improvements
+
+- **Release Process**: Unified release script for both manual and GitHub Actions workflows
+- **Documentation**: Enhanced release notes generation with consistent formatting
+- **Build**: Fixed template handling for cross-platform installation instructions
+
 ## v1.1.1 (2024-06-XX)
 
 ### Improvements
