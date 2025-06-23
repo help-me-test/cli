@@ -15,6 +15,7 @@ import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'
 import metricsCommand from './commands/metrics.js'
 import mcpCommand from './commands/mcp.js'
+import keywordsCommand from './commands/keywords.js'
 import { runTestCommand, listTestsCommand } from './commands/test.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
@@ -142,6 +143,61 @@ ${colors.subtitle('Use Cases:')}
 `)
   .action(metricsCommand)
 
+// Register the keywords command
+program
+  .command('keywords')
+  .description('Search and explore available Robot Framework keywords and libraries')
+  .argument('[search]', 'Search term to filter keywords and libraries')
+  .option('-t, --type <type>', 'Search type: keywords, libraries, or all', 'all')
+  .option('--verbose', 'Show detailed information including documentation and parameters')
+  .option('--json', 'Output results in JSON format')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')}                        ${colors.dim('# List all available keywords and libraries')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.argument('browser')}              ${colors.dim('# Search for browser-related keywords')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.argument('should')}               ${colors.dim('# Find assertion keywords')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.argument('click')} ${colors.option('--verbose')}      ${colors.dim('# Detailed info about click keywords')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.option('--type libraries')}       ${colors.dim('# Show only libraries')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.option('--type keywords')}        ${colors.dim('# Show only keywords')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.argument('api')} ${colors.option('--json')}           ${colors.dim('# JSON output for API keywords')}
+
+${colors.subtitle('Search Types:')}
+  ${colors.key('all')}         Search both keywords and libraries (default)
+  ${colors.key('keywords')}    Search only Robot Framework keywords
+  ${colors.key('libraries')}   Search only Robot Framework libraries
+
+${colors.subtitle('Available Libraries:')}
+  ${colors.dim('•')} ${colors.key('BuiltIn')}         Core Robot Framework keywords (assertions, variables, control flow)
+  ${colors.dim('•')} ${colors.key('Browser')}         Web browser automation keywords (click, type, wait, navigate)
+  ${colors.dim('•')} ${colors.key('RequestsLibrary')} HTTP/REST API testing keywords (GET, POST, status checks)
+
+${colors.subtitle('Common Search Terms:')}
+  ${colors.dim('•')} ${colors.highlight('should')}        Find assertion keywords (Should Be Equal, Should Contain, etc.)
+  ${colors.dim('•')} ${colors.highlight('click')}         Find click-related keywords for UI automation
+  ${colors.dim('•')} ${colors.highlight('get')}           Find keywords that retrieve information
+  ${colors.dim('•')} ${colors.highlight('wait')}          Find timing and synchronization keywords
+  ${colors.dim('•')} ${colors.highlight('log')}           Find logging and debugging keywords
+  ${colors.dim('•')} ${colors.highlight('browser')}       Find web browser automation keywords
+  ${colors.dim('•')} ${colors.highlight('api')}           Find HTTP/API testing keywords
+
+${colors.subtitle('Output Information:')}
+  ${colors.dim('•')} Keyword names and short descriptions
+  ${colors.dim('•')} Library organization and keyword counts
+  ${colors.dim('•')} Parameter information (with --verbose)
+  ${colors.dim('•')} Full documentation text (with --verbose)
+  ${colors.dim('•')} Clean, readable format without source paths
+
+${colors.subtitle('Use Cases:')}
+  ${colors.dim('•')} Discover available Robot Framework functionality
+  ${colors.dim('•')} Find the right keywords for test automation tasks
+  ${colors.dim('•')} Learn about library capabilities and organization
+  ${colors.dim('•')} Get parameter information for keyword usage
+  ${colors.dim('•')} Export keyword information for documentation
+`)
+  .action(async (search, options) => {
+    await keywordsCommand(search, options)
+  })
+
 // Register the MCP command
 program
   .command('mcp')
@@ -174,6 +230,7 @@ ${colors.subtitle('Available Tools:')}
   ${colors.dim('•')} ${colors.key('health_checks_status')} Get status of all health checks
   ${colors.dim('•')} ${colors.key('run_test')}             Run a test by name, tag, or ID
   ${colors.dim('•')} ${colors.key('list_tests')}           List all available tests
+  ${colors.dim('•')} ${colors.key('keywords')}             Search Robot Framework keywords and libraries
 
 ${colors.subtitle('Integration:')}
   ${colors.dim('Add to Claude Desktop config.json:')}
@@ -253,6 +310,8 @@ ${colors.subtitle('Examples:')}
   ${colors.dim('$')} ${colors.command('helpmetest test list')}                    ${colors.dim('# List all available tests')}
   ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('"My Test"')}               ${colors.dim('# Run a specific test')}
   ${colors.dim('$')} ${colors.command('helpmetest test run')} ${colors.argument('tag:smoke')}              ${colors.dim('# Run tests with smoke tag')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.argument('browser')}                ${colors.dim('# Search Robot Framework keywords')}
+  ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.option('--type libraries')}         ${colors.dim('# List available libraries')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--verbose')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--json')} ${colors.option('--basic')}
 

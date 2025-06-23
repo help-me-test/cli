@@ -357,6 +357,20 @@ const getUserInfo = async () => {
 }
 
 /**
+ * Create a new test
+ * @param {Object} testData - Test data
+ * @param {string} testData.id - Test ID (use "new" for auto-generated)
+ * @param {string} testData.name - Test name
+ * @param {string} [testData.description] - Test description
+ * @param {Array<string>} [testData.tags] - Test tags
+ * @param {Object} [testData.data] - Additional test data
+ * @returns {Promise<Object>} Created test data
+ */
+const createTest = async (testData) => {
+  return apiPost('/api/test', testData, `Creating test: ${testData.name}`)
+}
+
+/**
  * Test API connectivity and authentication
  * @returns {Promise<Object>} Connection test result
  */
@@ -470,6 +484,7 @@ export {
   runTest,
   getTestStatus,
   getUserInfo,
+  createTest,
   testConnection,
   displayApiError,
   validateResponse,
@@ -492,6 +507,7 @@ export default {
   runTest,
   getTestStatus,
   getUserInfo,
+  createTest,
   testConnection,
   displayApiError,
   validateResponse,

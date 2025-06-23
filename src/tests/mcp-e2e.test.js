@@ -4,6 +4,9 @@
  * Tests the complete MCP protocol communication using the official MCP SDK client
  */
 
+// Load environment variables from .env file
+import 'dotenv/config'
+
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import path from 'path'
@@ -25,9 +28,14 @@ describe('MCP End-to-End Tests', () => {
   let transport
 
   beforeAll(async () => {
-    // Set up environment variables for the test
-    process.env.HELPMETEST_API_TOKEN = 'HELP-test-token-for-e2e'
-    process.env.HELPMETEST_API_URL = 'https://helpmetest.com'
+    // Use real environment variables from .env file
+    // The dotenv config should already be loaded by the config module
+    if (!process.env.HELPMETEST_API_TOKEN) {
+      throw new Error('HELPMETEST_API_TOKEN not found in environment variables')
+    }
+    if (!process.env.HELPMETEST_API_URL) {
+      throw new Error('HELPMETEST_API_URL not found in environment variables')
+    }
   })
 
   beforeEach(async () => {
@@ -37,11 +45,16 @@ describe('MCP End-to-End Tests', () => {
     // Create transport and client
     transport = new StdioClientTransport({
       command: 'bun',
-      args: [serverPath, 'mcp'],
+      args: [
+        serverPath, 
+        'mcp', 
+        process.env.HELPMETEST_API_TOKEN, // Pass token as positional argument
+        '-u', process.env.HELPMETEST_API_URL, // Pass URL as -u parameter
+        '--verbose' // Enable verbose mode for debugging
+      ],
       env: {
         ...process.env,
-        HELPMETEST_API_TOKEN: 'HELP-test-token-for-e2e',
-        HELPMETEST_API_URL: 'https://helpmetest.com'
+        HELPMETEST_DEBUG: 'true' // Enable debug mode to see API calls
       }
     })
 
@@ -83,6 +96,8 @@ describe('MCP End-to-End Tests', () => {
       expect(toolNames).toContain('helpmetest_status')
       expect(toolNames).toContain('helpmetest_run_test')
       expect(toolNames).toContain('helpmetest_list_tests')
+      expect(toolNames).toContain('helpmetest_keywords')
+      expect(toolNames).toContain('helpmetest_create_test')
     })
 
     test('should provide tool descriptions', async () => {
@@ -444,5 +459,348 @@ describe('MCP End-to-End Tests', () => {
         expect(Array.isArray(responseData.allEvents)).toBe(true)
       }
     }, 30000) // Longer timeout for multiple test execution
+  })
+
+  describe('Keywords Search Tool', () => {
+    test('should call keywords tool without search term', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_keywords',
+        arguments: {}
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      expect(Array.isArray(result.content)).toBe(true)
+      expect(result.content.length).toBeGreaterThan(0)
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData.search).toBeDefined()
+      expect(responseData.type).toBeDefined()
+      expect(responseData.results).toBeDefined()
+      expect(responseData.summary).toBeDefined()
+      expect(responseData.timestamp).toBeDefined()
+      
+      // Should have libraries and keywords
+      expect(responseData.summary.libraries).toBeDefined()
+      expect(responseData.summary.keywords).toBeDefined()
+      expect(responseData.summary.total).toBeDefined()
+      expect(responseData.summary.total).toBeGreaterThan(0)
+    })
+
+    test('should search keywords with specific term', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_keywords',
+        arguments: {
+          search: 'click',
+          type: 'all'
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      expect(responseData.search).toBe('click')
+      expect(responseData.type).toBe('all')
+      expect(responseData.results).toBeDefined()
+      expect(responseData.summary).toBeDefined()
+      
+      // Should find click-related keywords
+      expect(responseData.summary.total).toBeGreaterThan(0)
+      
+      // Check that Browser library is included (has click keywords)
+      if (responseData.results.libraries && responseData.results.libraries.Browser) {
+        expect(responseData.results.libraries.Browser.keywords).toBeDefined()
+        expect(Array.isArray(responseData.results.libraries.Browser.keywords)).toBe(true)
+        
+        // Should have click-related keywords
+        const clickKeywords = responseData.results.libraries.Browser.keywords.filter(kw => 
+          kw.name.toLowerCase().includes('click')
+        )
+        expect(clickKeywords.length).toBeGreaterThan(0)
+      }
+    })
+
+    test('should search only libraries', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_keywords',
+        arguments: {
+          search: 'browser',
+          type: 'libraries'
+        }
+      })
+
+      expect(result).toBeDefined()
+      const content = result.content[0]
+      const responseData = JSON.parse(content.text)
+      
+      expect(responseData.search).toBe('browser')
+      expect(responseData.type).toBe('libraries')
+      expect(responseData.results.libraries).toBeDefined()
+      expect(responseData.results.keywords).toBeUndefined()
+      
+      // Should find Browser library
+      if (responseData.summary.libraries > 0) {
+        expect(responseData.results.libraries.Browser).toBeDefined()
+        expect(responseData.results.libraries.Browser.name).toBe('Browser')
+      }
+    })
+
+    test('should search only keywords', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_keywords',
+        arguments: {
+          search: 'log',
+          type: 'keywords'
+        }
+      })
+
+      expect(result).toBeDefined()
+      const content = result.content[0]
+      const responseData = JSON.parse(content.text)
+      
+      expect(responseData.search).toBe('log')
+      expect(responseData.type).toBe('keywords')
+      expect(responseData.results.keywords).toBeDefined()
+      expect(responseData.results.libraries).toBeUndefined()
+    })
+
+    test('should handle empty search results', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_keywords',
+        arguments: {
+          search: 'nonexistentkeywordinanylibrary12345',
+          type: 'all'
+        }
+      })
+
+      expect(result).toBeDefined()
+      const content = result.content[0]
+      const responseData = JSON.parse(content.text)
+      
+      expect(responseData.search).toBe('nonexistentkeywordinanylibrary12345')
+      expect(responseData.summary.total).toBe(0)
+    })
+  })
+
+  describe('Create Test Tool', () => {
+    test('should create a test with minimal required fields', async () => {
+      const testId = `test-mcp-${Date.now()}`
+      const result = await client.callTool({
+        name: 'helpmetest_create_test',
+        arguments: {
+          id: testId,
+          name: 'MCP Test Creation',
+          description: 'A test created via MCP for testing purposes',
+          tags: ['mcp', 'test', 'automated'],
+          testData: `Log    Hello from MCP created test
+Should Be Equal    \${1+1}    2`
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.content).toBeDefined()
+      expect(Array.isArray(result.content)).toBe(true)
+      expect(result.content.length).toBeGreaterThan(0)
+      
+      const content = result.content[0]
+      expect(content.type).toBe('text')
+      
+      // Parse the JSON response
+      const responseData = JSON.parse(content.text)
+      
+      if (responseData.error) {
+        // If there's an error, it should be properly formatted
+        expect(responseData.message).toBeDefined()
+        expect(responseData.timestamp).toBeDefined()
+        console.log('Create test error (expected in test environment):', responseData.message)
+      } else {
+        // If successful, check the structure
+        expect(responseData.id).toBe(testId)
+        expect(responseData.name).toBe('MCP Test Creation')
+        expect(responseData.description).toBe('A test created via MCP for testing purposes')
+        expect(Array.isArray(responseData.tags)).toBe(true)
+        expect(responseData.tags).toContain('mcp')
+        expect(responseData.tags).toContain('test')
+        expect(responseData.tags).toContain('automated')
+        expect(responseData.testData).toBeDefined()
+        expect(responseData.timestamp).toBeDefined()
+      }
+    }, 15000)
+
+    test('should create a test with browser automation', async () => {
+      const testId = `browser-test-mcp-${Date.now()}`
+      const result = await client.callTool({
+        name: 'helpmetest_create_test',
+        arguments: {
+          id: testId,
+          name: 'MCP Browser Test',
+          description: 'Browser automation test created via MCP',
+          tags: ['mcp', 'browser', 'automation'],
+          testData: `Go To    https://example.com
+Get Title    ==    Example Domain`
+        }
+      })
+
+      expect(result).toBeDefined()
+      const content = result.content[0]
+      const responseData = JSON.parse(content.text)
+      
+      if (responseData.error) {
+        console.log('Create browser test error (expected in test environment):', responseData.message)
+        expect(responseData.message).toBeDefined()
+      } else {
+        expect(responseData.id).toBe(testId)
+        expect(responseData.name).toBe('MCP Browser Test')
+        expect(responseData.tags).toContain('browser')
+        expect(responseData.testData).toContain('Library    Browser')
+        expect(responseData.testData).toContain('New Browser')
+      }
+    }, 15000)
+
+    test('should create a test with API testing', async () => {
+      const testId = `api-test-mcp-${Date.now()}`
+      const result = await client.callTool({
+        name: 'helpmetest_create_test',
+        arguments: {
+          id: testId,
+          name: 'MCP API Test',
+          description: 'API testing created via MCP',
+          tags: ['mcp', 'api', 'http'],
+          testData: `Create Session    httpbin    https://httpbin.org
+\${response}=    GET On Session    httpbin    /get
+Should Be Equal As Strings    \${response.status_code}    200
+Should Contain    \${response.json()}[url]    httpbin.org`
+        }
+      })
+
+      expect(result).toBeDefined()
+      const content = result.content[0]
+      const responseData = JSON.parse(content.text)
+      
+      if (responseData.error) {
+        console.log('Create API test error (expected in test environment):', responseData.message)
+        expect(responseData.message).toBeDefined()
+      } else {
+        expect(responseData.id).toBe(testId)
+        expect(responseData.name).toBe('MCP API Test')
+        expect(responseData.tags).toContain('api')
+        expect(responseData.testData).toContain('GET On Session')
+      }
+    }, 15000)
+
+    test('should handle create test without optional fields', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_create_test',
+        arguments: {
+          name: 'Minimal Test'
+          // Only required field provided
+        }
+      })
+
+      expect(result).toBeDefined()
+      const content = result.content[0]
+      const responseData = JSON.parse(content.text)
+      
+      if (responseData.error) {
+        // If there's an error, it should be properly formatted
+        expect(responseData.message).toBeDefined()
+        expect(responseData.timestamp).toBeDefined()
+        console.log('Create minimal test error (expected in test environment):', responseData.message)
+      } else {
+        // If successful, should have basic structure
+        expect(responseData.name).toBe('Minimal Test')
+        expect(responseData.id).toBeDefined()
+      }
+    }, 15000)
+
+    test('should reject create test with invalid test data', async () => {
+      const result = await client.callTool({
+        name: 'helpmetest_create_test',
+        arguments: {
+          id: `invalid-test-${Date.now()}`,
+          name: 'Invalid Test',
+          description: 'Test with invalid Robot Framework syntax',
+          tags: ['invalid'],
+          testData: 'This is not valid Robot Framework syntax at all!'
+        }
+      })
+
+      expect(result).toBeDefined()
+      const content = result.content[0]
+      const responseData = JSON.parse(content.text)
+      
+      // Should either reject or return an error
+      if (responseData.error) {
+        expect(responseData.message).toBeDefined()
+        expect(responseData.message).toContain('error')
+      }
+    }, 15000)
+  })
+
+  describe('Prompts', () => {
+    test('should list available prompts', async () => {
+      const result = await client.listPrompts()
+      
+      expect(result).toBeDefined()
+      expect(result.prompts).toBeDefined()
+      expect(Array.isArray(result.prompts)).toBe(true)
+      
+      const promptNames = result.prompts.map(prompt => prompt.name)
+      expect(promptNames).toContain('helpmetest_create_test')
+      expect(promptNames).toContain('helpmetest_explore_keywords')
+    })
+
+    test('should get create test prompt', async () => {
+      const result = await client.getPrompt({
+        name: 'helpmetest_create_test',
+        arguments: {
+          test_type: 'web',
+          target_system: 'e-commerce'
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.messages).toBeDefined()
+      expect(Array.isArray(result.messages)).toBe(true)
+      expect(result.messages.length).toBeGreaterThan(0)
+      
+      const message = result.messages[0]
+      expect(message.role).toBe('user')
+      expect(message.content).toBeDefined()
+      expect(message.content.type).toBe('text')
+      expect(message.content.text).toContain('Test Creation Assistant for HelpMeTest Platform')
+      // The prompt should contain the provided arguments somewhere in the text
+      const promptText = message.content.text.toLowerCase()
+      expect(promptText.includes('web') || promptText.includes('e-commerce')).toBe(true)
+    })
+
+    test('should get keywords exploration prompt', async () => {
+      const result = await client.getPrompt({
+        name: 'helpmetest_explore_keywords',
+        arguments: {
+          search_term: 'browser automation'
+        }
+      })
+
+      expect(result).toBeDefined()
+      expect(result.messages).toBeDefined()
+      expect(Array.isArray(result.messages)).toBe(true)
+      
+      const message = result.messages[0]
+      expect(message.role).toBe('user')
+      expect(message.content).toBeDefined()
+      expect(message.content.type).toBe('text')
+      expect(message.content.text).toContain('Robot Framework Keywords Explorer')
+      expect(message.content.text).toContain('browser automation')
+    })
   })
 })

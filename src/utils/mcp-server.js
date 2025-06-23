@@ -5,6 +5,9 @@
  * Provides health monitoring tools and system metrics via MCP.
  */
 
+// Load environment variables from .env file first
+import 'dotenv/config'
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
@@ -12,12 +15,14 @@ import { z } from 'zod'
 import http from 'http'
 import fs from 'fs'
 import path from 'path'
+import open from 'open'
 import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
 // import { collectSystemMetrics } from './metrics.js'
-import { getAllHealthChecks, getAllTests, runTest } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
+import { libraries, keywords } from '../keywords.js'
 import { 
   TOOL_CONFIGS,
   getMcpServerConfig,
@@ -202,7 +207,110 @@ export function createMcpServer(options = {}) {
     }
   )
 
-  debug(config, 'MCP server tools registered successfully')
+  // Register create_test tool
+  server.registerTool(
+    'helpmetest_create_test',
+    {
+      title: 'Help Me Test: Create Test Tool',
+      description: 'Create a new test with specified parameters. After creation, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).',
+      inputSchema: {
+        id: z.string().optional().describe('Test ID (optional - will auto-generate if not provided)'),
+        name: z.string().describe('Test name (required)'),
+        description: z.string().optional().describe('Test description (optional)'),
+        tags: z.array(z.string()).optional().describe('Test tags as array of strings (optional)'),
+        testData: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Create test tool called with args: ${JSON.stringify(args)}`)
+      return await handleCreateTest(args)
+    }
+  )
+
+  // Register keywords search tool
+  server.registerTool(
+    'helpmetest_keywords',
+    {
+      title: 'Help Me Test: Keywords Search Tool',
+      description: 'Search and get documentation for available Robot Framework keywords and libraries',
+      inputSchema: {
+        search: z.string().optional().describe('Search term to filter keywords/libraries (optional - if not provided, returns all)'),
+        type: z.enum(['keywords', 'libraries', 'all']).optional().default('all').describe('Type of documentation to search: keywords, libraries, or all'),
+      },
+    },
+    async (args) => {
+      debug(config, `Keywords search tool called with args: ${JSON.stringify(args)}`)
+      return await handleKeywordsSearch(args)
+    }
+  )
+
+  // Register prompts
+  server.registerPrompt(
+    'helpmetest_create_test',
+    {
+      name: 'helpmetest_create_test',
+      description: 'Guide for creating comprehensive Robot Framework tests using HelpMeTest platform',
+      arguments: [
+        {
+          name: 'test_type',
+          description: 'Type of test to create (ui, api, database, integration)',
+          required: false
+        },
+        {
+          name: 'target_system',
+          description: 'Target system or application to test',
+          required: false
+        }
+      ]
+    },
+    async (args) => {
+      const { test_type = '', target_system = '' } = args
+      
+      return {
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: generateTestCreationPrompt(test_type, target_system)
+            }
+          }
+        ]
+      }
+    }
+  )
+
+  server.registerPrompt(
+    'helpmetest_explore_keywords',
+    {
+      name: 'helpmetest_explore_keywords',
+      description: 'Guide for exploring and understanding available Robot Framework keywords and libraries',
+      arguments: [
+        {
+          name: 'search_term',
+          description: 'Specific functionality or library to explore',
+          required: false
+        }
+      ]
+    },
+    async (args) => {
+      const { search_term = '' } = args
+      
+      return {
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: generateKeywordExplorationPrompt(search_term)
+            }
+          }
+        ]
+      }
+    }
+  )
+
+  debug(config, 'MCP server tools and prompts registered successfully')
 
   return server
 }
@@ -605,6 +713,731 @@ async function handleListTests(args) {
       isError: true,
     }
   }
+}
+
+/**
+ * Handle create test tool call
+ * @param {Object} args - Tool arguments
+ * @param {string} args.name - Test name
+ * @param {string} [args.description] - Test description
+ * @param {Array<string>} [args.tags] - Test tags
+ * @param {Object} [args.testData] - Additional test data
+ * @returns {Object} Test creation result
+ */
+async function handleCreateTest(args) {
+  const { id = 'new', name, description = '', tags = [], testData = '' } = args
+  
+  debug(config, `Creating test with name: ${name}`)
+  
+  try {
+    // Process testData to ensure it contains only keywords (no test case structure)
+    const processedTestData = processTestDataForKeywordsOnly(testData)
+    
+    const testPayload = {
+      id, // Use provided ID or 'new' to auto-generate
+      name,
+      description,
+      tags,
+      content: processedTestData // Robot Framework code goes in content field
+    }
+    
+    const createdTest = await createTest(testPayload)
+    debug(config, `Test created successfully: ${createdTest.id}`)
+    
+    // Check if the API call failed (returns error object instead of test data)
+    if (createdTest && createdTest.status === 'error') {
+      throw new Error(createdTest.error || 'API call failed')
+    }
+    
+    // Construct the test URL for browser opening
+    const testUrl = `https://helpmetest.slava.helpmetest.com/test/${createdTest.id}`
+    
+    // Run the test immediately after creation
+    let testRunResult = null
+    try {
+      debug(config, `Running test immediately: ${createdTest.id}`)
+      const events = []
+      await runTest(createdTest.id, (event) => {
+        if (event) {
+          events.push(event)
+        }
+      })
+      
+      // Process events to extract meaningful results
+      const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
+      const keywordEvents = events.filter(e => e.type === 'keyword')
+      
+      testRunResult = {
+        status: testResults.length > 0 ? testResults[0].attrs.status : 'UNKNOWN',
+        totalEvents: events.length,
+        testResults: testResults.map(result => ({
+          testId: result.attrs?.name || 'unknown',
+          status: result.attrs?.status || 'UNKNOWN',
+          duration: result.attrs?.elapsed_time ? `${result.attrs.elapsed_time}s` : 'N/A',
+          message: result.attrs?.doc || ''
+        })),
+        keywords: keywordEvents.map(kw => ({
+          keyword: kw.keyword,
+          status: kw.status,
+          duration: kw.elapsed_time || kw.elapsedtime || null
+        }))
+      }
+      
+      debug(config, `Test run completed with status: ${testRunResult.status}`)
+    } catch (runError) {
+      debug(config, `Error running test: ${runError.message}`)
+      testRunResult = {
+        status: 'ERROR',
+        error: runError.message
+      }
+    }
+    
+    const response = {
+      success: true,
+      id: createdTest.id,
+      name: createdTest.name,
+      description: createdTest.description,
+      tags: createdTest.tags,
+      testData: createdTest.content || processedTestData,
+      testUrl: testUrl,
+      testRunResult: testRunResult,
+      message: `Test "${name}" created successfully with ID: ${createdTest.id}`,
+      timestamp: new Date().toISOString(),
+      actions: {
+        openInBrowser: {
+          question: "Would you like to open this test in your browser?",
+          url: testUrl,
+          action: "open_browser"
+        }
+      }
+    }
+    
+    // Ask user if they want to open the test in browser
+    // Note: In a real MCP implementation, this would be handled by the client
+    // For now, we'll include the URL and action in the response
+    try {
+      // Attempt to open browser automatically (this might not work in all environments)
+      debug(config, `Opening test in browser: ${testUrl}`)
+      await open(testUrl)
+      response.browserOpened = true
+    } catch (openError) {
+      debug(config, `Could not automatically open browser: ${openError.message}`)
+      response.browserOpened = false
+      response.browserError = openError.message
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(response),
+        },
+      ],
+      isError: false,
+    }
+  } catch (error) {
+    debug(config, `Error creating test: ${error.message}`)
+    
+    const errorResponse = {
+      error: true,
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: new Date().toISOString(),
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null
+      }
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Process test data to ensure it contains only keywords (no test case structure)
+ * Browser is already launched, so we filter out browser setup keywords
+ * @param {string} testData - Raw test data
+ * @returns {string} Processed test data with only essential keywords
+ */
+function processTestDataForKeywordsOnly(testData) {
+  if (!testData || typeof testData !== 'string') {
+    return ''
+  }
+  
+  // Keywords to skip because browser is already launched and libraries imported
+  const skipKeywords = [
+    'New Browser',
+    'New Context', 
+    'New Page',
+    'Library',
+    'Import Library'
+  ]
+  
+  // Split into lines and process
+  const lines = testData.split('\n')
+  const processedLines = []
+  
+  let inTestCase = false
+  let inSettings = false
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    
+    // Skip empty lines and comments
+    if (!trimmedLine || trimmedLine.startsWith('#')) {
+      continue
+    }
+    
+    // Skip section headers
+    if (trimmedLine.startsWith('***') && trimmedLine.endsWith('***')) {
+      const sectionName = trimmedLine.replace(/\*/g, '').trim().toLowerCase()
+      inTestCase = sectionName.includes('test case')
+      inSettings = sectionName.includes('setting')
+      continue
+    }
+    
+    // Skip settings section
+    if (inSettings) {
+      continue
+    }
+    
+    // Skip test case names (lines that don't start with whitespace in test cases section)
+    if (inTestCase && !line.startsWith(' ') && !line.startsWith('\t')) {
+      continue
+    }
+    
+    // Process keywords
+    let keywordLine = ''
+    if (inTestCase && (line.startsWith(' ') || line.startsWith('\t'))) {
+      keywordLine = trimmedLine
+    } else if (!inTestCase && !inSettings) {
+      keywordLine = trimmedLine
+    }
+    
+    if (keywordLine) {
+      // Skip browser setup keywords since browser is already launched
+      const shouldSkip = skipKeywords.some(skipKeyword => 
+        keywordLine.startsWith(skipKeyword)
+      )
+      
+      if (!shouldSkip) {
+        // Convert "New Page" to "Go To" since page navigation is what we want
+        if (keywordLine.startsWith('New Page')) {
+          const url = keywordLine.replace('New Page', '').trim()
+          if (url) {
+            processedLines.push(`Go To    ${url}`)
+          }
+        } else {
+          processedLines.push(keywordLine)
+        }
+      }
+    }
+  }
+  
+  // If no processed lines, return the original (might be already just keywords)
+  if (processedLines.length === 0) {
+    // Check if the original data looks like it's already just keywords
+    const originalLines = lines.filter(line => line.trim() && !line.trim().startsWith('#'))
+    if (originalLines.length > 0 && !originalLines.some(line => line.includes('***'))) {
+      // Still filter out browser setup keywords from direct input
+      const filteredLines = originalLines.filter(line => {
+        const trimmed = line.trim()
+        return !skipKeywords.some(skipKeyword => trimmed.startsWith(skipKeyword))
+      }).map(line => {
+        const trimmed = line.trim()
+        // Convert "New Page" to "Go To"
+        if (trimmed.startsWith('New Page')) {
+          const url = trimmed.replace('New Page', '').trim()
+          return url ? `Go To    ${url}` : ''
+        }
+        return trimmed
+      }).filter(line => line)
+      
+      return filteredLines.join('\n')
+    }
+    return ''
+  }
+  
+  return processedLines.join('\n')
+}
+
+/**
+ * Handle keywords search tool call
+ * @param {Object} args - Tool arguments
+ * @param {string} [args.search] - Search term
+ * @param {string} [args.type='all'] - Type of documentation to search
+ * @returns {Object} Keywords search result
+ */
+async function handleKeywordsSearch(args) {
+  const { search = '', type = 'all' } = args
+  
+  debug(config, `Searching keywords with term: "${search}", type: ${type}`)
+  
+  try {
+    let results = {}
+    
+    // Helper function to search within an object
+    const searchInObject = (obj, searchTerm) => {
+      if (!searchTerm) return obj
+      
+      const lowerSearch = searchTerm.toLowerCase()
+      const filtered = {}
+      
+      for (const [key, value] of Object.entries(obj)) {
+        // Search in key name
+        if (key.toLowerCase().includes(lowerSearch)) {
+          filtered[key] = value
+          continue
+        }
+        
+        // Search in documentation/description
+        if (value && typeof value === 'object') {
+          if (value.doc && value.doc.toLowerCase().includes(lowerSearch)) {
+            filtered[key] = value
+            continue
+          }
+          if (value.name && value.name.toLowerCase().includes(lowerSearch)) {
+            filtered[key] = value
+            continue
+          }
+          if (value.shortdoc && value.shortdoc.toLowerCase().includes(lowerSearch)) {
+            filtered[key] = value
+            continue
+          }
+          
+          // Search in keywords array for libraries
+          if (value.keywords && Array.isArray(value.keywords)) {
+            const matchingKeywords = value.keywords.filter(kw => 
+              (kw.name && kw.name.toLowerCase().includes(lowerSearch)) ||
+              (kw.doc && kw.doc.toLowerCase().includes(lowerSearch)) ||
+              (kw.shortdoc && kw.shortdoc.toLowerCase().includes(lowerSearch))
+            )
+            
+            if (matchingKeywords.length > 0) {
+              filtered[key] = {
+                ...value,
+                keywords: matchingKeywords,
+                _matchCount: matchingKeywords.length
+              }
+            }
+          }
+        }
+      }
+      
+      return filtered
+    }
+    
+    // Search based on type
+    if (type === 'libraries' || type === 'all') {
+      results.libraries = searchInObject(libraries, search)
+    }
+    
+    if (type === 'keywords' || type === 'all') {
+      results.keywords = searchInObject(keywords, search)
+    }
+    
+    // Count results
+    const libraryCount = results.libraries ? Object.keys(results.libraries).length : 0
+    const keywordCount = results.keywords ? Object.keys(results.keywords).length : 0
+    
+    const response = {
+      search: search || 'all',
+      type,
+      results,
+      summary: {
+        libraries: libraryCount,
+        keywords: keywordCount,
+        total: libraryCount + keywordCount
+      },
+      timestamp: new Date().toISOString()
+    }
+    
+    debug(config, `Keywords search completed: ${response.summary.total} results`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(response),
+        },
+      ],
+      isError: false,
+    }
+  } catch (error) {
+    debug(config, `Error searching keywords: ${error.message}`)
+    
+    const errorResponse = {
+      error: true,
+      message: error.message,
+      type: error.name || 'Error',
+      search: search || 'all',
+      searchType: type,
+      timestamp: new Date().toISOString()
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Generate test creation prompt with context-specific guidance
+ * @param {string} testType - Type of test to create
+ * @param {string} targetSystem - Target system to test
+ * @returns {string} Generated prompt text
+ */
+function generateTestCreationPrompt(testType, targetSystem) {
+  const availableLibraries = Object.keys(libraries).join(', ')
+  
+  // Get all available keywords from all libraries
+  const allKeywords = []
+  Object.values(libraries).forEach(library => {
+    if (library.keywords) {
+      library.keywords.forEach(keyword => {
+        allKeywords.push(keyword.name)
+      })
+    }
+  })
+  
+  // Sort keywords alphabetically for better readability
+  allKeywords.sort()
+  
+  let prompt = `# Test Creation Assistant for HelpMeTest Platform
+
+You are helping create comprehensive Robot Framework tests using the HelpMeTest platform.
+
+## CRITICAL: Available Keywords Only
+You MUST ONLY use keywords from the following list. Using any keyword not in this list is FORBIDDEN and will cause test failures.
+
+### Available Robot Framework Keywords:
+${allKeywords.map(keyword => `- ${keyword}`).join('\n')}
+
+## Available Libraries
+The following Robot Framework libraries are available: ${availableLibraries}
+
+## RESTRICTIONS
+- **FORBIDDEN**: Do NOT use any keywords not listed above
+- **FORBIDDEN**: Do NOT use New Browser, New Page, or browser setup keywords (browser is already launched)
+- **FORBIDDEN**: Do NOT use keywords from libraries not imported (SeleniumLibrary, etc.)
+- **REQUIRED**: Only use keywords from the approved list above
+
+## Common Keywords by Category
+### Browser/UI Testing (if Browser library is available):
+- Go To, Click, Type, Get Text, Get Title, Wait For Elements State
+- Fill Text, Select Options, Check Checkbox, Uncheck Checkbox
+- Take Screenshot, Get Element Count, Get Attribute
+
+### Assertions (BuiltIn library):
+- Should Be Equal, Should Contain, Should Be True, Should Not Be Empty
+- Should Be Greater Than, Should Be Less Than, Should Match
+
+### Variables & Data (BuiltIn library):
+- Set Variable, Get Variable Value, Log, Comment
+- Convert To Integer, Convert To String, Catenate
+
+### API Testing (if RequestsLibrary is available):
+- GET, POST, PUT, DELETE, Create Session
+- Status Should Be, Response Should Contain
+
+## Available MCP Tools
+- \`helpmetest_create_test\`: Create a new test with specified parameters
+- \`helpmetest_keywords\`: Search available Robot Framework keywords and libraries
+- \`helpmetest_list_tests\`: List existing tests for reference
+
+## Test Creation Process
+
+### 1. Gather Requirements
+Ask the user about:
+- **Test Purpose**: What should this test verify?
+- **Test Steps**: What actions need to be performed?
+- **Expected Results**: What should happen when the test runs?
+- **Test Data**: What data is needed for the test?
+
+### 2. Search Available Keywords
+Use \`helpmetest_keywords\` to find relevant Robot Framework keywords:
+- Search for keywords related to the test functionality
+- Look for assertion keywords (search for "should")
+- Find setup/teardown keywords if needed
+
+### 3. Design Test Keywords
+Plan ONLY the keywords to execute (browser is already launched):
+- **Navigation**: Go To, Click, etc.
+- **Interactions**: Input Text, Select From List, etc.
+- **Assertions**: Get Title, Should Be Equal, etc.
+- **NO browser setup needed** (New Browser, New Page are filtered out)
+
+### 4. Create the Test
+Use \`helpmetest_create_test\` with:
+- **name**: Descriptive test name
+- **description**: Detailed description of what the test does
+- **tags**: Relevant tags for organization
+- **testData**: ONLY Robot Framework keywords (no *** Test Cases *** structure needed)
+
+## Test Naming Conventions
+- Use descriptive names that explain what the test does
+- Start with the action or feature being tested
+- Include the expected outcome
+- Examples:
+  - "Login with Valid Credentials Should Succeed"
+  - "API Returns 404 for Non-Existent Resource"
+  - "Database Connection Should Be Established"
+
+## Common Test Tags
+- **smoke**: Critical functionality tests
+- **regression**: Tests for bug prevention
+- **ui**: User interface tests (using Browser library)
+- **api**: API/service tests (using RequestsLibrary)
+- **database**: Database-related tests
+- **integration**: Integration tests
+- **performance**: Performance tests
+- **security**: Security tests`
+
+  if (testType) {
+    prompt += `\n\n## Specific Guidance for ${testType.toUpperCase()} Testing\n`
+    
+    switch (testType.toLowerCase()) {
+      case 'ui':
+        prompt += `- Browser is ALREADY LAUNCHED - no New Browser/New Page needed
+- Use navigation keywords: Go To, Click, Input Text, etc.
+- Search for "click", "input", "wait", "should" keywords
+- Consider page load times and element visibility
+- Use appropriate selectors (id, class, xpath, etc.)
+- Include assertions to verify UI state
+- Example testData: "Go To    https://example.com\\nGet Title    ==    Example Domain"`
+        break
+      case 'api':
+        prompt += `- Use RequestsLibrary for HTTP/REST API testing
+- Search for "get", "post", "put", "delete", "status" keywords
+- Include request/response validation
+- Test different HTTP status codes
+- Validate response content and structure`
+        break
+      case 'database':
+        prompt += `- Search for database-related keywords
+- Include connection setup and teardown
+- Test queries, inserts, updates, deletes
+- Validate data integrity
+- Consider transaction handling`
+        break
+      case 'integration':
+        prompt += `- Combine multiple libraries as needed
+- Test end-to-end workflows
+- Include proper setup and teardown
+- Test data flow between systems
+- Validate system interactions`
+        break
+    }
+  }
+
+  if (targetSystem) {
+    prompt += `\n\n## Target System: ${targetSystem}
+Consider system-specific requirements:
+- Authentication methods
+- Data formats and protocols
+- Error handling patterns
+- Performance characteristics
+- Security considerations`
+  }
+
+  prompt += `\n\n## Best Practices
+1. **Clear Test Names**: Make test purpose obvious from the name
+2. **Comprehensive Descriptions**: Explain what the test does and why
+3. **Appropriate Tags**: Use tags for test organization and filtering
+4. **Keywords Only**: testData should contain ONLY Robot Framework keywords, no test structure
+5. **No Browser Setup**: Browser is already launched, skip New Browser/New Page keywords
+6. **Direct Actions**: Start with Go To, Click, Input Text, Get Title, etc.
+7. **Maintainability**: Write tests that are easy to understand and modify
+
+## testData Format Examples (ONLY using approved keywords):
+- Simple: "Go To    https://example.com\\nGet Title    ==    Example Domain"
+- Complex: "Go To    https://example.com\\nClick    id=login-button\\nType    id=username    testuser\\nClick    id=submit"
+- With assertions: "Go To    https://example.com\\nGet Text    h1    ==    Welcome\\nShould Contain    ${result}    Welcome"
+
+## IMPORTANT REMINDERS:
+- **VERIFY KEYWORDS**: Before using any keyword, check it exists in the approved list above
+- **USE helpmetest_keywords**: Search for keywords if you're unsure about availability
+- **NO BROWSER SETUP**: Browser is already launched, start directly with Go To, Click, etc.
+- **STICK TO THE LIST**: Only use keywords from the approved list - no exceptions!
+
+Start by using \`helpmetest_keywords\` to explore available keywords for your test needs.`
+
+  return prompt
+}
+
+/**
+ * Generate keyword exploration prompt with search guidance
+ * @param {string} searchTerm - Specific term to search for
+ * @returns {string} Generated prompt text
+ */
+function generateKeywordExplorationPrompt(searchTerm) {
+  const availableLibraries = Object.keys(libraries).join(', ')
+  
+  // Get all available keywords from all libraries
+  const allKeywords = []
+  Object.values(libraries).forEach(library => {
+    if (library.keywords) {
+      library.keywords.forEach(keyword => {
+        allKeywords.push(keyword.name)
+      })
+    }
+  })
+  
+  // Sort keywords alphabetically for better readability
+  allKeywords.sort()
+  
+  let prompt = `# Robot Framework Keywords Explorer for HelpMeTest Platform
+
+This guide helps you explore and understand available Robot Framework keywords and libraries.
+
+## CRITICAL: Available Keywords Only
+You MUST ONLY use keywords from the following list. Using any keyword not in this list is FORBIDDEN and will cause test failures.
+
+### Available Robot Framework Keywords:
+${allKeywords.map(keyword => `- ${keyword}`).join('\n')}
+
+## Available Libraries
+${availableLibraries}
+
+## RESTRICTIONS
+- **FORBIDDEN**: Do NOT use any keywords not listed above
+- **FORBIDDEN**: Do NOT use keywords from libraries not imported (SeleniumLibrary, etc.)
+- **REQUIRED**: Only use keywords from the approved list above
+
+## Common Keywords by Category
+### Browser/UI Testing (if Browser library is available):
+- Go To, Click, Type, Get Text, Get Title, Wait For Elements State
+- Fill Text, Select Options, Check Checkbox, Uncheck Checkbox
+- Take Screenshot, Get Element Count, Get Attribute
+
+### Assertions (BuiltIn library):
+- Should Be Equal, Should Contain, Should Be True, Should Not Be Empty
+- Should Be Greater Than, Should Be Less Than, Should Match
+
+### Variables & Data (BuiltIn library):
+- Set Variable, Get Variable Value, Log, Comment
+- Convert To Integer, Convert To String, Catenate
+
+### API Testing (if RequestsLibrary is available):
+- GET, POST, PUT, DELETE, Create Session
+- Status Should Be, Response Should Contain
+
+## Available Tool
+Use \`helpmetest_keywords\` to search and explore:
+- **search**: Filter keywords/libraries by search term
+- **type**: Choose 'keywords', 'libraries', or 'all'
+
+## Common Search Patterns
+
+### By Functionality
+- \`helpmetest_keywords({search: "browser"})\` - Web automation keywords (Browser library)
+- \`helpmetest_keywords({search: "api"})\` - API testing keywords (RequestsLibrary)
+- \`helpmetest_keywords({search: "should"})\` - Assertion keywords (BuiltIn library)
+- \`helpmetest_keywords({search: "log"})\` - Logging keywords (BuiltIn library)
+- \`helpmetest_keywords({search: "wait"})\` - Wait/timing keywords
+
+### By Library
+- \`helpmetest_keywords({search: "BuiltIn", type: "libraries"})\` - Core Robot Framework keywords
+- \`helpmetest_keywords({search: "Browser", type: "libraries"})\` - Web browser automation
+- \`helpmetest_keywords({search: "RequestsLibrary", type: "libraries"})\` - HTTP/API testing
+
+### By Action Type
+- \`helpmetest_keywords({search: "click"})\` - Click actions
+- \`helpmetest_keywords({search: "input"})\` - Input/typing actions
+- \`helpmetest_keywords({search: "get"})\` - Retrieval operations
+- \`helpmetest_keywords({search: "set"})\` - Setting/assignment operations
+- \`helpmetest_keywords({search: "create"})\` - Creation operations
+
+## Understanding Keyword Documentation
+Each keyword result includes:
+- **name**: The keyword name to use in tests
+- **args**: Parameters the keyword accepts
+- **doc**: Full documentation with examples
+- **shortdoc**: Brief description
+- **source**: Where the keyword is defined
+
+## Library Overview
+
+### BuiltIn Library
+Always available, provides:
+- **Assertions**: Should Be Equal, Should Contain, Should Be True
+- **Variables**: Set Variable, Get Variable Value
+- **Control Flow**: Run Keyword If, Run Keywords
+- **Logging**: Log, Log Many, Comment
+- **Conversions**: Convert To Integer, Convert To String
+
+### Browser Library
+For web browser automation:
+- **Navigation**: Open Browser, Go To, Close Browser
+- **Element Interaction**: Click, Type, Select Options
+- **Waiting**: Wait For Elements State, Wait For Load State
+- **Assertions**: Get Text, Get Attribute
+
+### RequestsLibrary
+For HTTP/REST API testing:
+- **Requests**: GET, POST, PUT, DELETE
+- **Sessions**: Create Session, Delete All Sessions
+- **Assertions**: Status Should Be, Response Should Contain
+
+## Search Tips
+1. **Start Broad**: Begin with general terms like "browser" or "api"
+2. **Get Specific**: Narrow down to specific actions like "click" or "input"
+3. **Check Documentation**: Read the full doc field for usage examples
+4. **Explore Libraries**: Look at entire libraries to understand capabilities
+5. **Find Alternatives**: Search for similar keywords if one doesn't fit
+
+## Workflow for Test Development
+1. **Identify Need**: What action do you need to perform?
+2. **Search Keywords**: Use \`helpmetest_keywords\` to find relevant keywords
+3. **Read Documentation**: Understand parameters and usage
+4. **Check Examples**: Look for usage examples in the documentation
+5. **Test Implementation**: Use the keyword in your test`
+
+  if (searchTerm) {
+    prompt += `\n\n## Focused Search: "${searchTerm}"
+Let's start by exploring keywords related to "${searchTerm}":
+
+\`helpmetest_keywords({search: "${searchTerm}"})\`
+
+This will help you find relevant keywords and understand their usage.`
+  }
+
+  prompt += `\n\n## Advanced Search Techniques
+
+### Finding Related Keywords
+If you find a useful keyword, search for related ones:
+- Found "Click"? Search "click" for more click-related keywords
+- Found "Should Be Equal"? Search "should" for more assertions
+
+### Library Exploration
+Explore entire libraries to understand their full capabilities:
+\`helpmetest_keywords({search: "BuiltIn", type: "libraries"})\`
+
+### Keyword Patterns
+Look for common patterns:
+- Keywords starting with "Should" are usually assertions
+- Keywords with "Wait" handle timing and synchronization
+- Keywords with "Get" retrieve information
+- Keywords with "Set" modify state
+
+This systematic approach helps you build comprehensive and effective Robot Framework tests.`
+
+  return prompt
 }
 
 /**
