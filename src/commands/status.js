@@ -47,15 +47,137 @@ function createCleanTable(headers, rows) {
 
 
 /**
+ * Display tests section
+ * @param {Array} tests - Tests data
+ * @param {Object} testStatus - Test status data
+ * @param {Object} options - Display options
+ */
+function displayTestsSection(tests, testStatus, options) {
+  console.log(colors.subtitle('Tests'))
+  if (tests.length === 0) {
+    console.log('No tests found')
+  } else {
+    // Sort tests by status priority (fail, pass, unknown) and then by last run time
+    const sortedTests = multiSort(tests, [
+      {
+        field: 'status',
+        order: 'ASC',
+        getValue: (test) => {
+          const status = (testStatus[test.id]?.[0]?.status || 'unknown').toLowerCase()
+          const statusOrder = { 'fail': 0, 'pass': 1, 'unknown': 2 }
+          return statusOrder[status] ?? 2
+        }
+      },
+      {
+        field: 'timestamp',
+        order: 'DESC',
+        getValue: (test) => testStatus[test.id]?.[0]?.timestamp ? new Date(testStatus[test.id][0].timestamp).getTime() : 0
+      }
+    ])
+    
+    // Prepare tests table data
+    const headers = options.verbose 
+      ? ['Status', 'Name', 'Last Run', 'Duration', 'Tags', 'Content']
+      : ['Status', 'Name', 'Last Run', 'Duration', 'Tags']
+    
+    const testsRows = sortedTests.map(test => {
+      const statusRecords = testStatus[test.id] || []
+      const latestStatus = statusRecords.length > 0 ? statusRecords[0] : null
+      const testName = test.name || test.id
+      const testStatus_ = latestStatus?.status || 'unknown'
+      const statusSymbol = getStatusFormat(testStatus_).emoji
+      const lastRun = formatTimeSince(latestStatus?.timestamp)
+      const duration = latestStatus?.elapsedtime ? `${Math.round(latestStatus.elapsedtime / 1000)}s` : 'N/A'
+      const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : ''
+      
+      const row = [statusSymbol, testName, lastRun, duration, tags]
+      
+      if (options.verbose) {
+        // Add test content (full content in verbose mode)
+        const content = test.content || test.description || ''
+        row.push(content)
+      }
+      
+      return row
+    })
+    
+    console.log(createCleanTable(headers, testsRows))
+  }
+}
+
+/**
+ * Display healthchecks section
+ * @param {Array} healthChecks - Healthchecks data
+ * @param {Object} options - Display options
+ */
+function displayHealthchecksSection(healthChecks, options) {
+  console.log(colors.subtitle('Healthchecks'))
+  if (healthChecks.length === 0) {
+    console.log('No healthchecks found')
+  } else {
+    // Sort healthchecks by status priority (down, up, unknown) and then by last heartbeat
+    const sortedHealthChecks = multiSort(healthChecks, [
+      {
+        field: 'status',
+        order: 'ASC',
+        getValue: (hc) => {
+          const status = (hc.status || 'unknown').toLowerCase()
+          const statusOrder = { 'down': 0, 'up': 1, 'unknown': 2 }
+          return statusOrder[status] ?? 2
+        }
+      },
+      {
+        field: 'lastHeartbeat',
+        order: 'DESC',
+        getValue: (hc) => hc.lastHeartbeat ? new Date(hc.lastHeartbeat).getTime() : 0
+      }
+    ])
+    
+    // Prepare healthchecks table data
+    const headers = options.verbose 
+      ? ['Status', 'Name', 'Last Heartbeat', 'Grace', 'Env', 'Host', 'Tags', 'Data']
+      : ['Status', 'Name', 'Last Heartbeat', 'Grace', 'Env', 'Host', 'Tags']
+    
+    const healthchecksRows = sortedHealthChecks.map(hc => {
+      const statusSymbol = getStatusFormat(hc.status).emoji
+      const lastHeartbeat = formatTimeSince(hc.lastHeartbeat || hc.last_heartbeat)
+      const gracePeriod = hc.gracePeriod || hc.grace_period || 'N/A'
+      const tags = hc.tags && hc.tags.length > 0 ? hc.tags.join(', ') : ''
+      
+      // Extract environment and hostname from heartbeat data
+      const env = hc.latestEnv || hc.latest_env || 
+                 (hc.latestHeartbeatData || hc.latest_heartbeat_data)?.environment || 
+                 hc.data?.environment || 'N/A'
+      const hostname = (hc.latestHeartbeatData || hc.latest_heartbeat_data)?.hostname || 
+                      hc.data?.hostname || 'N/A'
+      
+      const row = [statusSymbol, hc.name, lastHeartbeat, gracePeriod, env, hostname, tags]
+      
+      if (options.verbose) {
+        // Add additional data (full data in verbose mode)
+        const additionalData = hc.latestHeartbeatData || hc.latest_heartbeat_data || hc.data || {}
+        const dataStr = JSON.stringify(additionalData)
+        row.push(dataStr)
+      }
+      
+      return row
+    })
+    
+    console.log(createCleanTable(headers, healthchecksRows))
+  }
+}
+
+/**
  * Status command handler
  * Shows status of all checks in the system in the desired format
+ * @param {string} subcommand - Optional subcommand ('test' or 'health')
  * @param {Object} options - Command options
  * @param {boolean} options.json - Output in JSON format
  * @param {boolean} options.verbose - Show detailed information
  */
-async function statusCommand(options) {
-  // Validate configuration first
-  if (!validateConfiguration(config, options.verbose)) {
+async function statusCommand(subcommand, options) {
+  // Validate configuration first (don't show verbose output if JSON is requested)
+  if (!validateConfiguration(config, options.json ? false : options.verbose)) {
     output.error('Configuration validation failed')
     output.info('Please set HELPMETEST_API_TOKEN environment variable')
     process.exit(1)
@@ -65,7 +187,27 @@ async function statusCommand(options) {
     // Handle JSON output using reusable functions
     if (options.json) {
       const jsonData = await getFormattedStatusData(options)
-      console.log(JSON.stringify(jsonData, null, 2))
+      
+      // Filter JSON data based on subcommand
+      if (subcommand === 'test') {
+        const filteredData = {
+          company: jsonData.company,
+          total: jsonData.tests.length,
+          tests: jsonData.tests,
+          timestamp: jsonData.timestamp
+        }
+        console.log(JSON.stringify(filteredData, null, 2))
+      } else if (subcommand === 'health') {
+        const filteredData = {
+          company: jsonData.company,
+          total: jsonData.healthchecks.length,
+          healthchecks: jsonData.healthchecks,
+          timestamp: jsonData.timestamp
+        }
+        console.log(JSON.stringify(filteredData, null, 2))
+      } else {
+        console.log(JSON.stringify(jsonData, null, 2))
+      }
       return
     }
 
@@ -77,95 +219,29 @@ async function statusCommand(options) {
     console.log(colors.title(userInfo.requestCompany?.name || userInfo.activeCompany))
     console.log()
 
-    // Tests section
-    console.log(colors.subtitle('Tests'))
-    if (tests.length === 0) {
-      console.log('No tests found')
-    } else {
-      // Sort tests by status priority (fail, pass, unknown) and then by last run time
-      const sortedTests = multiSort(tests, [
-        {
-          field: 'status',
-          order: 'ASC',
-          getValue: (test) => {
-            const status = (testStatus[test.id]?.[0]?.status || 'unknown').toLowerCase()
-            const statusOrder = { 'fail': 0, 'pass': 1, 'unknown': 2 }
-            return statusOrder[status] ?? 2
-          }
-        },
-        {
-          field: 'timestamp',
-          order: 'DESC',
-          getValue: (test) => testStatus[test.id]?.[0]?.timestamp ? new Date(testStatus[test.id][0].timestamp).getTime() : 0
-        }
-      ])
+    // Display sections based on subcommand
+    if (!subcommand || subcommand === 'test') {
+      displayTestsSection(tests, testStatus, options)
       
-      // Prepare tests table data
-      const testsRows = sortedTests.map(test => {
-        const statusRecords = testStatus[test.id] || []
-        const latestStatus = statusRecords.length > 0 ? statusRecords[0] : null
-        const testName = test.name || test.id
-        const testStatus_ = latestStatus?.status || 'unknown'
-        const statusSymbol = getStatusFormat(testStatus_).emoji
-        const lastRun = formatTimeSince(latestStatus?.timestamp)
-        const duration = latestStatus?.elapsedtime ? `${Math.round(latestStatus.elapsedtime / 1000)}s` : 'N/A'
-        const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : ''
-        
-        return [statusSymbol, testName, lastRun, duration, tags]
-      })
-      
-      console.log(createCleanTable(['Status', 'Name', 'Last Run', 'Duration', 'Tags'], testsRows))
+      if (!subcommand) {
+        console.log()
+      }
     }
     
-    console.log()
-
-    // Healthchecks section
-    console.log(colors.subtitle('Healthchecks'))
-    if (healthChecks.length === 0) {
-      console.log('No healthchecks found')
-    } else {
-      // Sort healthchecks by status priority (down, up, unknown) and then by last heartbeat
-      const sortedHealthChecks = multiSort(healthChecks, [
-        {
-          field: 'status',
-          order: 'ASC',
-          getValue: (hc) => {
-            const status = (hc.status || 'unknown').toLowerCase()
-            const statusOrder = { 'down': 0, 'up': 1, 'unknown': 2 }
-            return statusOrder[status] ?? 2
-          }
-        },
-        {
-          field: 'lastHeartbeat',
-          order: 'DESC',
-          getValue: (hc) => hc.lastHeartbeat ? new Date(hc.lastHeartbeat).getTime() : 0
-        }
-      ])
-      
-      // Prepare healthchecks table data
-      const healthchecksRows = sortedHealthChecks.map(hc => {
-        const statusSymbol = getStatusFormat(hc.status).emoji
-        const lastHeartbeat = formatTimeSince(hc.lastHeartbeat || hc.last_heartbeat)
-        const gracePeriod = hc.gracePeriod || hc.grace_period || 'N/A'
-        const tags = hc.tags && hc.tags.length > 0 ? hc.tags.join(', ') : ''
-        
-        // Extract environment and hostname from heartbeat data
-        const env = hc.latestEnv || hc.latest_env || 
-                   (hc.latestHeartbeatData || hc.latest_heartbeat_data)?.environment || 
-                   hc.data?.environment || 'N/A'
-        const hostname = (hc.latestHeartbeatData || hc.latest_heartbeat_data)?.hostname || 
-                        hc.data?.hostname || 'N/A'
-        
-        return [statusSymbol, hc.name, lastHeartbeat, gracePeriod, env, hostname, tags]
-      })
-      
-      console.log(createCleanTable(['Status', 'Name', 'Last Heartbeat', 'Grace', 'Env', 'Host', 'Tags'], healthchecksRows))
+    if (!subcommand || subcommand === 'health') {
+      displayHealthchecksSection(healthChecks, options)
     }
 
     // Show totals if verbose
     if (options.verbose) {
       console.log()
-      console.log(`Total: ${tests.length} tests, ${healthChecks.length} healthchecks`)
+      if (subcommand === 'test') {
+        console.log(`Total: ${tests.length} tests`)
+      } else if (subcommand === 'health') {
+        console.log(`Total: ${healthChecks.length} healthchecks`)
+      } else {
+        console.log(`Total: ${tests.length} tests, ${healthChecks.length} healthchecks`)
+      }
     }
 
   } catch (error) {

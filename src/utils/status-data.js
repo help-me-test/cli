@@ -7,6 +7,7 @@
 
 import { getAllHealthChecks, getAllTests, getTestStatus, getUserInfo } from './api.js'
 import { debug } from './config.js'
+import * as R from 'ramda'
 
 /**
  * Format duration since last heartbeat
@@ -91,31 +92,40 @@ export function multiSort(items, sortFields) {
 }
 
 /**
- * Format check data for JSON output
- * @param {Object} check - Health check data
- * @returns {Object} Formatted check data
+ * Generic formatter for API responses - picks fields and adds minimal formatting
+ * @param {Array} baseFields - Fields to always include
+ * @param {Array} verboseFields - Additional fields when verbose=true
+ * @param {Object} item - API response item
+ * @param {boolean} verbose - Include verbose fields
+ * @returns {Object} Formatted item
  */
-export function formatCheckForJson(check) {
-  const fmt = getStatusFormat(check.status)
-  return {
-    name: check.name,
-    status: check.status?.toLowerCase() || 'unknown',
-    emoji: fmt.emoji,
-    lastHeartbeat: check.lastHeartbeat,
-    lastHeartbeatFormatted: formatTimeSince(check.lastHeartbeat),
-    gracePeriod: check.gracePeriod,
-    tags: check.tags || [],
-    data: check.data || {},
-    // Include additional healthcheck-specific fields if available
-    ...(check.id && { id: check.id }),
-    ...(check.gracePeriodSeconds && { gracePeriodSeconds: check.gracePeriodSeconds }),
-    ...(check.createdAt && { createdAt: check.createdAt }),
-    ...(check.updatedAt && { updatedAt: check.updatedAt }),
-    // Include latest heartbeat metadata if available
-    ...(check.latestElapsedTime !== undefined && { latestElapsedTime: check.latestElapsedTime }),
-    ...(check.latestEnv && { latestEnv: check.latestEnv }),
-  }
-}
+const formatApiResponse = R.curry((baseFields, verboseFields, item, verbose) => {
+  const fieldsToInclude = verbose ? R.concat(baseFields, verboseFields) : baseFields
+  
+  return R.pipe(
+    R.pick(fieldsToInclude),
+    R.when(
+      R.has('status'),
+      R.assoc('emoji', getStatusFormat(item.status).emoji)
+    )
+  )(item)
+})
+
+/**
+ * Format healthcheck for JSON output
+ */
+export const formatHealthcheck = formatApiResponse(
+  ['name', 'status', 'last_heartbeat', 'grace_period', 'tags'],
+  ['id', 'grace_period_seconds', 'created_at', 'updated_at', 'latest_elapsed_time', 'latest_env', 'latest_heartbeat_data']
+)
+
+/**
+ * Format test for JSON output  
+ */
+export const formatTest = formatApiResponse(
+  ['name', 'status', 'last_run', 'duration', 'tags'],
+  ['id', 'content', 'description']
+)
 
 /**
  * Collect all status data from APIs
@@ -163,10 +173,13 @@ export async function collectStatusData(options = {}) {
 /**
  * Format status data for JSON output
  * @param {Object} statusData - Raw status data from collectStatusData
+ * @param {Object} options - Formatting options
+ * @param {boolean} options.verbose - Include verbose data like test content
  * @returns {Object} Formatted JSON data
  */
-export function formatStatusDataForJson(statusData) {
+export function formatStatusDataForJson(statusData, options = {}) {
   const { userInfo, healthChecks, tests, testStatus } = statusData
+  const { verbose = false } = options
   
   // Sort tests by status priority (fail, pass, unknown) and then by last run time
   const sortedTests = multiSort(tests, [
@@ -189,13 +202,15 @@ export function formatStatusDataForJson(statusData) {
   const testsWithStatus = sortedTests.map(test => {
     const statusRecords = testStatus[test.id] || []
     const latestStatus = statusRecords.length > 0 ? statusRecords[0] : null
-    return formatCheckForJson({
-      name: test.name || test.id,
+    
+    // Add execution data (don't override existing content/description from API)
+    const testWithExecution = R.mergeRight(test, {
       status: latestStatus?.status || 'unknown',
-      lastHeartbeat: latestStatus?.timestamp,
-      gracePeriod: latestStatus?.elapsedtime ? `${Math.round(latestStatus.elapsedtime / 1000)}s` : 'N/A',
-      tags: test.tags || [],
+      last_run: latestStatus?.timestamp,
+      duration: latestStatus?.elapsedtime ? `${Math.round(latestStatus.elapsedtime / 1000)}s` : 'N/A'
     })
+    
+    return formatTest(testWithExecution, verbose)
   })
 
   // Sort healthchecks by status priority (down, up, unknown) and then by last heartbeat
@@ -216,22 +231,7 @@ export function formatStatusDataForJson(statusData) {
     }
   ])
 
-  const formattedHealthChecks = sortedHealthChecks.map(hc => formatCheckForJson({
-    name: hc.name,
-    status: hc.status,
-    lastHeartbeat: hc.lastHeartbeat || hc.last_heartbeat,
-    gracePeriod: hc.gracePeriod || hc.grace_period || 'N/A',
-    tags: hc.tags || [],
-    data: hc.latestHeartbeatData || hc.latest_heartbeat_data || hc.data || {},
-    // Include additional database fields
-    id: hc.id,
-    gracePeriodSeconds: hc.gracePeriodSeconds || hc.grace_period_seconds,
-    createdAt: hc.createdAt || hc.created_at,
-    updatedAt: hc.updatedAt || hc.updated_at,
-    // Include latest heartbeat metadata
-    latestElapsedTime: hc.latestElapsedTime || hc.latest_elapsed_time,
-    latestEnv: hc.latestEnv || hc.latest_env,
-  }))
+  const formattedHealthChecks = sortedHealthChecks.map(hc => formatHealthcheck(hc, verbose))
 
   return {
     company: userInfo.requestCompany?.name || userInfo.activeCompany || 'Unknown Company',
@@ -245,12 +245,12 @@ export function formatStatusDataForJson(statusData) {
 /**
  * Get complete formatted status data
  * @param {Object} options - Options for data collection and formatting
- * @param {boolean} options.verbose - Enable verbose logging
+ * @param {boolean} options.verbose - Enable verbose logging and include verbose data
  * @returns {Promise<Object>} Complete formatted status data
  */
 export async function getFormattedStatusData(options = {}) {
   const statusData = await collectStatusData(options)
-  return formatStatusDataForJson(statusData)
+  return formatStatusDataForJson(statusData, options)
 }
 
 // Export all functions for convenience
@@ -258,7 +258,8 @@ export default {
   formatTimeSince,
   getStatusFormat,
   multiSort,
-  formatCheckForJson,
+  formatHealthcheck,
+  formatTest,
   collectStatusData,
   formatStatusDataForJson,
   getFormattedStatusData
