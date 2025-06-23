@@ -6,16 +6,29 @@ The HelpMeTest MCP server now includes powerful test management capabilities tha
 
 ## New MCP Tools
 
-### `helpmetest_list_tests`
-**Purpose:** Discover and list all available tests with their metadata
-**Arguments:** None
-**Returns:** Complete test inventory with IDs, names, descriptions, and tags
+### `helpmetest_status_test`
+**Purpose:** Get status of all tests in the helpmetest system
+**Arguments:** 
+- `verbose` (optional, default: false): Enable verbose output with full test content, descriptions, and execution details
+**Returns:** Complete test inventory with status, IDs, names, descriptions, and tags
 
 ### `helpmetest_run_test`  
 **Purpose:** Execute tests by name, tag, or ID with real-time results
 **Arguments:** 
 - `identifier` (required): Test name, tag (tag:tagname), or ID to run
 **Returns:** Complete execution results with timing, status, and detailed logs
+
+### `helpmetest_status`
+**Purpose:** Get comprehensive status of all tests and health checks in the helpmetest system
+**Arguments:**
+- `verbose` (optional, default: false): Enable verbose output with test content, descriptions, and additional healthcheck data
+**Returns:** Complete system status including tests and health checks
+
+### `helpmetest_status_health`
+**Purpose:** Get status of all health checks in the helpmetest system
+**Arguments:**
+- `verbose` (optional, default: false): Enable verbose output with additional healthcheck metadata, heartbeat data, and debug information
+**Returns:** Complete health check inventory with status, metadata, and heartbeat information
 
 ## Natural Language Examples
 
@@ -289,24 +302,7 @@ echo "run tests related to my changes" | your-ai-cli-tool
 
 ---
 
-The test management capabilities transform your AI assistant into a powerful test execution and monitoring companion, making it easy to verify system health, run test suites, and maintain quality through natural conversation.# MCP Test Management - AI-Powered Test Execution
-
-## Overview
-
-The HelpMeTest MCP server now includes powerful test management capabilities that allow your AI assistant to discover, organize, and execute your test suites through natural conversation.
-
-## New MCP Tools
-
-### `helpmetest_list_tests`
-**Purpose:** Discover and list all available tests with their metadata
-**Arguments:** None
-**Returns:** Complete test inventory with IDs, names, descriptions, and tags
-
-### `helpmetest_run_test`  
-**Purpose:** Execute tests by name, tag, or ID with real-time results
-**Arguments:** 
-- `identifier` (required): Test name, tag (tag:tagname), or ID to run
-**Returns:** Complete execution results with timing, status, and detailed logs
+The test management capabilities transform your AI assistant into a powerful test execution and monitoring companion, making it easy to verify system health, run test suites, and maintain quality through natural conversation.
 
 ## Natural Language Examples
 

@@ -52,11 +52,12 @@ Settings.json:
 Simple prompts that actually work:
 
 ### Health & System Monitoring
-### Health & System Monitoring
-- **"status API"** - compreomprehensivensive system status
+- **"status API"** - comprehensive system status
 - **"check https://always-up.test.helpmetest.com"** - health check URL  
 - **"system metrics"** - CPU/memory/disk usage
 - **"health status"** - all health checks status
+- **"test status"** - status of all tests only
+- **"health check status"** - status of all health checks only
 
 ### Test Management ✨ NEW
 - **"what tests do I have"** - list all available tests
@@ -64,6 +65,7 @@ Simple prompts that actually work:
 - **"run the Google search test"** - execute specific test by name
 - **"execute test abc123"** - run test by ID
 - **"run all critical tests"** - execute tagged test suites
+- **"show detailed test status"** - verbose test status with content
 
 ## Test It
 
@@ -78,12 +80,8 @@ Should list all your configured tests with IDs, names, and tags.
 Then try: **"run uptime tests"**
 Should execute all tests tagged with 'uptime' and show results.
 
-### Test Management ✨ NEW
-Ask your AI: **"what tests do I have available?"**
-Should list all your configured tests with IDs, names, and tags.
-
-Then try: **"run uptime tests"**
-Should execute all tests tagged with 'uptime' and show results.
+Try: **"test status --verbose"**
+Should show detailed test status with content and descriptions.
 
 ---
 
