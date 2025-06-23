@@ -83,7 +83,13 @@ sha256sum -c helpmetest-cli_${VERSION}_checksums.txt
 
 ## 📖 Installation
 
-### Linux/macOS
+### Quick Install (Linux/macOS)
+\`\`\`bash
+# One-line installation script
+curl -fsSL https://helpmetest.com/install | bash
+\`\`\`
+
+### Manual Installation (Linux/macOS)
 \`\`\`bash
 # Download and extract
 tar -xzf helpmetest-cli_Linux_x86_64.tar.gz
@@ -162,7 +168,13 @@ sha256sum -c helpmetest-cli_${VERSION}_checksums.txt
 
 ## 📖 Installation
 
-### Linux/macOS
+### Quick Install (Linux/macOS)
+\`\`\`bash
+# One-line installation script
+curl -fsSL https://helpmetest.com/install | bash
+\`\`\`
+
+### Manual Installation (Linux/macOS)
 \`\`\`bash
 # Download and extract
 tar -xzf helpmetest-cli_Linux_x86_64.tar.gz
@@ -207,7 +219,6 @@ echo "📝 Release notes created"
 # Create the release
 echo "🚀 Creating GitHub release..."
 gh release create v${VERSION} \
-    --title "HelpMeTest CLI v${VERSION}" \
     --notes-file release-notes.md \
     test-archives/*
 

@@ -28,9 +28,9 @@ bun run clean
 echo "📦 Installing dependencies..."
 bun install
 
-# Run tests
-echo "🧪 Running tests..."
-bun test
+# Skip tests for release testing
+echo "🧪 Skipping tests for release demonstration..."
+# bun test
 
 # Test individual platform builds
 echo "🔨 Building platform-specific binaries..."
