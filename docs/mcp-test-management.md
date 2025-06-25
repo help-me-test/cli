@@ -30,6 +30,21 @@ The HelpMeTest MCP server now includes powerful test management capabilities tha
 - `verbose` (optional, default: false): Enable verbose output with additional healthcheck metadata, heartbeat data, and debug information
 **Returns:** Complete health check inventory with status, metadata, and heartbeat information
 
+### `helpmetest_updates`
+**Purpose:** Get recent company updates from the updates feed
+**Arguments:**
+- `limit` (optional, default: 20): Number of updates to retrieve
+- `tags` (optional): Filter updates by specific tags (e.g., "test:deletion")
+**Returns:** Recent company updates with tags, data, and timestamps
+
+### `helpmetest_restore_test`
+**Purpose:** Restore a previously deleted test from the updates feed
+**Arguments:**
+- `update_id` (required): ID of the update record containing the deleted test data
+**Returns:** Restoration status and restored test details
+
+For detailed examples and usage of the updates feed, see [Updates Feed Integration](./updates-feed.md).
+
 ## Natural Language Examples
 
 ### Test Discovery
