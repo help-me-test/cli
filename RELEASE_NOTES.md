@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.3.0 (2024-06-25)
+
+### New Features
+
+- **Updates API Integration**: Added support for the updates API endpoints, enabling real-time monitoring of system updates
+- **MCP Server Enhancement**: Extended MCP server capabilities to handle updates monitoring integration
+
+### Bug Fixes
+
+- **MCP Server**: Fixed issues with updates monitoring integration in the MCP server
+- **Keywords Command**: Improved reliability of the keywords command with updates system
+
 ## v1.2.0 (2024-06-XX)
 
 ### New Features
