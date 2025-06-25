@@ -22,7 +22,7 @@ import { performHttpHealthCheck } from '../commands/health.js'
 // import { collectSystemMetrics } from './metrics.js'
 import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, undoUpdate } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
-import { libraries, keywords } from '../keywords.js'
+import { libraries } from '../keywords.js'
 import { 
   TOOL_CONFIGS,
   getMcpServerConfig,
@@ -314,6 +314,28 @@ export function createMcpServer(options = {}) {
     }
   )
 
+  // Register health check integration tool
+  server.registerTool(
+    'helpmetest_add_health_check',
+    {
+      title: 'Help Me Test: Add Health Check Tool',
+      description: 'Automatically add HelpMeTest health checks to container files (Dockerfile, docker-compose.yml, Kubernetes manifests, devspace.yaml)',
+      inputSchema: {
+        filePath: z.string().describe('Path to the file to modify (Dockerfile, docker-compose.yml, k8s manifest, devspace.yaml)'),
+        serviceName: z.string().describe('Name of the service for the health check'),
+        healthCheckUrl: z.string().optional().default('localhost:3000/health').describe('Health check endpoint URL (default: localhost:3000/health)'),
+        gracePeriod: z.string().optional().default('1m').describe('Grace period for health check (default: 1m)'),
+        interval: z.string().optional().default('30s').describe('Health check interval (default: 30s)'),
+        timeout: z.string().optional().default('10s').describe('Health check timeout (default: 10s)'),
+        retries: z.number().optional().default(3).describe('Number of retries (default: 3)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Add health check tool called with args: ${JSON.stringify(args)}`)
+      return await handleAddHealthCheck(args)
+    }
+  )
+
   // Register prompts
   server.registerPrompt(
     'helpmetest_create_test',
@@ -408,6 +430,41 @@ export function createMcpServer(options = {}) {
             content: {
               type: 'text',
               text: generateTestModificationPrompt(test_id, modification_type)
+            }
+          }
+        ]
+      }
+    }
+  )
+
+  server.registerPrompt(
+    'helpmetest_health_check_integration',
+    {
+      name: 'helpmetest_health_check_integration',
+      description: 'Guide for integrating HelpMeTest health checks into containers, pods, and devspace files',
+      arguments: [
+        {
+          name: 'container_type',
+          description: 'Type of container integration (docker, kubernetes, devspace)',
+          required: false
+        },
+        {
+          name: 'service_name',
+          description: 'Name of the service to add health checks to',
+          required: false
+        }
+      ]
+    },
+    async (args) => {
+      const { container_type = '', service_name = '' } = args
+      
+      return {
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: generateHealthCheckIntegrationPrompt(container_type, service_name)
             }
           }
         ]
@@ -900,7 +957,7 @@ async function handleCreateTest(args) {
     }
     
     // Construct the test URL for browser opening
-    const testUrl = `https://helpmetest.slava.helpmetest.com/test/${createdTest.id}`
+    const testUrl = `https://helpmetest.com/test/${createdTest.id}`
     
     // Run the test immediately after creation
     let testRunResult = null
@@ -1068,7 +1125,7 @@ async function handleModifyTest(args) {
     }
     
     // Construct the test URL for browser opening
-    const testUrl = `https://helpmetest.slava.helpmetest.com/test/${updatedTest.id}`
+    const testUrl = `https://helpmetest.com/test/${updatedTest.id}`
     
     // Run the test immediately after modification
     let testRunResult = null
@@ -1440,6 +1497,609 @@ async function handleKeywordsSearch(args) {
 }
 
 /**
+ * Handle add health check tool call
+ * @param {Object} args - Tool arguments
+ * @param {string} args.filePath - Path to the file to modify
+ * @param {string} args.serviceName - Name of the service for the health check
+ * @param {string} [args.healthCheckUrl='localhost:3000/health'] - Health check endpoint URL
+ * @param {string} [args.gracePeriod='1m'] - Grace period for health check
+ * @param {string} [args.interval='30s'] - Health check interval
+ * @param {string} [args.timeout='10s'] - Health check timeout
+ * @param {number} [args.retries=3] - Number of retries
+ * @returns {Object} Health check addition result
+ */
+async function handleAddHealthCheck(args) {
+  const { 
+    filePath, 
+    serviceName, 
+    healthCheckUrl = 'localhost:3000/health',
+    gracePeriod = '1m',
+    interval = '30s',
+    timeout = '10s',
+    retries = 3
+  } = args
+  
+  debug(config, `Adding health check to file: ${filePath}`)
+  
+  try {
+    // Read the file content
+    let fileContent
+    try {
+      fileContent = fs.readFileSync(filePath, 'utf8')
+    } catch (readError) {
+      throw new Error(`Could not read file ${filePath}: ${readError.message}`)
+    }
+    
+    // Determine file type and add appropriate health check
+    const fileName = path.basename(filePath).toLowerCase()
+    let modifiedContent
+    let healthCheckAdded = false
+    
+    if (fileName === 'dockerfile' || fileName.endsWith('.dockerfile')) {
+      // Docker health check
+      modifiedContent = addDockerHealthCheck(fileContent, serviceName, healthCheckUrl, interval, timeout, retries)
+      healthCheckAdded = true
+    } else if (fileName === 'docker-compose.yml' || fileName === 'docker-compose.yaml') {
+      // Docker Compose health check
+      modifiedContent = addDockerComposeHealthCheck(fileContent, serviceName, healthCheckUrl, interval, timeout, retries)
+      healthCheckAdded = true
+    } else if (fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
+      // Check if it's a Kubernetes manifest or devspace file
+      if (fileContent.includes('apiVersion:') && fileContent.includes('kind:')) {
+        // Kubernetes manifest
+        modifiedContent = addKubernetesHealthCheck(fileContent, serviceName, healthCheckUrl, gracePeriod, interval, timeout, retries)
+        healthCheckAdded = true
+      } else if (fileContent.includes('devspace') || fileName === 'devspace.yaml') {
+        // DevSpace configuration
+        modifiedContent = addDevSpaceHealthCheck(fileContent, serviceName, healthCheckUrl, gracePeriod)
+        healthCheckAdded = true
+      } else {
+        throw new Error(`Unsupported YAML file type. File must be a Kubernetes manifest or devspace.yaml`)
+      }
+    } else {
+      throw new Error(`Unsupported file type: ${fileName}. Supported types: Dockerfile, docker-compose.yml, Kubernetes manifests (.yaml/.yml), devspace.yaml`)
+    }
+    
+    if (!healthCheckAdded) {
+      throw new Error('Failed to add health check - unsupported file format')
+    }
+    
+    // Write the modified content back to the file
+    try {
+      fs.writeFileSync(filePath, modifiedContent, 'utf8')
+    } catch (writeError) {
+      throw new Error(`Could not write to file ${filePath}: ${writeError.message}`)
+    }
+    
+    const response = {
+      success: true,
+      filePath,
+      serviceName,
+      healthCheckUrl,
+      gracePeriod,
+      interval,
+      timeout,
+      retries,
+      fileType: getFileType(fileName),
+      message: `Health check successfully added to ${filePath}`,
+      timestamp: new Date().toISOString(),
+      instructions: getPostInstallationInstructions(getFileType(fileName))
+    }
+    
+    debug(config, `Health check added successfully to ${filePath}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(response),
+        },
+      ],
+      isError: false,
+    }
+  } catch (error) {
+    debug(config, `Error adding health check: ${error.message}`)
+    
+    const errorResponse = {
+      error: true,
+      message: error.message,
+      type: error.name || 'Error',
+      filePath,
+      serviceName,
+      timestamp: new Date().toISOString()
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Infer appropriate health check command based on container content
+ * @param {string} content - Dockerfile content
+ * @param {string} defaultUrl - Default health check URL
+ * @returns {string} Appropriate health check command
+ */
+function inferHealthCheckCommand(content, defaultUrl) {
+  const lowerContent = content.toLowerCase()
+  
+  // Look for CMD and ENTRYPOINT instructions
+  const cmdMatch = content.match(/(?:CMD|ENTRYPOINT)\s*\[(.*?)\]|(?:CMD|ENTRYPOINT)\s+(.+)/i)
+  const cmdLine = cmdMatch ? (cmdMatch[1] || cmdMatch[2] || '').toLowerCase() : ''
+  
+  // Database containers
+  if (lowerContent.includes('postgres') || cmdLine.includes('postgres')) {
+    return 'psql -h localhost -c "SELECT 1"'
+  }
+  
+  if (lowerContent.includes('mysql') || cmdLine.includes('mysql')) {
+    return 'mysql -h localhost -e "SELECT 1"'
+  }
+  
+  if (lowerContent.includes('redis') || cmdLine.includes('redis')) {
+    return 'redis-cli ping'
+  }
+  
+  if (lowerContent.includes('mongo') || cmdLine.includes('mongo')) {
+    return 'mongosh --eval "db.runCommand({ping: 1})"'
+  }
+  
+  // Web servers/applications
+  if (lowerContent.includes('node') || cmdLine.includes('node') || lowerContent.includes('npm')) {
+    // Node.js app - try health endpoint first, fallback to root
+    return defaultUrl.includes('localhost') ? `GET ${defaultUrl}` : 'GET localhost:3000/health'
+  }
+  
+  if (lowerContent.includes('python') || cmdLine.includes('python') || lowerContent.includes('flask') || lowerContent.includes('fastapi')) {
+    // Python web app
+    return defaultUrl.includes('localhost') ? `GET ${defaultUrl}` : 'GET localhost:8000/health'
+  }
+  
+  if (lowerContent.includes('nginx') || cmdLine.includes('nginx')) {
+    return 'GET localhost:80/health'
+  }
+  
+  if (lowerContent.includes('apache') || cmdLine.includes('apache')) {
+    return 'GET localhost:80/health'
+  }
+  
+  // Message queues
+  if (lowerContent.includes('kafka') || cmdLine.includes('kafka')) {
+    return ':9092'
+  }
+  
+  if (lowerContent.includes('rabbitmq') || cmdLine.includes('rabbitmq')) {
+    return 'GET localhost:15672/api/overview'
+  }
+  
+  // Utility/debug containers
+  if (cmdLine.includes('sleep') || cmdLine.includes('tail') || cmdLine.includes('infinity')) {
+    return 'echo "Container is responsive"'
+  }
+  
+  // Cron containers
+  if (lowerContent.includes('cron') || cmdLine.includes('cron')) {
+    return 'ps aux | grep cron'
+  }
+  
+  // Default: if it looks like a web service, use the provided URL, otherwise use basic check
+  if (defaultUrl && defaultUrl.includes('localhost') && !defaultUrl.includes('localhost:22')) {
+    return `GET ${defaultUrl}`
+  }
+  
+  // Fallback to basic responsiveness check
+  return 'echo "Service is running"'
+}
+
+/**
+ * Add health check to Dockerfile
+ * @param {string} content - Original file content
+ * @param {string} serviceName - Service name
+ * @param {string} healthCheckUrl - Health check URL
+ * @param {string} interval - Check interval
+ * @param {string} timeout - Check timeout
+ * @param {number} retries - Number of retries
+ * @returns {string} Modified content
+ */
+function addDockerHealthCheck(content, serviceName, healthCheckUrl, interval, timeout, retries) {
+  // Check if health check already exists
+  if (content.includes('HEALTHCHECK')) {
+    throw new Error('Dockerfile already contains a HEALTHCHECK instruction')
+  }
+  
+  // Check if HelpMeTest CLI installation exists
+  const hasHelpMeTestInstall = content.includes('helpmetest') || content.includes('https://helpmetest.com/install')
+  
+  let modifiedContent = content
+  
+  // Add HelpMeTest CLI installation if not present
+  if (!hasHelpMeTestInstall) {
+    // Find a good place to add the installation (after FROM instruction)
+    const lines = content.split('\n')
+    let insertIndex = -1
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toUpperCase().startsWith('FROM ')) {
+        insertIndex = i + 1
+        break
+      }
+    }
+    
+    if (insertIndex === -1) {
+      throw new Error('Could not find FROM instruction in Dockerfile')
+    }
+    
+    // Insert HelpMeTest CLI installation
+    const installLines = [
+      '',
+      '# Install HelpMeTest CLI for health checks',
+      'RUN curl -fsSL https://helpmetest.com/install | bash',
+      ''
+    ]
+    
+    lines.splice(insertIndex, 0, ...installLines)
+    modifiedContent = lines.join('\n')
+  }
+  
+  // Analyze container purpose to determine appropriate health check command
+  const healthCheckCommand = inferHealthCheckCommand(modifiedContent, healthCheckUrl)
+  
+  // Add health check instruction
+  const healthCheckInstruction = `
+# Add HelpMeTest health check
+HEALTHCHECK --interval=${interval} --timeout=${timeout} --start-period=5s --retries=${retries} \\
+    CMD helpmetest health "${serviceName}" "1m" "${healthCheckCommand}"`
+  
+  // Add health check before CMD instruction or at the end
+  const lines = modifiedContent.split('\n')
+  let insertIndex = lines.length
+  
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].trim().toUpperCase().startsWith('CMD ') || 
+        lines[i].trim().toUpperCase().startsWith('ENTRYPOINT ')) {
+      insertIndex = i
+      break
+    }
+  }
+  
+  lines.splice(insertIndex, 0, healthCheckInstruction)
+  return lines.join('\n')
+}
+
+/**
+ * Add health check to docker-compose.yml
+ * @param {string} content - Original file content
+ * @param {string} serviceName - Service name
+ * @param {string} healthCheckUrl - Health check URL
+ * @param {string} interval - Check interval
+ * @param {string} timeout - Check timeout
+ * @param {number} retries - Number of retries
+ * @returns {string} Modified content
+ */
+function addDockerComposeHealthCheck(content, serviceName, healthCheckUrl, interval, timeout, retries) {
+  // Parse YAML to find services
+  const lines = content.split('\n')
+  let modifiedLines = [...lines]
+  let serviceFound = false
+  let serviceIndent = 0
+  let insertIndex = -1
+  
+  // Find the service section
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    
+    if (trimmed === 'services:') {
+      continue
+    }
+    
+    // Check if this is a service definition
+    if (line.match(/^ {2}\w+:/) && !line.includes('healthcheck:')) {
+      const currentServiceName = line.replace(':', '').trim()
+      if (currentServiceName === serviceName || serviceName === 'auto') {
+        serviceFound = true
+        serviceIndent = line.search(/\S/) // Find indentation
+        
+        // Find where to insert health check (after environment or ports)
+        for (let j = i + 1; j < lines.length; j++) {
+          const nextLine = lines[j]
+          const nextTrimmed = nextLine.trim()
+          
+          // If we hit another service or end of file, insert here
+          if (nextLine.match(/^ {2}\w+:/) || j === lines.length - 1) {
+            insertIndex = j
+            break
+          }
+          
+          // If we find existing healthcheck, throw error
+          if (nextTrimmed.startsWith('healthcheck:')) {
+            throw new Error(`Service ${currentServiceName} already has a healthcheck defined`)
+          }
+        }
+        break
+      }
+    }
+  }
+  
+  if (!serviceFound) {
+    throw new Error(`Service ${serviceName} not found in docker-compose.yml. Available services: ${getDockerComposeServices(content).join(', ')}`)
+  }
+  
+  // Create health check configuration
+  const healthCheckConfig = [
+    `${' '.repeat(serviceIndent)}healthcheck:`,
+    `${' '.repeat(serviceIndent + 2)}test: ["CMD", "helpmetest", "health", "${serviceName}", "1m", "GET", "${healthCheckUrl}"]`,
+    `${' '.repeat(serviceIndent + 2)}interval: ${interval}`,
+    `${' '.repeat(serviceIndent + 2)}timeout: ${timeout}`,
+    `${' '.repeat(serviceIndent + 2)}retries: ${retries}`,
+    `${' '.repeat(serviceIndent + 2)}start_period: 40s`
+  ]
+  
+  modifiedLines.splice(insertIndex, 0, ...healthCheckConfig)
+  return modifiedLines.join('\n')
+}
+
+/**
+ * Add health check to Kubernetes manifest
+ * @param {string} content - Original file content
+ * @param {string} serviceName - Service name
+ * @param {string} healthCheckUrl - Health check URL
+ * @param {string} gracePeriod - Grace period
+ * @param {string} interval - Check interval
+ * @param {string} timeout - Check timeout
+ * @param {number} retries - Number of retries
+ * @returns {string} Modified content
+ */
+function addKubernetesHealthCheck(content, serviceName, healthCheckUrl, gracePeriod, interval, timeout, retries) {
+  const lines = content.split('\n')
+  let modifiedLines = [...lines]
+  let containerFound = false
+  let insertIndex = -1
+  let containerIndent = 0
+  
+  // Find containers section
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    
+    if (trimmed === 'containers:') {
+      // Find the container definition
+      for (let j = i + 1; j < lines.length; j++) {
+        const containerLine = lines[j]
+        const containerTrimmed = containerLine.trim()
+        
+        if (containerTrimmed.startsWith('- name:') || containerTrimmed.startsWith('name:')) {
+          containerFound = true
+          containerIndent = containerLine.search(/\S/)
+          
+          // Find where to insert probes (after env or ports)
+          for (let k = j + 1; k < lines.length; k++) {
+            const nextLine = lines[k]
+            const nextTrimmed = nextLine.trim()
+            
+            // If we hit another container or end of containers, insert here
+            if (nextTrimmed.startsWith('- name:') || 
+                nextLine.match(/^\s*\w+:/) && !nextLine.includes('  ') ||
+                k === lines.length - 1) {
+              insertIndex = k
+              break
+            }
+            
+            // If we find existing probes, throw error
+            if (nextTrimmed.startsWith('livenessProbe:') || nextTrimmed.startsWith('readinessProbe:')) {
+              throw new Error('Container already has health check probes defined')
+            }
+          }
+          break
+        }
+      }
+      break
+    }
+  }
+  
+  if (!containerFound) {
+    throw new Error('Could not find container definition in Kubernetes manifest')
+  }
+  
+  // Create health check probes
+  const probeConfig = [
+    `${' '.repeat(containerIndent)}livenessProbe:`,
+    `${' '.repeat(containerIndent + 2)}exec:`,
+    `${' '.repeat(containerIndent + 4)}command:`,
+    `${' '.repeat(containerIndent + 4)}- /bin/sh`,
+    `${' '.repeat(containerIndent + 4)}- -c`,
+    `${' '.repeat(containerIndent + 4)}- helpmetest health "${serviceName}-live-$(hostname)" "${gracePeriod}" "GET ${healthCheckUrl}"`,
+    `${' '.repeat(containerIndent + 2)}initialDelaySeconds: 60`,
+    `${' '.repeat(containerIndent + 2)}periodSeconds: ${parseInt(interval)}`,
+    `${' '.repeat(containerIndent + 2)}timeoutSeconds: ${parseInt(timeout)}`,
+    `${' '.repeat(containerIndent + 2)}failureThreshold: ${retries}`,
+    `${' '.repeat(containerIndent)}readinessProbe:`,
+    `${' '.repeat(containerIndent + 2)}exec:`,
+    `${' '.repeat(containerIndent + 4)}command:`,
+    `${' '.repeat(containerIndent + 4)}- /bin/sh`,
+    `${' '.repeat(containerIndent + 4)}- -c`,
+    `${' '.repeat(containerIndent + 4)}- helpmetest health "${serviceName}-ready-$(hostname)" "1m" "GET ${healthCheckUrl}"`,
+    `${' '.repeat(containerIndent + 2)}initialDelaySeconds: 10`,
+    `${' '.repeat(containerIndent + 2)}periodSeconds: 15`,
+    `${' '.repeat(containerIndent + 2)}timeoutSeconds: ${parseInt(timeout)}`,
+    `${' '.repeat(containerIndent + 2)}failureThreshold: 2`
+  ]
+  
+  modifiedLines.splice(insertIndex, 0, ...probeConfig)
+  return modifiedLines.join('\n')
+}
+
+/**
+ * Add health check to devspace.yaml
+ * @param {string} content - Original file content
+ * @param {string} serviceName - Service name
+ * @param {string} healthCheckUrl - Health check URL
+ * @param {string} gracePeriod - Grace period
+ * @returns {string} Modified content
+ */
+function addDevSpaceHealthCheck(content, serviceName, healthCheckUrl, gracePeriod) {
+  // For devspace, we add livenessProbe and readinessProbe to the container in helm values
+  const lines = content.split('\n')
+  let modifiedLines = [...lines]
+  
+  // Infer the appropriate health check command
+  const healthCheckCommand = inferHealthCheckCommand(content, healthCheckUrl)
+  
+  // Find the containers section in deployments -> helm -> values
+  let containerIndex = -1
+  let containerIndent = 0
+  let inContainers = false
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    
+    if (trimmed === 'containers:') {
+      inContainers = true
+      continue
+    }
+    
+    if (inContainers && trimmed.startsWith('- ')) {
+      // Found a container entry
+      containerIndex = i
+      containerIndent = line.length - line.trimStart().length + 2 // Base indent + 2 for list item
+      break
+    }
+  }
+  
+  if (containerIndex === -1) {
+    throw new Error('Could not find containers section in devspace.yaml')
+  }
+  
+  // Find the end of the current container definition
+  let insertIndex = containerIndex + 1
+  for (let i = containerIndex + 1; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    
+    // If we hit another container or a section at the same level or higher, stop
+    if (trimmed.startsWith('- ') || 
+        (trimmed && line.length - line.trimStart().length < containerIndent) ||
+        (trimmed && !line.startsWith(' '.repeat(containerIndent)) && trimmed !== '')) {
+      insertIndex = i
+      break
+    }
+    
+    // If we're at the end of the file
+    if (i === lines.length - 1) {
+      insertIndex = lines.length
+      break
+    }
+  }
+  
+  // Create the health check probes
+  const indent = ' '.repeat(containerIndent)
+  const probeConfig = [
+    `${indent}livenessProbe:`,
+    `${indent}  exec:`,
+    `${indent}    command:`,
+    `${indent}      - helpmetest`,
+    `${indent}      - health`,
+    `${indent}      - "${serviceName}"`,
+    `${indent}      - "${gracePeriod}"`,
+    `${indent}      - "${healthCheckCommand}"`,
+    `${indent}  failureThreshold: 3`,
+    `${indent}  periodSeconds: 30`,
+    `${indent}  timeoutSeconds: 10`,
+    `${indent}readinessProbe:`,
+    `${indent}  exec:`,
+    `${indent}    command:`,
+    `${indent}      - helpmetest`,
+    `${indent}      - health`,
+    `${indent}      - "${serviceName}"`,
+    `${indent}      - "${gracePeriod}"`,
+    `${indent}      - "${healthCheckCommand}"`,
+    `${indent}  initialDelaySeconds: 5`,
+    `${indent}  periodSeconds: 10`,
+    `${indent}  timeoutSeconds: 10`,
+    `${indent}  failureThreshold: 2`
+  ]
+  
+  // Insert the probe configuration
+  modifiedLines.splice(insertIndex, 0, ...probeConfig)
+  
+  return modifiedLines.join('\n')
+}
+
+/**
+ * Get file type from filename
+ * @param {string} fileName - File name
+ * @returns {string} File type
+ */
+function getFileType(fileName) {
+  if (fileName === 'dockerfile' || fileName.endsWith('.dockerfile')) {
+    return 'docker'
+  } else if (fileName === 'docker-compose.yml' || fileName === 'docker-compose.yaml') {
+    return 'docker-compose'
+  } else if (fileName === 'devspace.yaml') {
+    return 'devspace'
+  } else if (fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
+    return 'kubernetes'
+  }
+  return 'unknown'
+}
+
+/**
+ * Get services from docker-compose.yml content
+ * @param {string} content - File content
+ * @returns {Array<string>} Service names
+ */
+function getDockerComposeServices(content) {
+  const lines = content.split('\n')
+  const services = []
+  let inServicesSection = false
+  
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed === 'services:') {
+      inServicesSection = true
+      continue
+    }
+    
+    if (inServicesSection && line.match(/^ {2}\w+:/)) {
+      services.push(line.replace(':', '').trim())
+    } else if (inServicesSection && line.match(/^\w+:/)) {
+      // End of services section
+      break
+    }
+  }
+  
+  return services
+}
+
+/**
+ * Get post-installation instructions based on file type
+ * @param {string} fileType - Type of file
+ * @returns {string} Instructions
+ */
+function getPostInstallationInstructions(fileType) {
+  switch (fileType) {
+    case 'docker':
+      return 'Make sure to set HELPMETEST_API_TOKEN environment variable when running the container. Build and run: docker build -t myapp . && docker run -e HELPMETEST_API_TOKEN=your-token myapp'
+    case 'docker-compose':
+      return 'Make sure to set HELPMETEST_API_TOKEN in the environment section of your service. Run: docker-compose up'
+    case 'kubernetes':
+      return 'Make sure to create a Secret with your HELPMETEST_API_TOKEN and reference it in the container env. Apply: kubectl apply -f your-manifest.yaml'
+    case 'devspace':
+      return 'Make sure HELPMETEST_API_TOKEN is available in your environment. Deploy: devspace deploy'
+    default:
+      return 'Make sure HELPMETEST_API_TOKEN environment variable is properly configured'
+  }
+}
+
+/**
  * Generate test creation prompt with context-specific guidance
  * @param {string} testType - Type of test to create
  * @param {string} targetSystem - Target system to test
@@ -1583,7 +2243,7 @@ You can update only specific fields:
 - Consider page load times and element visibility
 - Use appropriate selectors (id, class, xpath, etc.)
 - Include assertions to verify UI state
-- Example testData: "Go To    https://example.com\\nGet Title    ==    Example Domain"`
+- Example testData: "Go To    https://test.helpmetest.com\\nGet Title    ==    HelpMeTest"`
         break
       case 'api':
         prompt += `- Use RequestsLibrary for HTTP/REST API testing
@@ -1629,9 +2289,9 @@ Consider system-specific requirements:
 7. **Maintainability**: Write tests that are easy to understand and modify
 
 ## testData Format Examples (ONLY using approved keywords):
-- Simple: "Go To    https://example.com\\nGet Title    ==    Example Domain"
-- Complex: "Go To    https://example.com\\nClick    id=login-button\\nType    id=username    testuser\\nClick    id=submit"
-- With assertions: "Go To    https://example.com\\nGet Text    h1    ==    Welcome\\nShould Contain    ${result}    Welcome"
+- Simple: "Go To    https://test.helpmetest.com\\nGet Title    ==    HelpMeTest"
+- Complex: "Go To    https://test.helpmetest.com\\nClick    id=login-button\\nType    id=username    testuser\\nClick    id=submit"
+- With assertions: "Go To    https://test.helpmetest.com\\nGet Text    h1    ==    Welcome\\nShould Contain    ${result}    Welcome"
 
 ## IMPORTANT REMINDERS:
 - **VERIFY KEYWORDS**: Before using any keyword, check it exists in the approved list above
@@ -1870,7 +2530,7 @@ When modifying testData:
 - Browser is ALREADY LAUNCHED - no New Browser/New Page needed
 - Use navigation keywords: Go To, Click, Input Text, etc.
 - Include assertions to verify expected behavior
-- Example: \`Go To    https://example.com\\nGet Title    ==    Example Domain\`
+- Example: \`Go To    https://test.helpmetest.com\\nGet Title    ==    HelpMeTest\`
 
 ### Change Test Name
 - Use descriptive names that explain what the test does
@@ -1927,7 +2587,7 @@ Focus on this type of modification:`
 - Browser is ALREADY LAUNCHED - start directly with Go To, Click, etc.
 - Include proper assertions to verify expected behavior
 - Use only keywords from the approved list above
-- Example testData: "Go To    https://example.com\\nClick    id=login-button\\nType    id=username    testuser"`
+- Example testData: "Go To    https://test.helpmetest.com\\nClick    id=login-button\\nType    id=username    testuser"`
         break
       case 'change_name':
       case 'rename':
@@ -1967,9 +2627,9 @@ Focus on this type of modification:`
 7. **Verify Keywords**: Use \`helpmetest_keywords\` to verify keyword availability before using
 
 ## testData Format Examples (ONLY using approved keywords):
-- Simple: "Go To    https://example.com\\nGet Title    ==    Example Domain"
-- Complex: "Go To    https://example.com\\nClick    id=login-button\\nType    id=username    testuser\\nClick    id=submit"
-- With assertions: "Go To    https://example.com\\nGet Text    h1    ==    Welcome\\nShould Contain    \${result}    Welcome"
+- Simple: "Go To    https://test.helpmetest.com\\nGet Title    ==    HelpMeTest"
+- Complex: "Go To    https://test.helpmetest.com\\nClick    id=login-button\\nType    id=username    testuser\\nClick    id=submit"
+- With assertions: "Go To    https://test.helpmetest.com\\nGet Text    h1    ==    Welcome\\nShould Contain    \${result}    Welcome"
 
 ## IMPORTANT REMINDERS:
 - **VERIFY KEYWORDS**: Before using any keyword, check it exists in the approved list above
@@ -1979,6 +2639,606 @@ Focus on this type of modification:`
 - **PARTIAL UPDATES**: You only need to provide the fields you want to change
 
 Start by using \`helpmetest_list_tests\` to see existing tests, then \`helpmetest_modify_test\` to make your changes.`
+
+  return prompt
+}
+
+/**
+ * Generate health check integration prompt with container-specific guidance
+ * @param {string} containerType - Type of container integration
+ * @param {string} serviceName - Name of the service
+ * @returns {string} Generated prompt text
+ */
+function generateHealthCheckIntegrationPrompt(containerType, serviceName) {
+  let prompt = `# HelpMeTest Health Check Integration Guide
+
+This guide helps you integrate HelpMeTest health checks into containers, pods, and devspace files.
+
+## Overview
+
+HelpMeTest health checks provide comprehensive monitoring for your containerized applications. Unlike basic HTTP checks, HelpMeTest health checks can:
+
+- Monitor complex workflows and business logic
+- Track system performance metrics (CPU, memory, disk)
+- Verify database connections and data integrity
+- Ensure scheduled tasks complete successfully
+- Check API endpoints with custom validation
+- Monitor port availability and network connectivity
+
+## Prerequisites
+
+### 1. HelpMeTest CLI Installation
+All containers must have the HelpMeTest CLI installed. Add this to your container:
+
+\`\`\`bash
+# Install HelpMeTest CLI
+curl -fsSL https://helpmetest.com/install | bash
+# Binary size: ~55MB (includes Bun runtime)
+
+# Verify installation
+helpmetest --version
+\`\`\`
+
+### 2. API Token Configuration
+Set the \`HELPMETEST_API_TOKEN\` environment variable in your container:
+
+\`\`\`bash
+export HELPMETEST_API_TOKEN=your-token-here
+\`\`\`
+
+## Available MCP Tools
+
+- \`helpmetest_add_health_check\`: Automatically add health checks to container files
+- \`helpmetest_health_check\`: Test health check endpoints
+- \`helpmetest_status\`: View current health check status
+
+## Integration Examples
+
+### Docker Health Checks
+
+#### Dockerfile
+\`\`\`dockerfile
+FROM node:18-alpine
+
+# Install HelpMeTest CLI
+RUN curl -fsSL https://helpmetest.com/install | bash
+
+# Copy application
+COPY . /app
+WORKDIR /app
+RUN npm install
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
+    CMD helpmetest health "docker-app" "1m" "GET localhost:3000/health"
+
+CMD ["npm", "start"]
+\`\`\`
+
+#### Docker Compose
+\`\`\`yaml
+version: '3.8'
+services:
+  web:
+    build: .
+    environment:
+      - HELPMETEST_API_TOKEN=\${HELPMETEST_API_TOKEN}
+      - ENV=production
+    healthcheck:
+      test: ["CMD", "helpmetest", "health", "web-service", "1m", "GET", "localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+\`\`\`
+
+### Kubernetes Health Checks
+
+#### Pod with Probes
+\`\`\`yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-app
+spec:
+  containers:
+  - name: app
+    image: myapp:latest
+    env:
+    - name: HELPMETEST_API_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: helpmetest-secret
+          key: api-token
+    livenessProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - helpmetest health "k8s-pod-\${HOSTNAME}" "2m" "GET localhost:8080/health"
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - helpmetest health "k8s-ready-\${HOSTNAME}" "1m" "GET localhost:8080/ready"
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+\`\`\`
+
+#### CronJob with Health Check
+\`\`\`yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: data-backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: backup-tool:latest
+            env:
+            - name: HELPMETEST_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: helpmetest-secret
+                  key: api-token
+            - name: ENV
+              value: "production"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # Run backup
+              /usr/local/bin/backup-data.sh
+              
+              # Report success
+              helpmetest health "k8s-backup-job" "25h"
+          restartPolicy: OnFailure
+\`\`\`
+
+### DevSpace Health Checks
+
+#### devspace.yaml
+DevSpace uses Kubernetes-style probes in the Helm values, not hooks:
+
+\`\`\`yaml
+version: v2beta1
+
+deployments:
+  app:
+    helm:
+      values:
+        containers:
+          - image: \${REGISTRY}/myapp
+            livenessProbe:
+              exec:
+                command:
+                  - helpmetest
+                  - health
+                  - "myapp"
+                  - "1m"
+                  - "GET localhost:3000/health"
+              failureThreshold: 3
+              periodSeconds: 30
+              timeoutSeconds: 10
+            readinessProbe:
+              exec:
+                command:
+                  - helpmetest
+                  - health
+                  - "myapp"
+                  - "1m"
+                  - "GET localhost:3000/health"
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 2
+            envFrom:
+              - secretRef:
+                  name: app-secrets
+\`\`\`
+
+## Health Check Command Syntax
+
+### Basic Syntax
+\`\`\`bash
+helpmetest health <name> <grace_period> [command]
+\`\`\`
+
+### ⚠️ IMPORTANT: Infer Health Check Command from Container Purpose
+
+**Always analyze the container's CMD/ENTRYPOINT to determine the appropriate health check:**
+
+#### Web Servers/APIs
+\`\`\`bash
+# For Node.js apps (typically port 3000)
+helpmetest health "web-app" "1m" "GET localhost:3000/health"
+
+# For Python Flask/FastAPI (typically port 5000 or 8000)
+helpmetest health "api-service" "1m" "GET localhost:8000/health"
+
+# For Nginx (port 80)
+helpmetest health "nginx" "30s" "GET localhost:80/health"
+
+# If no /health endpoint exists, check root
+helpmetest health "web-server" "30s" "GET localhost:3000/"
+\`\`\`
+
+#### Database Containers
+\`\`\`bash
+# PostgreSQL (port 5432)
+helpmetest health "postgres" "2m" "psql -h localhost -p 5432 -U postgres -c 'SELECT 1'"
+
+# MySQL (port 3306)
+helpmetest health "mysql" "2m" "mysql -h localhost -P 3306 -u root -e 'SELECT 1'"
+
+# Redis (port 6379)
+helpmetest health "redis" "1m" "redis-cli -h localhost -p 6379 ping"
+
+# MongoDB (port 27017)
+helpmetest health "mongo" "2m" "mongosh --host localhost:27017 --eval 'db.runCommand({ping: 1})'"
+\`\`\`
+
+#### Message Queues
+\`\`\`bash
+# Kafka (port 9092)
+helpmetest health "kafka" "2m" ":9092"
+
+# RabbitMQ (port 5672, management on 15672)
+helpmetest health "rabbitmq" "1m" "GET localhost:15672/api/overview"
+\`\`\`
+
+#### Utility/Debug Containers
+\`\`\`bash
+# Containers that just sleep or provide tools
+helpmetest health "debug-container" "1m" "echo 'Container is responsive'"
+
+# Cron containers
+helpmetest health "cron-jobs" "5m" "ps aux | grep cron"
+\`\`\`
+
+### Command Analysis Examples
+
+**Example 1: Web Application**
+\`\`\`dockerfile
+CMD ["node", "server.js"]
+# Likely runs on port 3000, check for /health or /
+HEALTHCHECK CMD helpmetest health "web-app" "1m" "GET localhost:3000/health"
+\`\`\`
+
+**Example 2: Database**
+\`\`\`dockerfile
+CMD ["postgres"]
+# PostgreSQL database, use psql to check connection
+HEALTHCHECK CMD helpmetest health "postgres" "2m" "psql -h localhost -c 'SELECT 1'"
+\`\`\`
+
+**Example 3: Sleep/Debug Container**
+\`\`\`dockerfile
+CMD ["sleep", "infinity"]
+# Just sleeping, check basic responsiveness
+HEALTHCHECK CMD helpmetest health "debug" "1m" "echo 'Container alive'"
+\`\`\`
+
+### HTTP Health Checks
+\`\`\`bash
+# Check HTTP endpoint
+helpmetest health "api-health" "1m" "GET /health"
+
+# Check specific host:port
+helpmetest health "api-check" "1m" "GET 127.0.0.1:3000/health"
+
+# Check full URL
+helpmetest health "auth-service" "30s" "GET https://api.test.helpmetest.com/health"
+\`\`\`
+
+### Port Availability Checks
+\`\`\`bash
+# Check if port 3000 is available
+helpmetest health "port-3000" "1m" ":3000"
+\`\`\`
+
+### Command Execution Checks
+\`\`\`bash
+# Database connection check
+helpmetest health "postgres-check" "5m" "psql -h localhost -c '\\l'"
+
+# Conditional execution (only sends success heartbeat if command succeeds)
+psql postgres://user:pass@localhost/db -c "SELECT 1;" && helpmetest health "db-connection" "2m"
+\`\`\`
+
+### Cron Job Monitoring
+\`\`\`bash
+# Daily database backup (runs at 2 AM, grace period of 25 hours)
+0 2 * * * /usr/local/bin/helpmetest health "daily-db-backup" "25h" "backup-database.sh"
+
+# Hourly log processing (grace period of 75 minutes)
+0 * * * * /usr/local/bin/helpmetest health "log-processing" "75m" "process-logs.sh"
+
+# Data synchronization every 15 minutes
+*/15 * * * * /usr/local/bin/helpmetest health "data-sync" "20m" "sync-data.sh"
+\`\`\`
+
+## Environment Variables
+
+### Required
+- \`HELPMETEST_API_TOKEN\`: Your HelpMeTest API token
+
+### Optional
+- \`ENV\`: Environment identifier (dev, staging, prod)
+- \`HELPMETEST_*\`: Custom data (any env var starting with HELPMETEST_)
+
+## Best Practices
+
+### Grace Periods
+- **Web services**: 1-2 minutes
+- **Databases**: 2-5 minutes
+- **Batch jobs**: 20-30% longer than expected execution time
+- **Microservices**: 30 seconds to 1 minute
+- **Cron jobs**: Use grace periods 20-30% longer than expected execution time
+
+### Health Check Intervals
+- **Docker**: 30s interval, 10s timeout
+- **Kubernetes**: 30s liveness, 10s readiness
+- **Production**: Longer intervals to reduce load
+- **Development**: Shorter intervals for faster feedback
+
+### Naming Conventions
+- Include environment: \`web-prod\`, \`api-staging\`
+- Include instance info: \`web-\${HOSTNAME}\`, \`api-pod-\${POD_NAME}\`
+- Be descriptive: \`user-service-health\`, \`payment-api-ready\`
+
+### Multi-Environment Setup
+\`\`\`bash
+# Production environment
+ENV=production HELPMETEST_CLUSTER=prod-us-east-1 helpmetest health "web-app" "1m"
+
+# Staging environment
+ENV=staging HELPMETEST_CLUSTER=staging-us-west-2 helpmetest health "web-app" "5m"
+
+# Development environment
+ENV=dev HELPMETEST_CLUSTER=dev-local helpmetest health "web-app" "10m"
+\`\`\`
+
+## Troubleshooting
+
+### Common Issues
+1. **Missing CLI**: Ensure HelpMeTest CLI is installed in container
+2. **Missing Token**: Set HELPMETEST_API_TOKEN environment variable
+3. **Network Issues**: Check if health check endpoint is accessible
+4. **Timeout Issues**: Adjust grace periods and timeouts appropriately
+
+### Debug Commands
+\`\`\`bash
+# Test health check manually
+helpmetest health "test-check" "1m" "GET localhost:3000/health"
+
+# Check status
+helpmetest status
+
+# View logs (if available)
+docker logs <container-name>
+kubectl logs <pod-name>
+\`\`\`
+
+## Security Considerations
+
+### API Token Management
+- Use secrets management (Kubernetes Secrets, Docker Secrets)
+- Never hardcode tokens in images
+- Rotate tokens regularly
+- Use environment-specific tokens
+
+### Network Security
+- Health checks run inside containers
+- No external network access required for basic checks
+- Use internal service names in Kubernetes
+- Consider firewall rules for external health checks`
+
+  if (containerType) {
+    prompt += `\n\n## Specific Guidance for ${containerType.toUpperCase()} Integration\n`
+    
+    switch (containerType.toLowerCase()) {
+      case 'docker':
+        prompt += `### Docker-Specific Instructions
+
+1. **Install CLI in Dockerfile**:
+   \`\`\`dockerfile
+   RUN curl -fsSL https://helpmetest.com/install | bash
+   \`\`\`
+
+2. **Add HEALTHCHECK instruction**:
+   \`\`\`dockerfile
+   HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
+       CMD helpmetest health "${serviceName || 'docker-app'}" "1m" "GET localhost:3000/health"
+   \`\`\`
+
+3. **Set environment variables**:
+   \`\`\`bash
+   docker run -e HELPMETEST_API_TOKEN=your-token myapp
+   \`\`\`
+
+**Use the tool**: \`helpmetest_add_health_check\` with your Dockerfile path to automatically add these configurations.`
+        break
+      case 'kubernetes':
+      case 'k8s':
+        prompt += `### Kubernetes-Specific Instructions
+
+1. **Create API Token Secret**:
+   \`\`\`yaml
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: helpmetest-secret
+   type: Opaque
+   data:
+     api-token: <base64-encoded-token>
+   \`\`\`
+
+2. **Add probes to container spec**:
+   \`\`\`yaml
+   livenessProbe:
+     exec:
+       command:
+       - /bin/sh
+       - -c
+       - helpmetest health "${serviceName || 'k8s-app'}-live-$(hostname)" "2m" "GET localhost:8080/health"
+     initialDelaySeconds: 60
+     periodSeconds: 30
+   \`\`\`
+
+3. **Reference secret in env**:
+   \`\`\`yaml
+   env:
+   - name: HELPMETEST_API_TOKEN
+     valueFrom:
+       secretKeyRef:
+         name: helpmetest-secret
+         key: api-token
+   \`\`\`
+
+**Use the tool**: \`helpmetest_add_health_check\` with your Kubernetes manifest path to automatically add these configurations.`
+        break
+      case 'devspace':
+        prompt += `### DevSpace-Specific Instructions
+
+1. **Add health check hook**:
+   \`\`\`yaml
+   hooks:
+     - name: health-check
+       command: |
+         helpmetest health "${serviceName || 'devspace-app'}" "2m" "GET localhost:3000/health"
+       events: ["after:deploy"]
+   \`\`\`
+
+2. **Ensure CLI is available in dev container**:
+   \`\`\`yaml
+   dev:
+     app:
+       container: app
+       command: ["sh"]
+       workingDir: /app
+   \`\`\`
+
+3. **Set environment in devspace config**:
+   \`\`\`yaml
+   vars:
+     HELPMETEST_API_TOKEN: your-token
+   \`\`\`
+
+**Use the tool**: \`helpmetest_add_health_check\` with your devspace.yaml path to automatically add these configurations.`
+        break
+      case 'docker-compose':
+        prompt += `### Docker Compose-Specific Instructions
+
+1. **Add healthcheck to service**:
+   \`\`\`yaml
+   services:
+     ${serviceName || 'app'}:
+       build: .
+       environment:
+         - HELPMETEST_API_TOKEN=\${HELPMETEST_API_TOKEN}
+       healthcheck:
+         test: ["CMD", "helpmetest", "health", "${serviceName || 'compose-app'}", "1m", "GET", "localhost:3000/health"]
+         interval: 30s
+         timeout: 10s
+         retries: 3
+         start_period: 40s
+   \`\`\`
+
+2. **Use environment file**:
+   \`\`\`bash
+   # .env file
+   HELPMETEST_API_TOKEN=your-token-here
+   \`\`\`
+
+**Use the tool**: \`helpmetest_add_health_check\` with your docker-compose.yml path to automatically add these configurations.`
+        break
+    }
+  }
+
+  if (serviceName) {
+    prompt += `\n\n## Service-Specific Configuration: ${serviceName}
+
+### Recommended Health Check Names
+- \`${serviceName}-health\`: Basic health check
+- \`${serviceName}-ready\`: Readiness check
+- \`${serviceName}-live\`: Liveness check
+- \`${serviceName}-\${ENV}\`: Environment-specific check
+
+### Example Commands for ${serviceName}
+\`\`\`bash
+# Basic health check
+helpmetest health "${serviceName}-health" "1m" "GET localhost:3000/health"
+
+# With environment
+ENV=production helpmetest health "${serviceName}-prod" "1m" "GET localhost:3000/health"
+
+# Database check (if applicable)
+helpmetest health "${serviceName}-db" "2m" "psql -h localhost -c 'SELECT 1'"
+
+# Port check
+helpmetest health "${serviceName}-port" "30s" ":3000"
+\`\`\`
+
+### Monitoring Dashboard
+After setup, monitor your service at: https://helpmetest.com/dashboard`
+  }
+
+  prompt += `\n\n## Next Steps
+
+1. **Choose Integration Method**: Select Docker, Kubernetes, or DevSpace
+2. **Use Automation Tool**: Run \`helpmetest_add_health_check\` with your file path
+3. **Configure Environment**: Set HELPMETEST_API_TOKEN appropriately
+4. **Test Integration**: Deploy and verify health checks are working
+5. **Monitor Results**: Check the HelpMeTest dashboard for status
+
+## Quick Start Commands
+
+### Automatic Integration
+\`\`\`bash
+# For Dockerfile
+helpmetest_add_health_check({
+  filePath: "./Dockerfile",
+  serviceName: "${serviceName || 'my-service'}",
+  healthCheckUrl: "localhost:3000/health"
+})
+
+# For docker-compose.yml
+helpmetest_add_health_check({
+  filePath: "./docker-compose.yml",
+  serviceName: "${serviceName || 'web'}",
+  healthCheckUrl: "localhost:3000/health"
+})
+
+# For Kubernetes manifest
+helpmetest_add_health_check({
+  filePath: "./k8s-deployment.yaml",
+  serviceName: "${serviceName || 'app'}",
+  healthCheckUrl: "localhost:8080/health"
+})
+\`\`\`
+
+### Manual Testing
+\`\`\`bash
+# Test health check endpoint
+helpmetest_health_check({url: "http://localhost:3000/health"})
+
+# Check current status
+helpmetest_status()
+\`\`\`
+
+This integration ensures your containerized applications are properly monitored and can automatically recover from failures.`
 
   return prompt
 }

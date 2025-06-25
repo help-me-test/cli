@@ -6,7 +6,7 @@
  */
 
 import { getAllHealthChecks, getAllTests, getTestStatus, getUserInfo } from './api.js'
-import { debug } from './config.js'
+import { debug, config } from './config.js'
 import * as R from 'ramda'
 
 /**
@@ -152,10 +152,10 @@ export async function collectStatusData(options = {}) {
 
     // Debug output
     if (verbose) {
-      debug({ verbose }, 'Debug - userInfo:', JSON.stringify(userInfo, null, 2))
-      debug({ verbose }, 'Debug - tests:', JSON.stringify(safeTests, null, 2))
-      debug({ verbose }, 'Debug - testStatus:', JSON.stringify(safeTestStatus, null, 2))
-      debug({ verbose }, 'Debug - healthChecks:', JSON.stringify(safeHealthChecks, null, 2))
+      debug(config, `Debug - userInfo: ${JSON.stringify(userInfo, null, 2)}`)
+      debug(config, `Debug - tests count: ${safeTests.length}`)
+      debug(config, `Debug - testStatus keys: ${Object.keys(safeTestStatus).length}`)
+      debug(config, `Debug - healthChecks count: ${safeHealthChecks.length}`)
     }
 
     return {
