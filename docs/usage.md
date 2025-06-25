@@ -153,6 +153,9 @@ helpmetest keywords --type libraries
 # Show only keywords
 helpmetest keywords --type keywords
 
+# Filter by tag
+helpmetest keywords --tag browser
+
 # Show detailed documentation
 helpmetest keywords --verbose
 
@@ -165,6 +168,7 @@ helpmetest keywords --json
 - **Keyword Search**: Find specific keywords across all libraries
 - **Documentation**: View detailed documentation for libraries and keywords
 - **Filtering**: Filter by library or keyword name
+- **Tag Filtering**: Find keywords by tag categories
 - **Verbose Mode**: Show full documentation with examples and arguments
 
 ## Special Command Syntax

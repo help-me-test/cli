@@ -205,6 +205,37 @@ ENV=dev HELPMETEST_CLUSTER=dev-local helpmetest health "web-app" "10m"
 
 ## Common Patterns
 
+### Container Health Monitoring
+
+```bash
+# Kubernetes liveness probe
+livenessProbe:
+  exec:
+    command:
+      - helpmetest
+      - health
+      - "container-name"
+      - "1m"
+      - "echo 'Service is running'"
+  failureThreshold: 3
+  periodSeconds: 30
+  timeoutSeconds: 10
+
+# Kubernetes readiness probe
+readinessProbe:
+  exec:
+    command:
+      - helpmetest
+      - health
+      - "container-name"
+      - "1m"
+      - "echo 'Service is running'"
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 10
+  failureThreshold: 2
+```
+
 ### Database Monitoring
 
 ```bash
