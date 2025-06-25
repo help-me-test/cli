@@ -5,7 +5,7 @@
  */
 
 import { colors, output } from '../utils/colors.js'
-import { libraries, keywords } from '../keywords.js'
+import { libraries } from '../keywords.js'
 
 /**
  * Search keywords and libraries

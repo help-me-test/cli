@@ -20,7 +20,7 @@ import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
 // import { collectSystemMetrics } from './metrics.js'
-import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, undoUpdate, apiGet } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, undoUpdate } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { libraries, keywords } from '../keywords.js'
 import { 
