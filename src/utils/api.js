@@ -371,6 +371,54 @@ const createTest = async (testData) => {
 }
 
 /**
+ * Generic API DELETE request with retry and error handling
+ * @param {string} endpoint - API endpoint
+ * @param {string} debugMessage - Debug message for logging
+ * @returns {Promise<Object>} API response data
+ */
+const apiDelete = async (endpoint, debugMessage = '') => {
+  const client = createApiClient()
+  
+  const requestInfo = {
+    endpoint,
+  }
+
+  debug(config, debugMessage || `Making DELETE request to ${endpoint}`)
+
+  try {
+    const response = await retryWithBackoff(async () => {
+      return await client.delete(endpoint)
+    })
+
+    debug(config, `Request successful: ${response.status}`)
+    return response.data
+  } catch (error) {
+    throw handleApiError(error, requestInfo)
+  }
+}
+
+/**
+ * Delete a test by ID
+ * @param {string} testId - ID of the test to delete
+ * @returns {Promise<Object>} Deletion result with update record ID
+ */
+const deleteTest = async (testId) => {
+  return apiDelete(
+    `/api/test/${encodeURIComponent(testId)}`,
+    `Deleting test: ${testId}`
+  )
+}
+
+/**
+ * Undo an update by ID
+ * @param {string} updateId - ID of the update to undo
+ * @returns {Promise<Object>} Result of the undo operation
+ */
+const undoUpdate = async (updateId) => {
+  return apiPost(`/api/updates/undo/${updateId}`, {}, `Undoing update: ${updateId}`)
+}
+
+/**
  * Test API connectivity and authentication
  * @returns {Promise<Object>} Connection test result
  */
@@ -476,6 +524,7 @@ export {
   ApiError,
   apiGet,
   apiPost,
+  apiDelete,
   apiStreamPost,
   sendHealthCheckHeartbeat,
   getHealthCheck,
@@ -485,6 +534,8 @@ export {
   getTestStatus,
   getUserInfo,
   createTest,
+  deleteTest,
+  undoUpdate,
   testConnection,
   displayApiError,
   validateResponse,
@@ -499,6 +550,7 @@ export {
 export default {
   apiGet,
   apiPost,
+  apiDelete,
   apiStreamPost,
   sendHealthCheckHeartbeat,
   getHealthCheck,
@@ -508,6 +560,8 @@ export default {
   getTestStatus,
   getUserInfo,
   createTest,
+  deleteTest,
+  undoUpdate,
   testConnection,
   displayApiError,
   validateResponse,

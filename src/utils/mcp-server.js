@@ -20,7 +20,7 @@ import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
 // import { collectSystemMetrics } from './metrics.js'
-import { getAllHealthChecks, getAllTests, runTest, createTest } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, undoUpdate, apiGet } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { libraries, keywords } from '../keywords.js'
 import { 
@@ -242,6 +242,38 @@ export function createMcpServer(options = {}) {
     async (args) => {
       debug(config, `Create test tool called with args: ${JSON.stringify(args)}`)
       return await handleCreateTest(args)
+    }
+  )
+
+  // Register delete_test tool
+  server.registerTool(
+    'helpmetest_delete_test',
+    {
+      title: 'Help Me Test: Delete Test Tool',
+      description: 'Delete a test by ID, name, or tag. This operation can be undone using the undo_update tool if the update is revertable.',
+      inputSchema: {
+        identifier: z.string().describe('Test ID, name, or tag (with tag: prefix) to delete'),
+      },
+    },
+    async (args) => {
+      debug(config, `Delete test tool called with args: ${JSON.stringify(args)}`)
+      return await handleDeleteTest(args)
+    }
+  )
+
+  // Register undo_update tool
+  server.registerTool(
+    'helpmetest_undo_update',
+    {
+      title: 'Help Me Test: Undo Update Tool',
+      description: 'Undo a previous update by update ID. Can revert various operations including test deletion, modification, etc. if the update is revertable.',
+      inputSchema: {
+        updateId: z.string().describe('ID of the update to undo'),
+      },
+    },
+    async (args) => {
+      debug(config, `Undo update tool called with args: ${JSON.stringify(args)}`)
+      return await handleUndoUpdate(args)
     }
   )
 
@@ -2025,6 +2057,137 @@ export async function startHttpServer(server, port = 31337) {
       resolve()
     })
   })
+}
+
+/**
+ * Handle test deletion request
+ * @param {Object} args - Tool arguments
+ * @param {string} args.identifier - Test ID, name, or tag (with tag: prefix) to delete
+ * @returns {Object} Deletion result
+ */
+async function handleDeleteTest(args) {
+  const { identifier } = args
+  
+  debug(config, `Deleting test with identifier: ${identifier}`)
+  
+  try {
+    // For names or tags, we need to resolve to ID first
+    let testId = identifier
+    
+    if (identifier.startsWith('tag:') || (identifier.length < 15 || identifier.includes(' '))) {
+      // Treat as name or tag - look up the test first
+      const tests = await getAllTests()
+      let matchingTest
+      
+      if (identifier.startsWith('tag:')) {
+        const tagToFind = identifier.substring(4)
+        matchingTest = tests.find(test => 
+          test.tags && test.tags.includes(tagToFind)
+        )
+      } else {
+        matchingTest = tests.find(test => 
+          test.name === identifier || 
+          test.doc === identifier ||
+          test.id === identifier
+        )
+      }
+      
+      if (!matchingTest) {
+        throw new Error(`Test not found: ${identifier}`)
+      }
+      
+      testId = matchingTest.id
+    }
+    
+    // Delete the test
+    const result = await deleteTest(testId)
+    
+    debug(config, `Test deletion successful: ${testId}, update ID: ${result.updateId}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            testId: testId,
+            updateId: result.updateId,
+            message: `Test ${testId} has been deleted. You can undo this operation using the updateId.`,
+            timestamp: new Date().toISOString()
+          }),
+        },
+      ],
+      isError: false,
+    }
+  } catch (error) {
+    debug(config, `Test deletion failed: ${error.message}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            error: error.message,
+            identifier,
+            timestamp: new Date().toISOString()
+          }),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle undo update request
+ * @param {Object} args - Tool arguments
+ * @param {string} args.updateId - ID of the update to undo
+ * @returns {Object} Undo result
+ */
+async function handleUndoUpdate(args) {
+  const { updateId } = args
+  
+  debug(config, `Attempting to undo update: ${updateId}`)
+  
+  try {
+    // Call the undo update API endpoint
+    const result = await undoUpdate(updateId)
+    
+    debug(config, `Update undone successfully: ${updateId}, action: ${result.action}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            updateId: updateId,
+            action: result.action,
+            message: `Update ${updateId} has been undone successfully.`,
+            result: result.result,
+            timestamp: new Date().toISOString()
+          }),
+        },
+      ],
+      isError: false,
+    }
+  } catch (error) {
+    debug(config, `Undo update failed: ${error.message}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            error: error.message,
+            updateId,
+            timestamp: new Date().toISOString()
+          }),
+        },
+      ],
+      isError: true,
+    }
+  }
 }
 
 /**
