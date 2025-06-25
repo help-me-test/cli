@@ -131,6 +131,42 @@ Status  Test Name               Duration   Current Step
 - **Real-time Updates**: Table refreshes every 200ms during execution
 - **Error Handling**: Network connectivity issues and test failures are clearly reported
 
+### Keywords Command
+
+```bash
+helpmetest keywords [search_term] [options]
+```
+
+Search and explore available Robot Framework libraries and keywords:
+
+**Examples:**
+```bash
+# List all available libraries
+helpmetest keywords
+
+# Search for keywords containing "click"
+helpmetest keywords "click"
+
+# Show only libraries (not individual keywords)
+helpmetest keywords --type libraries
+
+# Show only keywords
+helpmetest keywords --type keywords
+
+# Show detailed documentation
+helpmetest keywords --verbose
+
+# Output in JSON format
+helpmetest keywords --json
+```
+
+**Features:**
+- **Library Exploration**: Browse available Robot Framework libraries
+- **Keyword Search**: Find specific keywords across all libraries
+- **Documentation**: View detailed documentation for libraries and keywords
+- **Filtering**: Filter by library or keyword name
+- **Verbose Mode**: Show full documentation with examples and arguments
+
 ## Special Command Syntax
 
 ### HTTP Health Checks

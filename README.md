@@ -81,6 +81,14 @@ helpmetest test run "tag:uptime"        # Run all tests with tag
 helpmetest test run "tag:flaky"         # Run flaky tests
 ```
 
+### Keywords Commands
+```bash
+helpmetest keywords                     # List all available Robot Framework libraries
+helpmetest keywords "click"             # Search for keywords containing "click"
+helpmetest keywords --type libraries    # Show only libraries
+helpmetest keywords --verbose           # Show detailed documentation
+```
+
 ### Other Commands
 ```bash
 helpmetest status    # View system status

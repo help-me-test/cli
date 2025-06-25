@@ -1367,7 +1367,25 @@ async function handleKeywordsSearch(args) {
     }
     
     if (type === 'keywords' || type === 'all') {
-      results.keywords = searchInObject(keywords, search)
+      results.keywords = {}
+      
+      // Extract keywords from libraries
+      for (const [libName, libData] of Object.entries(libraries)) {
+        if (libData.keywords) {
+          for (const keyword of libData.keywords) {
+            if (!search || 
+                keyword.name.toLowerCase().includes(search.toLowerCase()) ||
+                (keyword.doc && keyword.doc.toLowerCase().includes(search.toLowerCase())) ||
+                (keyword.shortdoc && keyword.shortdoc.toLowerCase().includes(search.toLowerCase()))
+               ) {
+              results.keywords[keyword.name] = {
+                ...keyword,
+                library: libName
+              }
+            }
+          }
+        }
+      }
     }
     
     // Count results

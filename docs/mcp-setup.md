@@ -67,6 +67,11 @@ Simple prompts that actually work:
 - **"run all critical tests"** - execute tagged test suites
 - **"show detailed test status"** - verbose test status with content
 
+### Robot Framework Keywords
+- **"show me available robot framework libraries"** - list all available libraries
+- **"find robot framework keywords for clicking"** - search for specific keywords
+- **"what robot framework keywords can I use for browser automation"** - explore keywords by functionality
+
 ## Test It
 
 ### Basic Test
