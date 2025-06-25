@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.3.1 (2024-06-26)
+
+### Improvements
+
+- **Documentation**: Enhanced updates feed system documentation with comprehensive examples and integration details
+- **Health Check Integration**: Improved health check integration with the updates monitoring system
+
+### Bug Fixes
+
+- **Health Check**: Fixed integration bugs in health check monitoring functionality
+- **Updates Monitoring**: Resolved issues with updates monitoring integration in the MCP server
+
 ## v1.3.0 (2024-06-25)
 
 ### New Features
