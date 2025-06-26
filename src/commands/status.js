@@ -93,9 +93,34 @@ function displayTestsSection(tests, testStatus, options) {
       const row = [statusSymbol, testName, lastRun, duration, tags]
       
       if (options.verbose) {
-        // Add test content (full content in verbose mode)
+        // Add test content (truncated and sanitized for table display)
         const content = test.content || test.description || ''
-        row.push(content)
+        // Replace problematic characters but keep newlines
+        const sanitizedContent = content
+          .replace(/\r\n/g, '\n') // Normalize CRLF to LF
+          .replace(/\r/g, '\n')   // Replace CR with LF
+          .replace(/\t/g, '    ') // Replace tabs with 4 spaces
+          .replace(/ +/g, ' ')    // Replace multiple spaces with single space (but preserve newlines)
+          .trim()
+        
+        // Limit by both lines and characters to prevent hanging
+        const maxLength = 1000  // Good balance of content vs performance
+        const maxLines = 10     // Keep it fast
+        
+        let displayContent = sanitizedContent
+        
+        // First truncate by character length to prevent table rendering issues
+        if (displayContent.length > maxLength) {
+          displayContent = displayContent.substring(0, maxLength) + '...'
+        }
+        
+        // Then truncate by number of lines
+        const lines = displayContent.split('\n')
+        if (lines.length > maxLines) {
+          displayContent = lines.slice(0, maxLines).join('\n') + '\n...'
+        }
+          
+        row.push(displayContent)
       }
       
       return row
@@ -154,10 +179,35 @@ function displayHealthchecksSection(healthChecks, options) {
       const row = [statusSymbol, hc.name, lastHeartbeat, gracePeriod, env, hostname, tags]
       
       if (options.verbose) {
-        // Add additional data (full data in verbose mode)
+        // Add additional data (formatted and truncated for table display)
         const additionalData = hc.latestHeartbeatData || hc.latest_heartbeat_data || hc.data || {}
-        const dataStr = JSON.stringify(additionalData)
-        row.push(dataStr)
+        const dataStr = JSON.stringify(additionalData, null, 2) // Pretty format JSON
+        
+        // Sanitize and truncate the JSON data but preserve structure
+        const sanitizedData = dataStr
+          .replace(/\r\n/g, '\n') // Normalize CRLF to LF
+          .replace(/\r/g, '\n')   // Replace CR with LF
+          .replace(/\t/g, '  ')   // Replace tabs with 2 spaces
+          .trim()
+        
+        // Limit by both lines and characters to prevent hanging
+        const maxLength = 150  // Back to working limit
+        const maxLines = 8     // Back to working limit
+        
+        let displayData = sanitizedData
+        
+        // First truncate by character length to prevent table rendering issues
+        if (displayData.length > maxLength) {
+          displayData = displayData.substring(0, maxLength) + '...'
+        }
+        
+        // Then truncate by number of lines
+        const lines = displayData.split('\n')
+        if (lines.length > maxLines) {
+          displayData = lines.slice(0, maxLines).join('\n') + '\n...'
+        }
+          
+        row.push(displayData)
       }
       
       return row
