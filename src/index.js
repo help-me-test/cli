@@ -17,6 +17,8 @@ import metricsCommand from './commands/metrics.js'
 import mcpCommand from './commands/mcp.js'
 import keywordsCommand from './commands/keywords.js'
 import { runTestCommand } from './commands/test.js'
+import deleteCommand, { deleteHealthCheckCommand, deleteTestCommand } from './commands/delete.js'
+import undoCommand from './commands/undo.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
 
@@ -313,6 +315,108 @@ ${colors.subtitle('Note:')}
     await runTestCommand(identifier, options)
   })
 
+// Register the delete command with subcommands
+const deleteCommandGroup = program
+  .command('delete')
+  .description('Delete tests or health checks')
+
+// Main delete command (shows help for subcommands)
+deleteCommandGroup
+  .action(deleteCommand)
+
+// Delete health check subcommand
+deleteCommandGroup
+  .command('health-check')
+  .description('Delete a health check by name')
+  .argument('<name>', 'Health check name to delete')
+  .option('--dry-run', 'Show what would be deleted without actually deleting')
+  .option('--verbose', 'Show detailed output')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete health-check')} ${colors.argument('"database-backup"')}        ${colors.dim('# Delete health check')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete health-check')} ${colors.argument('"api-server"')} ${colors.option('--verbose')}     ${colors.dim('# Delete with detailed output')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete health-check')} ${colors.argument('"test-service"')} ${colors.option('--dry-run')}    ${colors.dim('# Preview deletion without executing')}
+
+${colors.subtitle('Important Notes:')}
+  ${colors.dim('•')} This operation deletes the health check and all its heartbeat data
+  ${colors.dim('•')} An audit record is created in the updates feed for potential recovery
+  ${colors.dim('•')} You can undo the deletion using the returned update ID
+  ${colors.dim('•')} Use --dry-run to preview what would be deleted
+
+${colors.subtitle('Recovery:')}
+  ${colors.dim('•')} The deletion can potentially be undone using: ${colors.command('helpmetest undo <update-id>')}
+  ${colors.dim('•')} The update ID is provided in the deletion response
+`)
+  .action(async (name, options) => {
+    await deleteHealthCheckCommand(name, options)
+  })
+
+// Delete test subcommand
+deleteCommandGroup
+  .command('test')
+  .description('Delete a test by ID, name, or tag')
+  .argument('<identifier>', 'Test ID, name, or tag (tag:tagname) to delete')
+  .option('--dry-run', 'Show what would be deleted without actually deleting')
+  .option('--verbose', 'Show detailed output')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete test')} ${colors.argument('"My Test Name"')}              ${colors.dim('# Delete test by name')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete test')} ${colors.argument('abc123def456...')}             ${colors.dim('# Delete test by ID')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete test')} ${colors.argument('tag:smoke')}                   ${colors.dim('# Delete all tests with "smoke" tag')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete test')} ${colors.argument('"API Test"')} ${colors.option('--verbose')}        ${colors.dim('# Delete with detailed output')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete test')} ${colors.argument('"Test Name"')} ${colors.option('--dry-run')}        ${colors.dim('# Preview deletion without executing')}
+
+${colors.subtitle('Test Identifiers:')}
+  ${colors.key('Name')}     Test name as shown in the web interface
+  ${colors.key('Tag')}      Use ${colors.highlight('tag:tagname')} to delete all tests with a specific tag
+  ${colors.key('ID')}       Unique test identifier (long alphanumeric string)
+
+${colors.subtitle('Important Notes:')}
+  ${colors.dim('•')} This operation implements a "soft delete" preserving test data in updates feed
+  ${colors.dim('•')} Test data is preserved for audit purposes and potential recovery
+  ${colors.dim('•')} You can undo the deletion using the returned update ID
+  ${colors.dim('•')} Use --dry-run to preview what would be deleted
+
+${colors.subtitle('Recovery:')}
+  ${colors.dim('•')} The deletion can be undone using: ${colors.command('helpmetest undo <update-id>')}
+  ${colors.dim('•')} The update ID is provided in the deletion response
+`)
+  .action(async (identifier, options) => {
+    await deleteTestCommand(identifier, options)
+  })
+
+// Register the undo command
+program
+  .command('undo')
+  .description('Undo a previous operation by update ID')
+  .argument('<update-id>', 'Update ID of the operation to undo')
+  .option('--dry-run', 'Show what would be undone without actually undoing')
+  .option('--verbose', 'Show detailed output')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest undo')} ${colors.argument('abc123def456...')}                    ${colors.dim('# Undo operation by update ID')}
+  ${colors.dim('$')} ${colors.command('helpmetest undo')} ${colors.argument('abc123def456...')} ${colors.option('--verbose')}        ${colors.dim('# Undo with detailed output')}
+  ${colors.dim('$')} ${colors.command('helpmetest undo')} ${colors.argument('abc123def456...')} ${colors.option('--dry-run')}        ${colors.dim('# Preview undo without executing')}
+
+${colors.subtitle('How to Get Update IDs:')}
+  ${colors.dim('•')} Update IDs are provided when you delete tests or health checks
+  ${colors.dim('•')} They are also available in the updates feed via: ${colors.command('helpmetest status')}
+  ${colors.dim('•')} Look for operations with tags like ${colors.highlight('test:delete')} or ${colors.highlight('healthcheck:delete')}
+
+${colors.subtitle('Supported Operations:')}
+  ${colors.dim('•')} Test deletions (restores the test)
+  ${colors.dim('•')} Health check deletions (restores the health check)
+  ${colors.dim('•')} Other operations that support undo functionality
+
+${colors.subtitle('Important Notes:')}
+  ${colors.dim('•')} Not all operations can be undone
+  ${colors.dim('•')} Some operations may have time limits for undo
+  ${colors.dim('•')} Use --dry-run to preview what would be restored
+`)
+  .action(async (updateId, options) => {
+    await undoCommand(updateId, options)
+  })
+
 // Add global help examples
 program.addHelpText('after', `
 ${colors.subtitle('Examples:')}
@@ -326,6 +430,9 @@ ${colors.subtitle('Examples:')}
   ${colors.dim('$')} ${colors.command('helpmetest status health')}                 ${colors.dim('# Show status of health checks only')}
   ${colors.dim('$')} ${colors.command('helpmetest test')} ${colors.argument('"My Test"')}               ${colors.dim('# Run a specific test')}
   ${colors.dim('$')} ${colors.command('helpmetest test')} ${colors.argument('tag:smoke')}              ${colors.dim('# Run tests with smoke tag')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete health-check')} ${colors.argument('"api-server"')}   ${colors.dim('# Delete a health check')}
+  ${colors.dim('$')} ${colors.command('helpmetest delete test')} ${colors.argument('"My Test"')}           ${colors.dim('# Delete a test')}
+  ${colors.dim('$')} ${colors.command('helpmetest undo')} ${colors.argument('abc123def456...')}          ${colors.dim('# Undo a previous operation')}
   ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.argument('browser')}                ${colors.dim('# Search Robot Framework keywords')}
   ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.option('--type libraries')}         ${colors.dim('# List available libraries')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--verbose')}

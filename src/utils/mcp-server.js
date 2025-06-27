@@ -20,7 +20,7 @@ import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
 // import { collectSystemMetrics } from './metrics.js'
-import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, undoUpdate } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { libraries } from '../keywords.js'
 import { 
@@ -258,6 +258,22 @@ export function createMcpServer(options = {}) {
     async (args) => {
       debug(config, `Delete test tool called with args: ${JSON.stringify(args)}`)
       return await handleDeleteTest(args)
+    }
+  )
+
+  // Register delete_health_check tool
+  server.registerTool(
+    'helpmetest_delete_health_check',
+    {
+      title: 'Help Me Test: Delete Health Check Tool',
+      description: 'Delete a health check by name. This operation creates an audit trail in the updates feed and can potentially be undone using the undo_update tool if the update is revertable.',
+      inputSchema: {
+        name: z.string().describe('Health check name to delete'),
+      },
+    },
+    async (args) => {
+      debug(config, `Delete health check tool called with args: ${JSON.stringify(args)}`)
+      return await handleDeleteHealthCheck(args)
     }
   )
 
@@ -3407,6 +3423,57 @@ async function handleDeleteTest(args) {
           text: JSON.stringify({
             error: error.message,
             identifier,
+            timestamp: new Date().toISOString()
+          }),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle delete health check request
+ * @param {Object} args - Tool arguments
+ * @param {string} args.name - Name of the health check to delete
+ * @returns {Object} Deletion result
+ */
+async function handleDeleteHealthCheck(args) {
+  const { name } = args
+  
+  debug(config, `Deleting health check with name: ${name}`)
+  
+  try {
+    // Delete the health check
+    const result = await deleteHealthCheck(name)
+    
+    debug(config, `Health check deletion successful: ${name}, update ID: ${result.updateId}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            name: name,
+            updateId: result.updateId,
+            message: `Health check '${name}' has been deleted. You can potentially undo this operation using the updateId.`,
+            timestamp: new Date().toISOString()
+          }),
+        },
+      ],
+      isError: false,
+    }
+  } catch (error) {
+    debug(config, `Health check deletion failed: ${error.message}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            error: error.message,
+            name,
             timestamp: new Date().toISOString()
           }),
         },
