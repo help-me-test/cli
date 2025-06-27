@@ -410,6 +410,18 @@ const deleteTest = async (testId) => {
 }
 
 /**
+ * Delete a health check by name
+ * @param {string} name - Name of the health check to delete
+ * @returns {Promise<Object>} Deletion result with update record ID
+ */
+const deleteHealthCheck = async (name) => {
+  return apiDelete(
+    `/api/healthcheck/${encodeURIComponent(name)}`,
+    `Deleting health check: ${name}`
+  )
+}
+
+/**
  * Undo an update by ID
  * @param {string} updateId - ID of the update to undo
  * @returns {Promise<Object>} Result of the undo operation
@@ -535,6 +547,7 @@ export {
   getUserInfo,
   createTest,
   deleteTest,
+  deleteHealthCheck,
   undoUpdate,
   testConnection,
   displayApiError,
@@ -561,6 +574,7 @@ export default {
   getUserInfo,
   createTest,
   deleteTest,
+  deleteHealthCheck,
   undoUpdate,
   testConnection,
   displayApiError,
