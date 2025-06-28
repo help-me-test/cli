@@ -2,6 +2,8 @@
 
 This document covers development setup, build process, and deployment details for the HelpMeTest CLI.
 
+**Note**: This is the development repository (cli-code). The user-facing CLI repository is at https://github.com/help-me-test/cli
+
 ## Development Setup
 
 ```bash
