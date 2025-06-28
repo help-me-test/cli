@@ -1,0 +1,79 @@
+{
+  "name": "helpmetest-cli",
+  "version": "1.4.1",
+  "description": "HelpMeTest CLI tool for health check monitoring",
+  "main": "src/index.js",
+  "type": "module",
+  "bin": {
+    "helpmetest": "./src/index.js"
+  },
+  "scripts": {
+    "start": "bun src/index.js",
+    "mcp:stdio": "bun src/index.js mcp",
+    "mcp:sse": "bun src/index.js mcp --sse",
+    "mcp:dev": "bun src/index.js mcp --verbose",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:mcp": "jest --testPathPattern=mcp",
+    "test:mcp:watch": "jest --testPathPattern=mcp --watch",
+    "docs:generate": "bun test src/tests/mcp-real-ai-e2e.test.js",
+    "docs:mcp": "scripts/generate-mcp-docs.sh",
+    "build": "bun build src/index.js --outfile=dist/helpmetest --target=node --minify",
+    "build:binary": "bun build src/index.js --compile --outfile=dist/helpmetest --minify",
+    "build:all": "bun run clean && bun run build && bun run build:binary",
+    "build:linux-x64": "bun build src/index.js --compile --target=bun-linux-x64 --outfile=dist/helpmetest-linux-x64 --minify",
+    "build:linux-arm64": "bun build src/index.js --compile --target=bun-linux-arm64 --outfile=dist/helpmetest-linux-arm64 --minify",
+    "build:linux-x86": "echo 'Note: Using x64 binary for i386 compatibility' && bun build src/index.js --compile --target=bun-linux-x64 --outfile=dist/helpmetest-linux-x86 --minify",
+    "build:darwin-x64": "bun build src/index.js --compile --target=bun-darwin-x64 --outfile=dist/helpmetest-darwin-x64 --minify",
+    "build:darwin-arm64": "bun build src/index.js --compile --target=bun-darwin-arm64 --outfile=dist/helpmetest-darwin-arm64 --minify",
+    "build:windows-x64": "bun build src/index.js --compile --target=bun-windows-x64 --outfile=dist/helpmetest-windows-x64.exe --minify",
+    "build:windows-arm64": "echo 'Note: Using x64 binary for ARM64 compatibility' && bun build src/index.js --compile --target=bun-windows-x64 --outfile=dist/helpmetest-windows-arm64.exe --minify",
+    "build:windows-x86": "echo 'Note: Using x64 binary for i386 compatibility' && bun build src/index.js --compile --target=bun-windows-x64 --outfile=dist/helpmetest-windows-x86.exe --minify",
+    "clean": "rm -rf dist archives test-archives",
+    "package": "bun run build:binary && chmod +x dist/helpmetest",
+    "release:local": "bun run clean && bun run build:linux-x64 && bun run build:darwin-arm64",
+    "test:build": "scripts/test-build.sh",
+    "build:release": "scripts/build-release.sh",
+    "release": "scripts/release.sh",
+    "release:manual": "scripts/manual-release.sh"
+  },
+  "keywords": [
+    "health-check",
+    "monitoring",
+    "cli",
+    "helpmetest"
+  ],
+  "author": "HelpMeTest",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^11.1.0",
+    "dotenv": "^16.5.0",
+    "fastmcp": "^3.4.0",
+    "open": "^10.1.2",
+    "ramda": "^0.29.1",
+    "timespan-parser": "^1.2.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "jest": "^29.7.0",
+    "node-fetch": "^3.3.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/tests/**"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
