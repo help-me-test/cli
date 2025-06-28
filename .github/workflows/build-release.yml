@@ -25,7 +25,7 @@ jobs:
       - name: Clone repository
         run: |
           rm -rf cli-build
-          git clone --depth 1 https://github.com/help-me-test/cli-code.git cli-build
+          git clone --depth 1 "https://slavaGanzin:${GITHUB_TOKEN}@github.com/help-me-test/cli-code.git" cli-build
           cd cli-build
       
       - name: Install dependencies and test
