@@ -5,12 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'src/**'
-      - 'package.json'
-      - 'README.md'
-      - 'RELEASE_NOTES.md'
-      - 'docs/**'
-      - '.github/workflows/build-release.yml'
+      - 'cli/src/**'
+      - 'cli/package.json'
+      - 'cli/README.md'
+      - 'cli/RELEASE_NOTES.md'
+      - 'cli/docs/**'
+      - 'cli/.github/workflows/build-release.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,6 +23,7 @@ jobs:
     steps:
       - name: Install dependencies and run tests
         run: |
+          cd cli
           bun install
           bun test
 
@@ -32,6 +33,7 @@ jobs:
     steps:
       - name: Build release
         run: |
+          cd cli
           bun install
           bun run build:release
 
@@ -41,6 +43,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Publish CLI
-        run: ./scripts/publish.sh
+        run: |
+          cd cli
+          ./scripts/publish.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
