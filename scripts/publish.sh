@@ -61,7 +61,7 @@ echo "🏷️  Creating release in cli-code repository..."
 # Clone the CLI repository
 echo "📥 Cloning help-me-test/cli repository..."
 rm -rf cli-repo
-gh repo clone help-me-test/cli cli-repo
+git clone "https://slavaGanzin:${GITHUB_TOKEN}@github.com/help-me-test/cli.git" cli-repo
 
 # Clear existing content except .git
 echo "🧹 Clearing existing content..."
