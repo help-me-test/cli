@@ -1,8 +1,7 @@
 # HelpMeTest CLI
 
-A command-line tool for monitoring services and sending health check heartbeats to HelpMeTest.
 
-> **Note**: This is the development repository (cli-code). For releases and user installation, visit: https://github.com/help-me-test/cli
+A command-line tool for monitoring services and sending health check heartbeats to HelpMeTest.
 
 ## 🚀 Quick Start
 
