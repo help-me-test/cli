@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.4.0 (2024-06-29)
+
+### New Features
+
+- **Resource Management**: Added commands for deleting health checks and tests with comprehensive API integration
+- **Undo Functionality**: Implemented undo capability for reversible operations, allowing users to restore deleted resources
+- **Dry-Run Mode**: Added preview mode for deletion operations to verify actions before execution
+- **Updates Feed Integration**: Enhanced integration with the updates feed system for operation tracking
+
+### Improvements
+
+- **Documentation**: Expanded documentation with detailed examples for resource management operations
+- **API Utilities**: Added robust API utilities for deletion and restoration operations
+- **Error Handling**: Improved error handling and user feedback for resource management operations
+
 ## v1.3.1 (2024-06-26)
 
 ### Improvements
