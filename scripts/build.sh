@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Production build script for HelpMeTest CLI
-# This script builds all platform binaries for release
+# Build script for HelpMeTest CLI
+# This script builds all platform binaries
 
 set -e
 
-echo "🚀 Building HelpMeTest CLI for Release"
+echo "🚀 Building HelpMeTest CLI"
 echo "======================================"
 
 # Check if bun is installed
