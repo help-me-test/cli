@@ -24,7 +24,7 @@ VERSION=$(node -p "require('./package.json').version")
 echo "📦 Version: $VERSION"
 
 # Check if required files exist
-REQUIRED_FILES=("README.md" "RELEASE_NOTES.md" "package.json" "docs" "examples")
+REQUIRED_FILES=("README.md" "RELEASE_NOTES.md" "package.json" "docs")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -e "$file" ]; then
         echo "❌ Required file/directory missing: $file"
@@ -73,7 +73,6 @@ cp README.md cli-repo/
 cp RELEASE_NOTES.md cli-repo/
 cp package.json cli-repo/
 cp -r docs cli-repo/
-cp -r examples cli-repo/
 
 # Commit and push
 echo "💾 Committing changes to help-me-test/cli..."
