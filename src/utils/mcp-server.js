@@ -82,6 +82,24 @@ async function createMcpResponse(operation, errorMessage = 'Operation failed') {
 }
 
 /**
+ * Convert API base URL to web URL for opening tests in browser
+ * @param {string} apiBaseUrl - The API base URL (e.g., 'https://helpmetest.com' or 'https://slava.helpmetest.com')
+ * @returns {string} Web URL for browser access
+ */
+function getWebUrlFromApiUrl(apiBaseUrl) {
+  try {
+    const url = new URL(apiBaseUrl)
+    // For API URLs, we typically want to use the same domain for web access
+    // The API and web interface are usually on the same domain
+    return `${url.protocol}//${url.host}`
+  } catch (error) {
+    debug(config, `Error parsing API URL ${apiBaseUrl}: ${error.message}`)
+    // Fallback to the provided URL if parsing fails
+    return apiBaseUrl
+  }
+}
+
+/**
  * Create and configure MCP server with health monitoring capabilities
  * @param {Object} options - Server configuration options
  * @param {string} [options.name='helpmetest-mcp-server'] - Server name
@@ -972,11 +990,13 @@ async function handleCreateTest(args) {
       throw new Error(createdTest.error || 'API call failed')
     }
     
-    // Construct the test URL for browser opening
-    const testUrl = `https://helpmetest.com/test/${createdTest.id}`
+    // Construct the test URL for browser opening using the configured API base URL
+    const webBaseUrl = getWebUrlFromApiUrl(config.apiBaseUrl)
+    let testUrl = `${webBaseUrl}/test/${createdTest.id}`
     
     // Run the test immediately after creation
     let testRunResult = null
+    let runTimestamp = null
     try {
       debug(config, `Running test immediately: ${createdTest.id}`)
       const events = []
@@ -990,9 +1010,19 @@ async function handleCreateTest(args) {
       const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
       const keywordEvents = events.filter(e => e.type === 'keyword')
       
+      // Extract timestamp from run_id for the test run URL
+      if (events.length > 0 && events[0].id) {
+        // run_id format is: company__testId__timestamp
+        const runIdParts = events[0].id.split('__')
+        if (runIdParts.length === 3) {
+          runTimestamp = runIdParts[2]
+        }
+      }
+      
       testRunResult = {
         status: testResults.length > 0 ? testResults[0].attrs.status : 'UNKNOWN',
         totalEvents: events.length,
+        runTimestamp: runTimestamp,
         testResults: testResults.map(result => ({
           testId: result.attrs?.name || 'unknown',
           status: result.attrs?.status || 'UNKNOWN',
@@ -1007,6 +1037,12 @@ async function handleCreateTest(args) {
       }
       
       debug(config, `Test run completed with status: ${testRunResult.status}`)
+      
+      // Update test URL to point to the specific run if we have a timestamp
+      if (runTimestamp) {
+        testUrl = `${webBaseUrl}/test/${createdTest.id}/${runTimestamp}`
+        debug(config, `Updated test URL to point to specific run: ${testUrl}`)
+      }
     } catch (runError) {
       debug(config, `Error running test: ${runError.message}`)
       testRunResult = {
@@ -1140,11 +1176,13 @@ async function handleModifyTest(args) {
       throw new Error(updatedTest.error || 'API call failed')
     }
     
-    // Construct the test URL for browser opening
-    const testUrl = `https://helpmetest.com/test/${updatedTest.id}`
+    // Construct the test URL for browser opening using the configured API base URL
+    const webBaseUrl = getWebUrlFromApiUrl(config.apiBaseUrl)
+    let testUrl = `${webBaseUrl}/test/${updatedTest.id}`
     
     // Run the test immediately after modification
     let testRunResult = null
+    let runTimestamp = null
     try {
       debug(config, `Running modified test immediately: ${updatedTest.id}`)
       const events = []
@@ -1158,9 +1196,19 @@ async function handleModifyTest(args) {
       const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
       const keywordEvents = events.filter(e => e.type === 'keyword')
       
+      // Extract timestamp from run_id for the test run URL
+      if (events.length > 0 && events[0].id) {
+        // run_id format is: company__testId__timestamp
+        const runIdParts = events[0].id.split('__')
+        if (runIdParts.length === 3) {
+          runTimestamp = runIdParts[2]
+        }
+      }
+      
       testRunResult = {
         status: testResults.length > 0 ? testResults[0].attrs.status : 'UNKNOWN',
         totalEvents: events.length,
+        runTimestamp: runTimestamp,
         testResults: testResults.map(result => ({
           testId: result.attrs?.name || 'unknown',
           status: result.attrs?.status || 'UNKNOWN',
@@ -1175,6 +1223,12 @@ async function handleModifyTest(args) {
       }
       
       debug(config, `Test run completed with status: ${testRunResult.status}`)
+      
+      // Update test URL to point to the specific run if we have a timestamp
+      if (runTimestamp) {
+        testUrl = `${webBaseUrl}/test/${updatedTest.id}/${runTimestamp}`
+        debug(config, `Updated test URL to point to specific run: ${testUrl}`)
+      }
     } catch (runError) {
       debug(config, `Error running test: ${runError.message}`)
       testRunResult = {
