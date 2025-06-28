@@ -1,5 +1,6 @@
 # HelpMeTest CLI
 
+
 A command-line tool for monitoring services and sending health check heartbeats to HelpMeTest.
 
 ## 🚀 Quick Start
