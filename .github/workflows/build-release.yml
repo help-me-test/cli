@@ -43,5 +43,3 @@ jobs:
         run: |
           cd cli-build
           ./scripts/publish.sh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
