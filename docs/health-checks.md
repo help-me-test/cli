@@ -6,6 +6,7 @@ This guide covers health check patterns, troubleshooting, and best practices for
 
 - [Grace Period Formats](#grace-period-formats)
 - [System Metrics](#system-metrics)
+- [API Isolation](#api-isolation)
 - [Troubleshooting](#troubleshooting)
 - [Best Practices](#best-practices)
 - [Common Patterns](#common-patterns)
@@ -30,6 +31,130 @@ The CLI automatically collects and sends:
 - Disk usage
 - Environment
 - Custom HELPMETEST_* variables
+
+## API Isolation
+
+**Critical Feature**: Health check exit codes are determined ONLY by the command execution result, not by API connectivity.
+
+### Why This Matters
+
+If the HelpMeTest API is unreachable (network issues, service downtime, DNS problems), the health check will:
+
+✅ **Still execute your command** (e.g., checking if a process is running)  
+✅ **Return the correct exit code** based on your command's success/failure  
+⚠️ **Log API failures as warnings** without affecting the health check result  
+
+### Example Scenarios
+
+```bash
+# Scenario 1: Service is healthy, but API is down
+helpmetest health "runner" "2m" "ps aux | grep Runner.Listener"
+# ✅ Exit code 0 (service is running)
+# ⚠️ Warning: "Failed to send heartbeat to API: Network error"
+
+# Scenario 2: Service is unhealthy, API is down  
+helpmetest health "runner" "2m" "ps aux | grep NonExistentProcess"
+# ❌ Exit code 1 (service is not running)
+# ⚠️ Warning: "Failed to send heartbeat to API: Network error"
+```
+
+### Container Orchestration Benefits
+
+This ensures that:
+- **Kubernetes** won't kill healthy pods due to API issues
+- **Docker** health checks reflect actual service status
+- **DevSpace** development isn't disrupted by network problems
+
+### Container-Specific Health Checks
+
+The CLI automatically detects container types and provides optimized health checks:
+
+```bash
+# Kubernetes liveness probe with API isolation
+livenessProbe:
+  exec:
+    command:
+      - helpmetest
+      - health
+      - "container-name"
+      - "1m"
+      - "echo 'Service is running'"
+  failureThreshold: 3
+  periodSeconds: 30
+  timeoutSeconds: 10
+```
+
+Even if the HelpMeTest API is unreachable, the container health check will:
+- Continue to execute the health check command
+- Return the correct exit code based on the command's success/failure
+- Maintain container stability during API outages
+
+### Auto-Detected Container Health Checks
+
+The CLI can automatically infer appropriate health check commands based on container content:
+
+| Container Type | Auto-Detected Health Check |
+|----------------|----------------------------|
+| PostgreSQL     | `psql -h localhost -c "SELECT 1"` |
+| MySQL          | `mysql -h localhost -e "SELECT 1"` |
+| Redis          | `redis-cli ping` |
+| MongoDB        | `mongosh --eval "db.runCommand({ping: 1})"` |
+| Node.js        | `GET localhost:3000/health` |
+| Python/Flask   | `GET localhost:8000/health` |
+| Nginx          | `GET localhost:80/health` |
+| Kafka          | `:9092` (port check) |
+| RabbitMQ       | `GET localhost:15672/api/overview` |
+
+This automatic detection makes it easier to integrate health checks into existing container configurations without manual customization.
+
+### API Error Types
+
+The following API issues are isolated and logged as warnings:
+- Network connectivity problems
+- DNS resolution failures  
+- Authentication errors (invalid tokens)
+- Server errors (5xx responses)
+- Rate limiting (429 responses)
+
+## Configuration
+
+### Environment Setup
+
+The CLI supports multiple configuration methods with the following priority:
+
+1. **Environment variables** (highest priority)
+2. **`.env` file** in current directory  
+3. **Default values**
+
+### .env File Support
+
+Create a `.env` file in your project directory for easy configuration:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit with your values
+HELPMETEST_API_TOKEN=HELP-your-token-here
+HELPMETEST_API_URL=https://helpmetest.com
+ENV=production
+```
+
+### Configuration Validation
+
+The CLI validates configuration on startup but **never fails health checks due to configuration issues**:
+
+```bash
+# Missing API token - health check still runs
+helpmetest health "service" "1m" "echo test"
+# ⚠️ Configuration validation failed - API reporting will be disabled
+# ✅ Command succeeds with exit code 0
+
+# Invalid API URL - health check still runs  
+HELPMETEST_API_URL=invalid-url helpmetest health "service" "1m" "echo test"
+# ⚠️ Failed to send heartbeat to API: Network error
+# ✅ Command succeeds with exit code 0
+```
 
 ## Troubleshooting
 
@@ -235,6 +360,52 @@ readinessProbe:
   timeoutSeconds: 10
   failureThreshold: 2
 ```
+
+### Container Health Check Best Practices
+
+1. **Use Service-Specific Checks**:
+   ```yaml
+   # For a web service
+   livenessProbe:
+     exec:
+       command:
+         - helpmetest
+         - health
+         - "web-service"
+         - "30s"
+         - "GET /health"
+   
+   # For a database service
+   livenessProbe:
+     exec:
+       command:
+         - helpmetest
+         - health
+         - "db-service"
+         - "1m"
+         - "psql -h localhost -c 'SELECT 1'"
+   ```
+
+2. **Configure Appropriate Timeouts**:
+   - Set `timeoutSeconds` to at least 5-10 seconds to allow for health check execution
+   - For services with slower startup, increase `initialDelaySeconds` accordingly
+
+3. **Handle API Outages**:
+   - The CLI's API isolation ensures container health checks remain reliable even during API outages
+   - No special configuration is needed - this behavior is built-in
+
+4. **Debugging Container Health Checks**:
+   ```bash
+   # Run the health check manually inside the container
+   kubectl exec -it my-pod -- helpmetest health "service-name" "1m" "GET /health"
+   
+   # Enable debug mode for detailed output
+   kubectl exec -it my-pod -- bash -c "DEBUG=1 helpmetest health 'service-name' '1m' 'GET /health'"
+   ```
+
+5. **Graceful Degradation**:
+   - Health checks will log warnings about API connectivity issues but won't fail the container
+   - This prevents cascading failures when the monitoring system itself is experiencing issues
 
 ### Database Monitoring
 

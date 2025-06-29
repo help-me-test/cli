@@ -103,15 +103,40 @@ helpmetest --version # Check CLI version
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `HELPMETEST_API_TOKEN` | ✅ | Your HelpMeTest API token |
+| `HELPMETEST_API_URL` | ❌ | API base URL (defaults to https://helpmetest.com) |
 | `ENV` | ❌ | Environment (dev/staging/prod) |
 | `HELPMETEST_*` | ❌ | Custom metrics |
 | `DEBUG` | ❌ | Enable debug output |
 
-### Setup
+### Setup Options
+
+**Option 1: Environment Variables**
 ```bash
 export HELPMETEST_API_TOKEN="your-token-here"
 export ENV="production"  # Optional
 ```
+
+**Option 2: .env File** (Recommended for development)
+```bash
+# Create .env file in your project directory
+cp .env.example .env
+# Edit .env with your actual tokens
+```
+
+### Configuration Priority
+1. **Environment variables** (highest priority)
+2. **`.env` file** in current directory
+3. **Default values**
+
+### 🛡️ API Isolation
+
+**Critical Feature**: Health check exit codes are determined ONLY by your command execution, not by API connectivity.
+
+- ✅ **Service healthy + API down** → Exit code 0 (success)
+- ❌ **Service unhealthy + API down** → Exit code 1 (failure) 
+- ⚠️ **API issues logged as warnings** without affecting health check results
+
+This ensures container orchestrators (Kubernetes, Docker) get accurate health status regardless of HelpMeTest API availability.
 
 ## 📚 Documentation
 

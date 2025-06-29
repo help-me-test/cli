@@ -82,14 +82,32 @@ sudo chmod +x /usr/local/bin/helpmetest
 helpmetest --version
 ```
 
-## Environment Variables
+## Configuration Setup
 
-Set up your API token:
+### Option 1: Environment Variables
 ```bash
 export HELPMETEST_API_TOKEN="your-token-here"
+export ENV="production"  # Optional
 ```
 
-Optional environment variables:
+### Option 2: .env File (Recommended for Development)
+```bash
+# Create .env file in your project directory
+cat > .env << EOF
+HELPMETEST_API_TOKEN=your-token-here
+HELPMETEST_API_URL=https://helpmetest.com
+ENV=production
+EOF
+```
+
+### Configuration Priority
+1. **Environment variables** (highest priority)
+2. **`.env` file** in current directory
+3. **Default values**
+
+### Available Variables
+- `HELPMETEST_API_TOKEN` - Your HelpMeTest API token (required)
+- `HELPMETEST_API_URL` - API base URL (optional, defaults to https://helpmetest.com)
 - `ENV` - Environment identifier (dev, staging, prod)
 - `HELPMETEST_*` - Custom data (any env var starting with HELPMETEST_)
 
