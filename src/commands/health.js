@@ -3,6 +3,12 @@
  * 
  * This module handles the health check command functionality including
  * argument validation, grace period parsing, and API calls.
+ * 
+ * IMPORTANT: The health check exit code is determined ONLY by the command execution result.
+ * API failures (network issues, service downtime, authentication errors) are logged as 
+ * warnings but do NOT affect the exit code. This ensures that container orchestrators 
+ * (Kubernetes, Docker, etc.) get accurate health status based on the actual service 
+ * state, not on the availability of the HelpMeTest API.
  */
 
 import { output } from '../utils/colors.js'
@@ -96,11 +102,14 @@ async function healthCommand(name, gracePeriod, command, options) {
     }
   }
   
-  // Validate configuration first
-  if (!validateConfiguration(config, options.verbose)) {
-    output.error('Configuration validation failed')
-    output.info('Please set HELPMETEST_API_TOKEN environment variable')
-    process.exit(1)
+  // Validate configuration - but don't fail the health check if invalid
+  // Configuration issues should not prevent the actual health check from running
+  const configValid = validateConfiguration(config, options.verbose)
+  if (!configValid) {
+    output.warning('⚠ Configuration validation failed - API reporting will be disabled')
+    if (options.verbose) {
+      output.info('Please set HELPMETEST_API_TOKEN environment variable for API reporting')
+    }
   }
   
   try {
@@ -121,19 +130,33 @@ async function healthCommand(name, gracePeriod, command, options) {
       displayHealthCheckInfo(processedArgs, heartbeatData, options)
     }
     
-    // Step 6: Send heartbeat (unless dry-run)
-    if (!options.dryRun) {
-      await sendHeartbeat(processedArgs, heartbeatData, options)
+    // Step 6: Send heartbeat (unless dry-run or config invalid)
+    if (!options.dryRun && configValid) {
+      try {
+        await sendHeartbeat(processedArgs, heartbeatData, options)
+      } catch (apiError) {
+        // CRITICAL: API failures should not affect the health check result
+        // This ensures that if slava.helpmetest.com is down, it doesn't cause
+        // Kubernetes to kill healthy pods. Only the actual command result matters.
+        output.warning(`⚠ Failed to send heartbeat to API: ${apiError.message}`)
+        if (options.verbose) {
+          output.section('API Error Details:')
+          console.error(apiError)
+        }
+      }
+    } else if (!options.dryRun && !configValid) {
+      output.warning('⚠ Skipping API heartbeat due to configuration issues')
     } else {
       output.warning('Dry run mode - heartbeat not sent')
     }
 
-    // If command failed, exit with its exit code after sending the heartbeat
-    if (commandResult && !commandResult.success && !options.dryRun) {
+    // Exit with command result status regardless of API success/failure
+    if (commandResult && !commandResult.success) {
       process.exit(commandResult.exitCode)
     }
     
   } catch (error) {
+    // Only fail for non-API errors (validation, system errors, etc.)
     output.error(`⨯ Health check failed: ${error.message}`)
     
     if (options.verbose) {
@@ -451,8 +474,8 @@ async function sendHeartbeat(processedArgs, heartbeatData, options) {
         throw new Error(`API error (${status}): ${statusText}`)
       }
     } else if (error.request) {
-      // Network error
-      throw new Error('\n\t'+error.data.error)
+      // Network error - connection issues, DNS resolution, etc.
+      throw new Error(`Network error: Unable to reach HelpMeTest API (${config.apiBaseUrl})`)
     } else {
       // Other error
       throw new Error(`Request failed: ${error.message}`)

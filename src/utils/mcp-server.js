@@ -353,7 +353,7 @@ export function createMcpServer(options = {}) {
     'helpmetest_add_health_check',
     {
       title: 'Help Me Test: Add Health Check Tool',
-      description: 'Automatically add HelpMeTest health checks to container files (Dockerfile, docker-compose.yml, Kubernetes manifests, devspace.yaml)',
+      description: 'Automatically add HelpMeTest health checks to container files (Dockerfile, docker-compose.yml, Kubernetes manifests, devspace.yaml). Note: For Kubernetes services not exposed through Service resources, readiness probes are typically not needed.',
       inputSchema: {
         filePath: z.string().describe('Path to the file to modify (Dockerfile, docker-compose.yml, k8s manifest, devspace.yaml)'),
         serviceName: z.string().describe('Name of the service for the health check'),
@@ -3062,6 +3062,14 @@ psql postgres://user:pass@localhost/db -c "SELECT 1;" && helpmetest health "db-c
 - **Kubernetes**: 30s liveness, 10s readiness
 - **Production**: Longer intervals to reduce load
 - **Development**: Shorter intervals for faster feedback
+
+### Readiness Probes in Kubernetes
+**Important**: If your Kubernetes service is not exposed through a Service resource (no service.ports defined), you typically don't need readiness probes. Readiness probes are primarily used to control traffic routing to pods through Services.
+
+- **Services with traffic**: Always include both liveness and readiness probes
+- **Background jobs/workers**: Usually only need liveness probes
+- **Batch jobs/CronJobs**: Typically don't need readiness probes
+- **Internal utilities**: May only need liveness probes if not receiving traffic
 
 ### Naming Conventions
 - Include environment: \`web-prod\`, \`api-staging\`
