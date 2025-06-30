@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.4.6 (2024-12-19)
+
+### Improvements
+
+- **Release Process**: Enhanced release notes synchronization between cli-code and cli repositories
+- **Documentation**: Improved release documentation consistency across all distribution channels
+- **Publishing**: Streamlined publishing workflow to ensure detailed release notes are used everywhere
+
+### Bug Fixes
+
+- **Release Notes**: Fixed issue where help-me-test/cli repository was getting basic release notes instead of detailed ones
+- **Publishing**: Corrected release script to use comprehensive release notes from RELEASE_NOTES.md
+
 ## v1.4.5 (2024-06-30)
 
 ### Improvements
