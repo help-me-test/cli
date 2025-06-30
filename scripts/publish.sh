@@ -94,18 +94,35 @@ fi
 # Create release in CLI repo with assets
 echo "🏷️  Creating release in help-me-test/cli repository..."
 cd ..
+
+# Use the same release notes that were generated for cli-code
+if [ -f "release-notes.md" ]; then
+    echo "📝 Using detailed release notes from cli-code..."
+    RELEASE_NOTES_FILE="release-notes.md"
+else
+    echo "⚠️  release-notes.md not found, creating basic notes..."
+    echo "Cross-platform CLI tool for health check monitoring.
+
+Download the appropriate binary for your platform from the assets below." > basic-release-notes.md
+    RELEASE_NOTES_FILE="basic-release-notes.md"
+fi
+
 gh release delete v$VERSION --repo help-me-test/cli --yes || true
 gh release create v$VERSION \
     --repo help-me-test/cli \
     --title "HelpMeTest CLI v$VERSION" \
-    --notes "Cross-platform CLI tool for health check monitoring.
-
-Download the appropriate binary for your platform from the assets below." \
+    --notes-file "$RELEASE_NOTES_FILE" \
     release-assets/*
+
+# Clean up temporary file if created
+if [ -f "basic-release-notes.md" ]; then
+    rm -f basic-release-notes.md
+fi
 
 echo "🎉 Successfully published CLI v$VERSION to help-me-test/cli!"
 
 # Clean up
 rm -rf cli-repo release-assets
+rm -f release-notes.md
 
 echo "✨ Publishing complete!"
