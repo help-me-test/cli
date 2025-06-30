@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.4.5 (2024-06-30)
+
+### Improvements
+
+- **Container Integration**: Enhanced health check command to isolate API failures from health status
+- **Error Handling**: Improved error handling to ensure container orchestrators get accurate health status
+- **Documentation**: Added guidance for Kubernetes readiness probe usage in different scenarios
+- **Reliability**: Updated health check logic to prevent false negatives during API outages
+
+### Bug Fixes
+
+- **Health Check**: Fixed issue where API failures could incorrectly report healthy services as failing
+- **MCP Server**: Improved error messages for network connectivity issues
+- **Documentation**: Updated container integration documentation with best practices
+
 ## v1.4.0 (2024-06-29)
 
 ### New Features
