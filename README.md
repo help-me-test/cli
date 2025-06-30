@@ -67,10 +67,16 @@ helpmetest health "my-service" "5m"
 helpmetest health "api" "1m" "GET localhost:3000/health"
 
 # Port monitoring
-helpmetest health "db" "30s" "PORT 5432"
+helpmetest health "db" "30s" ":5432"
+
+# File age check
+helpmetest health "logs" "5m" "file-updated 2m /var/log/app.log"
+
+# Multiple checks in one command
+helpmetest health "app" "5m" "GET /health" "file-updated 1m /var/log/app.log"
 
 # Command execution
-helpmetest health "backup" "1h" "CMD ./backup.sh"
+helpmetest health "backup" "1h" "bash ./backup.sh"
 ```
 
 ### Test Commands

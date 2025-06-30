@@ -433,6 +433,34 @@ helpmetest health "backend-3" "1m" "GET http://backend-3.internal:8080/health"
 helpmetest health "load-balancer" "1m" "GET http://lb.example.com/health"
 ```
 
+### Log File Monitoring
+
+```bash
+# Ensure application logs are being written
+helpmetest health "app-logs" "5m" "file-updated 2m /var/log/app.log"
+
+# Monitor multiple log files
+helpmetest health "system-logs" "10m" \
+  "file-updated 5m /var/log/syslog" \
+  "file-updated 5m /var/log/auth.log"
+
+# Check backup job results
+helpmetest health "nightly-backup" "25h" "file-updated 24h /backups/daily/backup-$(date +%Y-%m-%d).tar.gz"
+
+# Verify database dumps
+helpmetest health "db-dumps" "2h" "file-updated 1h /var/db/dumps/latest.sql"
+```
+
+For critical systems, combine file checks with other health checks:
+
+```bash
+# Comprehensive application monitoring
+helpmetest health "app-health" "5m" \
+  "GET localhost:3000/health" \
+  "file-updated 1m /var/log/app.log" \
+  "ps aux | grep -v grep | grep 'node server.js'"
+```
+
 ### HTTP Health Checks
 
 ```bash
@@ -452,6 +480,31 @@ helpmetest health "auth-service" "30s" "GET https://api.example.com/health"
 # Check if port 3000 is available
 helpmetest health "port-3000" "1m" ":3000"
 ```
+
+### File Age Health Checks
+
+```bash
+# Check if a file was updated in the last 2 minutes
+helpmetest health "log-updated" "5m" "file-updated 2m /var/log/app.log"
+
+# Check if a database dump was created in the last day
+helpmetest health "db-backup" "25h" "file-updated 1d /backups/db-dump.sql"
+
+# Check if multiple files are recent
+helpmetest health "config-files" "30m" "file-updated 15m /etc/app/config.json" "file-updated 15m /etc/app/secrets.json"
+```
+
+The `file-updated` command checks if a file exists and has been modified within the specified time period:
+- Syntax: `file-updated <duration> <file-path>`
+- Returns success (exit code 0) if the file exists and was modified within the specified time period
+- Returns failure (exit code 1) if the file doesn't exist or is older than the specified time period
+- Supports all duration formats listed in [Grace Period Formats](#grace-period-formats)
+
+This is particularly useful for:
+- Monitoring log files to ensure they're being written to
+- Verifying backup jobs are creating files
+- Checking if scheduled tasks are updating status files
+- Ensuring configuration files haven't been modified unexpectedly
 
 ### Shell Command Execution
 

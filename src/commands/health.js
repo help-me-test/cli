@@ -38,66 +38,75 @@ async function healthCommand(name, gracePeriod, command, options) {
   
   const startTime = Date.now()
   
-  // Execute command if provided
-  let commandResult = null
+  // Execute commands if provided
+  let commandResults = []
   if (command && command.length > 0) {
-    const commandStartTime = Date.now()
-    const commandStr = command.join(' ')
-    
-    try {
-      // Special case 1: Port check syntax ":port"
-      if (/^:\d+$/.test(commandStr)) {
-        const port = parseInt(commandStr.slice(1))
-        const { createServer } = await import('net')
+    // Each command is treated as a separate string
+    for (const commandStr of command) {
+      const commandStartTime = Date.now()
+      
+      try {
+        let result = null
         
-        commandResult = await new Promise((resolve) => {
-          const server = createServer()
-          server.on('error', (error) => {
-            resolve({
-              success: false,
-              exitCode: 1,
-              error: `Port ${port} is not available: ${error.message}`,
-              elapsedTime: Date.now() - commandStartTime,
-              command: commandStr,
-            })
-          })
+        // Special case 1: Port check syntax ":port"
+        if (/^:\d+$/.test(commandStr)) {
+          const port = parseInt(commandStr.slice(1))
+          const { createServer } = await import('net')
           
-          server.listen(port, () => {
-            server.close()
-            resolve({
-              success: true,
-              exitCode: 0,
-              elapsedTime: Date.now() - commandStartTime,
-              command: commandStr,
+          result = await new Promise((resolve) => {
+            const server = createServer()
+            server.on('error', (error) => {
+              resolve({
+                success: false,
+                exitCode: 1,
+                error: `Port ${port} is not available: ${error.message}`,
+                elapsedTime: Date.now() - commandStartTime,
+                command: commandStr,
+              })
+            })
+            
+            server.listen(port, () => {
+              server.close()
+              resolve({
+                success: true,
+                exitCode: 0,
+                elapsedTime: Date.now() - commandStartTime,
+                command: commandStr,
+              })
             })
           })
-        })
-      }
-      // Special case 2: HTTP health check syntax "GET /health" or "POST /health"
-      else if (/^(GET|POST)\s+\S+$/.test(commandStr)) {
-        const [method, url] = commandStr.split(' ')
-        commandResult = await performHttpHealthCheck(url, method, commandStartTime)
-      }
-      // Default case: Execute shell command
-      else {
-        const { execSync } = await import('child_process')
-        execSync(commandStr)
-        commandResult = {
-          success: true,
-          exitCode: 0,
-          elapsedTime: Date.now() - commandStartTime,
-          command: commandStr,
         }
-      }
-    } catch (error) {
-      if (!commandResult) {
-        commandResult = {
+        // Special case 2: HTTP health check syntax "GET /health" or "POST /health"
+        else if (/^(GET|POST)\s+\S+$/.test(commandStr)) {
+          const [method, url] = commandStr.split(' ')
+          result = await performHttpHealthCheck(url, method, commandStartTime)
+        }
+        // Special case 3: File age check syntax "file-updated 2m /path/to/file"
+        else if (commandStr.startsWith('file-updated ')) {
+          result = await performFileAgeHealthCheck(commandStr, commandStartTime)
+        }
+        // Default case: Execute shell command
+        else {
+          const { execSync } = await import('child_process')
+          execSync(commandStr)
+          result = {
+            success: true,
+            exitCode: 0,
+            elapsedTime: Date.now() - commandStartTime,
+            command: commandStr,
+          }
+        }
+        
+        commandResults.push(result)
+        
+      } catch (error) {
+        commandResults.push({
           success: false,
           exitCode: error.status || 1,
           error: error.message,
           elapsedTime: Date.now() - commandStartTime,
           command: commandStr,
-        }
+        })
       }
     }
   }
@@ -123,7 +132,7 @@ async function healthCommand(name, gracePeriod, command, options) {
     const elapsedTime = Date.now() - startTime
     
     // Step 4: Prepare heartbeat data
-    const heartbeatData = prepareHeartbeatData(processedArgs, metrics, elapsedTime, commandResult)
+    const heartbeatData = prepareHeartbeatData(processedArgs, metrics, elapsedTime, commandResults)
     
     // Step 5: Display information (if verbose or dry-run)
     if (options.verbose || options.dryRun) {
@@ -151,8 +160,10 @@ async function healthCommand(name, gracePeriod, command, options) {
     }
 
     // Exit with command result status regardless of API success/failure
-    if (commandResult && !commandResult.success) {
-      process.exit(commandResult.exitCode)
+    // If any command failed, exit with the first failure's exit code
+    const failedCommand = commandResults.find(result => !result.success)
+    if (failedCommand) {
+      process.exit(failedCommand.exitCode)
     }
     
   } catch (error) {
@@ -244,10 +255,13 @@ async function validateAndProcessArguments(name, gracePeriod, options) {
  * @param {number} elapsedTime - Elapsed time in milliseconds (optional)
  * @returns {Object} Heartbeat data
  */
-function prepareHeartbeatData(processedArgs, metrics, elapsedTime = 0, commandResult = null) {
+function prepareHeartbeatData(processedArgs, metrics, elapsedTime = 0, commandResults = []) {
   configUtils.debug('Preparing heartbeat data')
   
   const envConfig = configUtils.getEnvironmentConfig()
+  
+  // Determine overall status - PASS only if all commands passed
+  const allCommandsSucceeded = commandResults.length === 0 || commandResults.every(result => result.success)
   
   const heartbeatData = {
     name: processedArgs.name,
@@ -265,18 +279,19 @@ function prepareHeartbeatData(processedArgs, metrics, elapsedTime = 0, commandRe
     environment: envConfig.environment || 'dev',
     elapsed_time: elapsedTime,
     custom_data: envConfig.customData || {},
-    status: commandResult ? (commandResult.success ? 'PASS' : 'FAIL') : 'PASS',
+    status: allCommandsSucceeded ? 'PASS' : 'FAIL',
   }
 
   // Add command execution information if available
-  if (commandResult) {
-    heartbeatData.command_info = {
-      command: commandResult.command,
-      success: commandResult.success,
-      exit_code: commandResult.exitCode,
-      elapsed_time: commandResult.elapsedTime,
-      error: commandResult.error,
-    }
+  if (commandResults.length > 0) {
+    heartbeatData.commands_info = commandResults.map(result => ({
+      command: result.command,
+      success: result.success,
+      exit_code: result.exitCode,
+      elapsed_time: result.elapsedTime,
+      error: result.error,
+      file_results: result.fileResults, // For file age checks
+    }))
   }
 
   // Add timer information if available
@@ -305,15 +320,41 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
   }
 
   // Display command execution status if available
-  if (heartbeatData.command_info) {
+  if (heartbeatData.commands_info && heartbeatData.commands_info.length > 0) {
     output.section('Command Execution:')
-    output.keyValue('Command', heartbeatData.command_info.command)
-    output.keyValue('Status', heartbeatData.command_info.success ? 'Success' : 'Failed')
-    output.keyValue('Exit Code', heartbeatData.command_info.exit_code)
-    output.keyValue('Execution Time', `${heartbeatData.command_info.elapsed_time}ms`)
-    if (heartbeatData.command_info.error) {
-      output.keyValue('Error', heartbeatData.command_info.error)
-    }
+    
+    heartbeatData.commands_info.forEach((cmdInfo, index) => {
+      if (heartbeatData.commands_info.length > 1) {
+        output.keyValue(`Command ${index + 1}`, cmdInfo.command)
+      } else {
+        output.keyValue('Command', cmdInfo.command)
+      }
+      output.keyValue('Status', cmdInfo.success ? 'Success' : 'Failed')
+      output.keyValue('Exit Code', cmdInfo.exit_code)
+      output.keyValue('Execution Time', `${cmdInfo.elapsed_time}ms`)
+      
+      if (cmdInfo.error) {
+        output.keyValue('Error', cmdInfo.error)
+      }
+      
+      // Display file results for file age checks
+      if (cmdInfo.file_results && cmdInfo.file_results.length > 0) {
+        output.keyValue('File Check Results', '')
+        cmdInfo.file_results.forEach(fileResult => {
+          const status = fileResult.isValid ? '✓' : '✗'
+          if (fileResult.exists) {
+            output.keyValue(`  ${status} ${fileResult.path}`, `${fileResult.ageSeconds}s old (max: ${fileResult.maxAgeSeconds}s)`)
+          } else {
+            output.keyValue(`  ${status} ${fileResult.path}`, 'File not found')
+          }
+        })
+      }
+      
+      if (index < heartbeatData.commands_info.length - 1) {
+        console.log() // Add spacing between commands
+      }
+    })
+    
     console.log()
   }
   
@@ -395,6 +436,94 @@ async function performHttpHealthCheck(url, method, startTime) {
     url: finalUrl,
     status: response.status,
     statusText: response.statusText,
+  }
+}
+
+/**
+ * Perform file age health check
+ * @param {string} commandStr - Command string like "file-updated 2m /tmp/service.live"
+ * @param {number} startTime - Start time for elapsed calculation
+ * @returns {Object} Health check result
+ */
+async function performFileAgeHealthCheck(commandStr, startTime) {
+  const { stat } = await import('fs/promises')
+  const ms = (await import('ms')).default
+  
+  // Parse command: "file-updated 2m /path"
+  const parts = commandStr.split(' ')
+  if (parts.length !== 3) {
+    return {
+      success: false,
+      exitCode: 1,
+      error: 'Invalid file-updated syntax. Expected: file-updated 2m /path/to/file',
+      elapsedTime: Date.now() - startTime,
+      command: commandStr,
+    }
+  }
+  
+  const [, maxAgeStr, filePath] = parts
+  
+  // Parse duration using ms module
+  let maxAgeMs
+  try {
+    maxAgeMs = ms(maxAgeStr)
+    if (!maxAgeMs || maxAgeMs <= 0) {
+      throw new Error('Invalid duration')
+    }
+  } catch (error) {
+    return {
+      success: false,
+      exitCode: 1,
+      error: `Invalid duration: ${maxAgeStr}. Use format like '2m', '30s', '1h'`,
+      elapsedTime: Date.now() - startTime,
+      command: commandStr,
+    }
+  }
+  
+  const maxAgeSeconds = Math.floor(maxAgeMs / 1000)
+  
+  const now = Date.now()
+  let result
+  
+  try {
+    const stats = await stat(filePath)
+    const ageMs = now - stats.mtime.getTime()
+    const ageSeconds = Math.floor(ageMs / 1000)
+    const isValid = ageMs <= maxAgeMs
+    
+    result = {
+      path: filePath,
+      exists: true,
+      ageSeconds,
+      maxAgeSeconds,
+      isValid,
+      lastModified: stats.mtime.toISOString(),
+    }
+  } catch (error) {
+    result = {
+      path: filePath,
+      exists: false,
+      error: error.message,
+      isValid: false,
+    }
+  }
+  
+  let errorMessage = null
+  if (!result.isValid) {
+    if (!result.exists) {
+      errorMessage = `File not found: ${result.path} (${result.error})`
+    } else {
+      errorMessage = `File too old: ${result.path} (${result.ageSeconds}s > ${result.maxAgeSeconds}s)`
+    }
+  }
+  
+  return {
+    success: result.isValid,
+    exitCode: result.isValid ? 0 : 1,
+    error: errorMessage,
+    elapsedTime: Date.now() - startTime,
+    command: commandStr,
+    fileResults: [result], // Keep as array for consistent display logic
   }
 }
 
