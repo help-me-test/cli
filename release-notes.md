@@ -1,18 +1,16 @@
-# HelpMeTest CLI v1.4.5
-
+# HelpMeTest CLI v1.4.7
 
 ### Improvements
 
-- **Container Integration**: Enhanced health check command to isolate API failures from health status
-- **Error Handling**: Improved error handling to ensure container orchestrators get accurate health status
-- **Documentation**: Added guidance for Kubernetes readiness probe usage in different scenarios
-- **Reliability**: Updated health check logic to prevent false negatives during API outages
+- **Release Process**: Further enhanced release notes management and distribution
+- **Documentation**: Added more comprehensive installation instructions in standalone release notes
+- **Build System**: Improved build and release scripts for better maintainability
 
 ### Bug Fixes
 
-- **Health Check**: Fixed issue where API failures could incorrectly report healthy services as failing
-- **MCP Server**: Improved error messages for network connectivity issues
-- **Documentation**: Updated container integration documentation with best practices
+- **Release Workflow**: Fixed GitHub token authentication in release workflows
+- **Publishing**: Resolved issues with release notes synchronization between repositories
+- **Documentation**: Ensured consistent formatting across all documentation channels
 
 
 ## 📥 Installation
