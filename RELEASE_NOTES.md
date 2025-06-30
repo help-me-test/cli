@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.4.7 (2025-06-30)
+
+### Improvements
+
+- **Release Process**: Further enhanced release notes management and distribution
+- **Documentation**: Added more comprehensive installation instructions in standalone release notes
+- **Build System**: Improved build and release scripts for better maintainability
+
+### Bug Fixes
+
+- **Release Workflow**: Fixed GitHub token authentication in release workflows
+- **Publishing**: Resolved issues with release notes synchronization between repositories
+- **Documentation**: Ensured consistent formatting across all documentation channels
+
 ## v1.4.6 (2024-12-19)
 
 ### Improvements
