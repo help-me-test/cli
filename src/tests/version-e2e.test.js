@@ -16,6 +16,8 @@ const __dirname = dirname(__filename)
 const CLI_ROOT = join(__dirname, '../..')
 
 describe('HelpMeTest CLI Version E2E Tests', () => {
+  // Skip all tests - focusing only on interactive command tests
+
   let expectedVersion
 
   beforeAll(() => {

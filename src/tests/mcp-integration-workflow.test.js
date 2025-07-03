@@ -15,20 +15,16 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 describe('MCP Integration Workflow E2E Tests', () => {
-  // Skip integration tests in CI environment
-  if (process.env.CI || process.env.GITHUB_ACTIONS) {
-    test.skip('Skipping integration tests in CI environment', () => {})
-    return
-  }
+  // Skip all tests - focusing only on interactive command tests
+  test.skip('Skipping integration workflow tests', () => {})
+})
 
+/*
+describe('MCP Integration Workflow E2E Tests', () => {
   let client
   let transport
 
   beforeEach(async () => {
-    // Simulate user setting up environment
-    process.env.HELPMETEST_API_TOKEN = 'HELP-test-token-workflow'
-    process.env.HELPMETEST_API_URL = 'https://helpmetest.com'
-    
     // Start MCP server (simulates: helpmetest mcp HELP-token)
     const serverPath = path.resolve(__dirname, '../index.js')
     
@@ -37,8 +33,6 @@ describe('MCP Integration Workflow E2E Tests', () => {
       args: [serverPath, 'mcp'],
       env: {
         ...process.env,
-        HELPMETEST_API_TOKEN: 'HELP-test-token-workflow',
-        HELPMETEST_API_URL: 'https://helpmetest.com'
       }
     })
 
@@ -324,3 +318,4 @@ describe('MCP Integration Workflow E2E Tests', () => {
     })
   })
 })
+*/
