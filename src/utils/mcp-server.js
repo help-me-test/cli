@@ -19,7 +19,7 @@ import open from 'open'
 import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
-import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate, runInteractiveCommand } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate, runInteractiveCommand, getUserInfo } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { libraries } from '../keywords.js'
 
@@ -120,11 +120,26 @@ async function createMcpResponse(operation, errorMessage = 'Operation failed') {
 /**
  * Convert API base URL to web URL for opening tests in browser
  * @param {string} apiBaseUrl - The API base URL (e.g., 'https://helpmetest.com' or 'https://slava.helpmetest.com')
- * @returns {string} Web URL for browser access
+ * @returns {Promise<string>} Web URL for browser access
  */
-function getWebUrlFromApiUrl(apiBaseUrl) {
+async function getWebUrlFromApiUrl(apiBaseUrl) {
   try {
     const url = new URL(apiBaseUrl)
+    
+    // Get user info to extract subdomain
+    try {
+      const userInfo = await getUserInfo()
+      if (userInfo && userInfo.subdomain) {
+        // If the current URL doesn't already have the subdomain, add it
+        if (!url.hostname.startsWith(`${userInfo.subdomain}.`)) {
+          url.hostname = `${userInfo.subdomain}.${url.hostname}`
+        }
+      }
+    } catch (error) {
+      debug(config, `Failed to get user info for subdomain: ${error.message}`)
+      // Continue without subdomain if user info fails
+    }
+    
     // For API URLs, we typically want to use the same domain for web access
     // The API and web interface are usually on the same domain
     return `${url.protocol}//${url.host}`
@@ -158,6 +173,8 @@ export function createMcpServer(options = {}) {
     name: serverConfig.name,
     version: serverConfig.version,
   })
+
+
 
   // Add message logging
   server.onrequest = (request, extra) => {
@@ -1092,7 +1109,7 @@ async function handleCreateTest(args) {
     }
     
     // Construct the test URL for browser opening using the configured API base URL
-    const webBaseUrl = getWebUrlFromApiUrl(config.apiBaseUrl)
+    const webBaseUrl = await getWebUrlFromApiUrl(config.apiBaseUrl)
     let testUrl = `${webBaseUrl}/test/${createdTest.id}`
     
     // Run the test immediately after creation
@@ -1281,7 +1298,7 @@ async function handleModifyTest(args) {
     }
     
     // Construct the test URL for browser opening using the configured API base URL
-    const webBaseUrl = getWebUrlFromApiUrl(config.apiBaseUrl)
+    const webBaseUrl = await getWebUrlFromApiUrl(config.apiBaseUrl)
     let testUrl = `${webBaseUrl}/test/${updatedTest.id}`
     
     // Run the test immediately after modification
