@@ -202,11 +202,29 @@ const getApiHeaders = (config) => {
 /**
  * Get request configuration for axios
  * @param {Object} config - Configuration object
+ * @param {string} [subdomain] - Optional subdomain to use for URL construction
  * @returns {Object} Axios configuration
  */
-const getRequestConfig = (config) => {
+const getRequestConfig = (config, subdomain = null) => {
+  let baseURL = config.apiBaseUrl
+  
+  // If subdomain is provided, construct the subdomain-specific URL
+  if (subdomain) {
+    try {
+      const url = new URL(config.apiBaseUrl)
+      // If the current URL doesn't already have the subdomain, add it
+      if (!url.hostname.startsWith(`${subdomain}.`)) {
+        url.hostname = `${subdomain}.${url.hostname}`
+        baseURL = url.toString()
+      }
+    } catch (error) {
+      debug(config, `Error constructing subdomain URL: ${error.message}`)
+      // Fall back to original URL if there's an error
+    }
+  }
+  
   return {
-    baseURL: config.apiBaseUrl,
+    baseURL,
     timeout: config.timeout,
     headers: getApiHeaders(config),
     validateStatus: (status) => status < 500, // Don't throw on 4xx errors
@@ -262,6 +280,25 @@ const validateOrExit = (config, verbose = false) => {
 // Load configuration once at module level
 const config = loadConfiguration()
 
+// Global variable to store user subdomain (will be populated when needed)
+let userSubdomain = null
+
+/**
+ * Set the user subdomain for URL construction
+ * @param {string} subdomain - User's subdomain
+ */
+const setUserSubdomain = (subdomain) => {
+  userSubdomain = subdomain
+}
+
+/**
+ * Get the user subdomain
+ * @returns {string|null} User's subdomain or null if not set
+ */
+const getUserSubdomain = () => {
+  return userSubdomain
+}
+
 // Export configuration object and utility functions
 export {
   config,
@@ -274,6 +311,8 @@ export {
   isDebugMode,
   debug,
   validateOrExit,
+  setUserSubdomain,
+  getUserSubdomain,
 }
 
 // Export utility object for backward compatibility
