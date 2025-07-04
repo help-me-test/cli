@@ -1,5 +1,25 @@
 # Release Notes
 
+## v1.5.0 (2025-07-15)
+
+### New Features
+
+- **Multi-tenant Support**: Added user-specific subdomain handling for improved multi-tenant deployments
+- **Interactive Commands**: Implemented interactive Robot Framework command functionality for better developer experience
+- **Test Operations**: Added detailed explanations for test operations to improve usability
+
+### Improvements
+
+- **Configuration**: Enhanced subdomain support for multi-tenant URL configurations
+- **Logging**: Improved debug logging capabilities in API and status data modules
+- **Documentation**: Updated documentation with latest features and usage examples
+
+### Bug Fixes
+
+- **API Integration**: Fixed import statement for config utilities
+- **MCP Server**: Resolved API import issues for getUserInfo function
+- **Tests**: Updated MCP integration workflow test imports for better reliability
+
 ## v1.4.7 (2025-06-30)
 
 ### Improvements
