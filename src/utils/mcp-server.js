@@ -19,15 +19,51 @@ import open from 'open'
 import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
-// import { collectSystemMetrics } from './metrics.js'
-import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate, runInteractiveCommand, getUserInfo } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { libraries } from '../keywords.js'
+
 import { 
   TOOL_CONFIGS,
   getMcpServerConfig,
   validateMcpConfig 
 } from './mcp-config.js'
+
+// Interactive session management
+const interactiveSessions = new Map()
+
+/**
+ * Get or create an interactive session ID
+ * @param {string} providedSessionId - Optional session ID provided by user
+ * @returns {Promise<string>} The session ID to use
+ */
+async function getInteractiveSessionId(providedSessionId) {
+  if (providedSessionId && providedSessionId !== 'interactive') {
+    return providedSessionId
+  }
+  
+  // Check if we have an existing interactive session
+  const existingSession = Array.from(interactiveSessions.keys()).find(id => 
+    id.includes('__interactive__')
+  )
+  
+  if (existingSession) {
+    return existingSession
+  }
+  
+  // Create new interactive session ID
+  // Format: interactive__${timestamp} (server will add company ID automatically)
+  const timestamp = new Date().toISOString()
+  const sessionId = `interactive__${timestamp}`
+  
+  // Store the session
+  interactiveSessions.set(sessionId, {
+    created: new Date(),
+    lastUsed: new Date()
+  })
+  
+  return sessionId
+}
 
 /**
  * Log MCP messages to file for debugging
@@ -348,6 +384,64 @@ export function createMcpServer(options = {}) {
     }
   )
 
+  // Register interactive robot framework tool
+  server.registerTool(
+    'helpmetest_run_interactive_command',
+    {
+      title: 'Help Me Test: Interactive Robot Framework Command Tool',
+      description: 'Execute a single Robot Framework command interactively for debugging and testing. This starts an interactive session that maintains browser state between commands. Use "Exit" command to close the session.',
+      inputSchema: {
+        command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
+        line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Interactive command tool called with args: ${JSON.stringify(args)}`)
+      return await handleInteractiveCommand(args)
+    }
+  )
+
+  // Register test debugging prompt
+  server.registerPrompt(
+    'helpmetest_debug_test',
+    {
+      name: 'helpmetest_debug_test',
+      description: 'Interactive test debugging guide that explains how to debug failing tests step by step using the interactive command system',
+      arguments: [
+        {
+          name: 'test_content',
+          description: 'The Robot Framework test content to debug',
+          required: true
+        },
+        {
+          name: 'test_name',
+          description: 'Name of the test being debugged',
+          required: false
+        },
+        {
+          name: 'failure_description',
+          description: 'Description of the failure or issue',
+          required: false
+        }
+      ]
+    },
+    async (args) => {
+      const { test_content = '', test_name = 'Test', failure_description = '' } = args
+      
+      return {
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: generateTestDebuggingPrompt(test_content, test_name, failure_description)
+            }
+          }
+        ]
+      }
+    }
+  )
+
   // Register health check integration tool
   server.registerTool(
     'helpmetest_add_health_check',
@@ -505,6 +599,10 @@ export function createMcpServer(options = {}) {
       }
     }
   )
+
+
+
+
 
   debug(config, 'MCP server tools and prompts registered successfully')
 
@@ -1552,6 +1650,108 @@ async function handleKeywordsSearch(args) {
       search: search || 'all',
       searchType: type,
       timestamp: new Date().toISOString()
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle interactive Robot Framework command tool call
+ * @param {Object} args - Tool arguments
+ * @param {string} args.command - Robot Framework command to execute
+ * @param {number} [args.line=0] - Line number for debugging context
+ * @param {string} [args.sessionId] - Session ID to maintain state
+ * @returns {Object} Interactive command execution result
+ */
+async function handleInteractiveCommand(args) {
+  const { command, line = 0 } = args
+  
+  debug(config, `Executing interactive Robot Framework command: ${command}`)
+  debug(config, `API Config: ${JSON.stringify({
+    baseURL: config.apiBaseUrl,
+    hasToken: !!config.apiToken,
+    tokenPrefix: config.apiToken ? config.apiToken.substring(0, 10) + '...' : 'none'
+  })}`)
+  
+  try {
+    // Get or create session timestamp - same timestamp for all commands in one session
+    let sessionTimestamp = interactiveSessions.get('interactive')?.timestamp
+    if (!sessionTimestamp) {
+      sessionTimestamp = new Date().toISOString()
+      interactiveSessions.set('interactive', {
+        timestamp: sessionTimestamp,
+        created: new Date(),
+        lastUsed: new Date()
+      })
+    } else {
+      // Update last used time
+      interactiveSessions.get('interactive').lastUsed = new Date()
+    }
+    
+    // Call the robot service directly via the app API with fixed parameters
+    const response = await runInteractiveCommand(command, line, 'interactive', sessionTimestamp)
+    
+    // Clean up session if Exit command
+    if (command.trim() === 'Exit') {
+      interactiveSessions.delete('interactive')
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            command,
+            line,
+            test: 'interactive',
+            timestamp: sessionTimestamp,
+            result: response,
+            success: true
+          }),
+        },
+      ],
+    }
+  } catch (error) {
+    debug(config, `Error executing interactive command: ${error.message}`)
+    
+    // Get session timestamp for error response
+    const sessionTimestamp = interactiveSessions.get('interactive')?.timestamp || new Date().toISOString()
+    
+    const errorResponse = {
+      error: true,
+      command,
+      line,
+      test: 'interactive',
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: sessionTimestamp,
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null
+      }
+    }
+    
+    // Add specific error suggestions
+    if (error.status === 401) {
+      errorResponse.suggestion = 'Check your HELPMETEST_API_TOKEN environment variable'
+    } else if (error.status === 403) {
+      errorResponse.suggestion = 'Your API token may not have permission for this operation'
+    } else if (error.status === 404) {
+      errorResponse.suggestion = 'The API endpoint was not found - check your HELPMETEST_API_URL'
+    } else if (error.status >= 500) {
+      errorResponse.suggestion = 'Server error - please try again later'
+    } else if (!error.status) {
+      errorResponse.suggestion = 'Check your internet connection and API URL configuration'
     }
     
     return {
@@ -2714,6 +2914,193 @@ Start by using \`helpmetest_list_tests\` to see existing tests, then \`helpmetes
 }
 
 /**
+ * Generate test debugging prompt with interactive debugging guidance
+ * @param {string} testContent - The Robot Framework test content to debug
+ * @param {string} testName - Name of the test being debugged
+ * @param {string} failureDescription - Description of the failure or issue
+ * @returns {string} Generated prompt text
+ */
+function generateTestDebuggingPrompt(testContent, testName, failureDescription) {
+  const availableLibraries = Object.keys(libraries).join(', ')
+  
+  // Get all available keywords from all libraries
+  const allKeywords = []
+  Object.values(libraries).forEach(library => {
+    if (library.keywords) {
+      library.keywords.forEach(keyword => {
+        allKeywords.push(keyword.name)
+      })
+    }
+  })
+  
+  // Sort keywords alphabetically for better readability
+  allKeywords.sort()
+  
+  // Parse test content to show line numbers
+  const testLines = testContent.split('\n').map((line, index) => `${index + 1}: ${line}`).join('\n')
+  
+  let prompt = `# Interactive Test Debugging Guide for HelpMeTest Platform
+
+You are debugging a failing Robot Framework test using the interactive debugging approach.
+
+## Test Information
+**Test Name**: ${testName}
+**Failure Description**: ${failureDescription || 'Not specified'}
+
+## Test Content to Debug:
+\`\`\`
+${testLines}
+\`\`\`
+
+## Interactive Debugging Process
+
+### Step 1: Run Commands Line by Line
+Use \`helpmetest_run_interactive_command\` to execute each test step individually:
+
+1. **Start with the first command** from your test
+2. **Check if it passes** - if yes, continue to next line
+3. **If it fails** - analyze the error and try alternative approaches
+4. **Continue with corrected commands** until all steps work
+5. **Modify the original test** with the working commands
+
+### Step 2: Debug Failed Commands
+When a command fails, try these debugging strategies:
+
+#### For Element Not Found Errors:
+- **Take a screenshot**: \`helpmetest_run_interactive_command({command: "Take Screenshot"})\`
+- **Try different selectors**: 
+  - \`Click  id=button-id\`
+  - \`Click  css=.button-class\`
+  - \`Click  xpath=//button[text()='Click Me']\`
+  - \`Click  text=Button Text\`
+- **Wait for elements**: \`Wait For Elements State  selector  visible\`
+
+#### For Navigation Issues:
+- **Check current URL**: \`Get Url\`
+- **Wait for page load**: \`Wait For Load State  networkidle\`
+- **Verify page title**: \`Get Title\`
+
+#### For Timing Issues:
+- **Add explicit waits**: \`Sleep  2s\`
+- **Wait for network**: \`Wait Until Network Is Idle\`
+- **Wait for elements**: \`Wait For Elements State  selector  visible\`
+
+### Step 3: Alternative Command Strategies
+If a command doesn't work, try these alternatives:
+
+#### Instead of \`Click  Button Text\`:
+- \`Click  css=button:has-text("Button Text")\`
+- \`Click  xpath=//button[contains(text(), 'Button')]\`
+- \`Click  [data-testid="button"]\`
+
+#### Instead of \`Type  input  text\`:
+- \`Fill Text  input  text\`
+- \`Input Text  css=input[name="field"]  text\`
+- \`Clear Text  input\` then \`Type  input  text\`
+
+#### Instead of \`Get Text  element\`:
+- \`Get Property  element  textContent\`
+- \`Get Attribute  element  value\`
+- \`Get Element Count  selector\`
+
+## Available MCP Tools for Debugging
+
+### \`helpmetest_run_interactive_command\`
+Execute individual Robot Framework commands:
+\`\`\`
+helpmetest_run_interactive_command({
+  command: "Go To  https://example.com",
+  line: 1
+})
+\`\`\`
+
+### \`helpmetest_modify_test\`
+Update the original test with working commands:
+\`\`\`
+helpmetest_modify_test({
+  id: "test-id",
+  testData: "corrected commands here"
+})
+\`\`\`
+
+### \`helpmetest_keywords\`
+Search for available keywords:
+\`\`\`
+helpmetest_keywords({search: "click"})
+helpmetest_keywords({search: "wait"})
+helpmetest_keywords({search: "should"})
+\`\`\`
+
+## Available Keywords (${allKeywords.length} total)
+**Libraries**: ${availableLibraries}
+
+**Common Debugging Keywords**:
+- **Navigation**: Go To, Get Url, Get Title
+- **Interaction**: Click, Type, Fill Text, Clear Text
+- **Waiting**: Wait For Elements State, Wait For Load State, Sleep, Wait Until Network Is Idle
+- **Verification**: Get Text, Get Attribute, Get Property, Should Be Equal, Should Contain
+- **Debugging**: Take Screenshot, Get Element Count, Log
+
+**All Available Keywords**:
+${allKeywords.slice(0, 50).map(keyword => `- ${keyword}`).join('\n')}
+${allKeywords.length > 50 ? `... and ${allKeywords.length - 50} more (use helpmetest_keywords to search)` : ''}
+
+## Debugging Workflow Example
+
+1. **Start Interactive Session**:
+   \`helpmetest_run_interactive_command({command: "Go To  https://example.com"})\`
+
+2. **If it fails, try alternatives**:
+   \`helpmetest_run_interactive_command({command: "Sleep  2s"})\`
+   \`helpmetest_run_interactive_command({command: "Go To  https://example.com"})\`
+
+3. **Continue with next step**:
+   \`helpmetest_run_interactive_command({command: "Click  a"})\`
+
+4. **If click fails, debug the selector**:
+   \`helpmetest_run_interactive_command({command: "Take Screenshot"})\`
+   \`helpmetest_run_interactive_command({command: "Click  css=a[href*='iana']"})\`
+
+5. **Once all steps work, update the test**:
+   \`helpmetest_modify_test({id: "test-id", testData: "Go To  https://example.com\\nSleep  2s\\nClick  css=a[href*='iana']"})\`
+
+## Key Debugging Tips
+
+1. **One Command at a Time**: Execute commands individually to isolate issues
+3. **Try Multiple Selectors**: Different selector strategies work for different elements
+4. **Add Waits**: Many issues are timing-related
+5. **Check Page State**: Verify URLs, titles, and element presence
+6. **Use Browser DevTools**: Inspect elements to find better selectors
+7. **Test Incrementally**: Build up working commands step by step
+
+## Common Error Patterns and Solutions
+
+### "Element not found"
+- Try different selector strategies (id, css, xpath, text)
+- Add wait conditions before interacting
+
+### "Timeout exceeded"
+- Increase wait times
+- Add explicit waits for page loads
+- Check if page is actually loading
+
+### "Element not interactable"
+- Wait for element to be visible/enabled
+- Scroll element into view
+- Check for overlapping elements
+
+## Next Steps
+1. Start by running the first command from your test using \`helpmetest_run_interactive_command\`
+2. Work through each command, fixing issues as you encounter them
+3. Build up a working sequence of commands
+4. Update the original test with the corrected commands using \`helpmetest_modify_test\`
+
+Remember: The goal is to get each command working individually, then combine them into a complete working test.`
+
+  return prompt
+}
+
+/**
  * Generate health check integration prompt with container-specific guidance
  * @param {string} containerType - Type of container integration
  * @param {string} serviceName - Name of the service
@@ -3320,6 +3707,7 @@ This integration ensures your containerized applications are properly monitored 
 
   return prompt
 }
+
 
 /**
  * Start MCP server with stdio transport
