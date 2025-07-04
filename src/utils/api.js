@@ -7,7 +7,7 @@
 
 import axios from 'axios'
 import { output } from './colors.js'
-import { config, getRequestConfig, debug } from './config.js'
+import { config, getRequestConfig, debug, setUserSubdomain, getUserSubdomain } from './config.js'
 
 /**
  * API Error class for structured error handling
@@ -32,10 +32,11 @@ class ApiError extends Error {
 /**
  * Create axios instance with default configuration
  * @param {boolean} enableDebug - Whether to enable debug logging for this client
+ * @param {string} [subdomain] - Optional subdomain to use for URL construction
  * @returns {Object} Configured axios instance
  */
-const createApiClient = (enableDebug = false) => {
-  const requestConfig = getRequestConfig(config)
+const createApiClient = (enableDebug = false, subdomain = null) => {
+  const requestConfig = getRequestConfig(config, subdomain)
   const client = axios.create(requestConfig)
 
   // Request interceptor for debugging (only if debug is enabled)
@@ -172,7 +173,7 @@ const shouldRetry = (error) => {
  * @returns {Promise<Object>} API response
  */
 const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}, enableDebug = false) => {
-  const client = createApiClient(enableDebug)
+  const client = createApiClient(enableDebug, getUserSubdomain())
   
   const requestInfo = {
     name,
@@ -385,6 +386,8 @@ const getTestStatus = async (enableDebug = false) => {
 const getUserInfo = async (enableDebug = false) => {
   return apiGet('/api/user', {}, 'Getting user information', enableDebug)
 }
+
+
 
 /**
  * Create a new test
