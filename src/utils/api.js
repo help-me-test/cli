@@ -31,32 +31,41 @@ class ApiError extends Error {
 
 /**
  * Create axios instance with default configuration
+ * @param {boolean} enableDebug - Whether to enable debug logging for this client
  * @returns {Object} Configured axios instance
  */
-const createApiClient = () => {
+const createApiClient = (enableDebug = false) => {
   const requestConfig = getRequestConfig(config)
   const client = axios.create(requestConfig)
 
-  // Request interceptor for debugging
+  // Request interceptor for debugging (only if debug is enabled)
   client.interceptors.request.use(
     (config) => {
-      debug(config, `Making ${config.method?.toUpperCase()} request to ${config.url}`)
+      if (enableDebug) {
+        debug(config, `Making ${config.method?.toUpperCase()} request to ${config.url}`)
+      }
       return config
     },
     (error) => {
-      debug(config, `Request error: ${error.message}`)
+      if (enableDebug) {
+        debug(config, `Request error: ${error.message}`)
+      }
       return Promise.reject(error)
     },
   )
 
-  // Response interceptor for debugging and error handling
+  // Response interceptor for debugging and error handling (only if debug is enabled)
   client.interceptors.response.use(
     (response) => {
-      debug(config, `Response ${response.status} from ${response.config.url}`)
+      if (enableDebug) {
+        debug(config, `Response ${response.status} from ${response.config.url}`)
+      }
       return response
     },
     (error) => {
-      debug(config, `Response error: ${error.message}`)
+      if (enableDebug) {
+        debug(config, `Response error: ${error.message}`)
+      }
       return Promise.reject(error)
     },
   )
@@ -159,10 +168,11 @@ const shouldRetry = (error) => {
  * @param {string} name - Health check name
  * @param {string} gracePeriod - Grace period string
  * @param {Object} heartbeatData - Additional heartbeat data
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} API response
  */
-const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}) => {
-  const client = createApiClient()
+const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}, enableDebug = false) => {
+  const client = createApiClient(enableDebug)
   
   const requestInfo = {
     name,
@@ -170,14 +180,18 @@ const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}) =
     endpoint: `/api/healthcheck/${encodeURIComponent(name)}/${encodeURIComponent(gracePeriod)}`,
   }
 
-  debug(config, `Sending heartbeat for ${name} with grace period ${gracePeriod}`)
+  if (enableDebug) {
+    debug(config, `Sending heartbeat for ${name} with grace period ${gracePeriod}`)
+  }
 
   try {
     const response = await retryWithBackoff(async () => {
       return await client.post(requestInfo.endpoint, heartbeatData)
     })
 
-    debug(config, `Heartbeat sent successfully: ${response.status}`)
+    if (enableDebug) {
+      debug(config, `Heartbeat sent successfully: ${response.status}`)
+    }
     return response.data
   } catch (error) {
     throw handleApiError(error, requestInfo)
@@ -189,24 +203,29 @@ const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}) =
  * @param {string} endpoint - API endpoint
  * @param {Object} params - Query parameters
  * @param {string} debugMessage - Debug message for logging
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} API response data
  */
-const apiGet = async (endpoint, params = {}, debugMessage = '') => {
-  const client = createApiClient()
+const apiGet = async (endpoint, params = {}, debugMessage = '', enableDebug = false) => {
+  const client = createApiClient(enableDebug)
   
   const requestInfo = {
     endpoint,
     params,
   }
 
-  debug(config, debugMessage || `Making GET request to ${endpoint}`)
+  if (enableDebug) {
+    debug(config, debugMessage || `Making GET request to ${endpoint}`)
+  }
 
   try {
     const response = await retryWithBackoff(async () => {
       return await client.get(endpoint, { params })
     })
 
-    debug(config, `Request successful: ${response.status}`)
+    if (enableDebug) {
+      debug(config, `Request successful: ${response.status}`)
+    }
     return response.data
   } catch (error) {
     throw handleApiError(error, requestInfo)
@@ -216,32 +235,36 @@ const apiGet = async (endpoint, params = {}, debugMessage = '') => {
 /**
  * Get health check details from the API
  * @param {string} name - Health check name
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} Health check data
  */
-const getHealthCheck = async (name) => {
+const getHealthCheck = async (name, enableDebug = false) => {
   return apiGet(
     `/api/healthcheck/${encodeURIComponent(name)}`,
     {},
-    `Getting health check details for ${name}`
+    `Getting health check details for ${name}`,
+    enableDebug
   )
 }
 
 /**
  * Get all health checks from the API
  * @param {Object} filters - Optional filters
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} List of health checks
  */
-const getAllHealthChecks = async (filters = {}) => {
-  return apiGet('/api/healthchecks', filters, 'Getting all health checks')
+const getAllHealthChecks = async (filters = {}, enableDebug = false) => {
+  return apiGet('/api/healthchecks', filters, 'Getting all health checks', enableDebug)
 }
 
 /**
  * Get all tests from the API
  * @param {Object} filters - Optional filters
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} List of tests
  */
-const getAllTests = async (filters = {}) => {
-  return apiGet('/api/test', filters, 'Getting all tests')
+const getAllTests = async (filters = {}, enableDebug = false) => {
+  return apiGet('/api/test', filters, 'Getting all tests', enableDebug)
 }
 
 /**
@@ -249,24 +272,29 @@ const getAllTests = async (filters = {}) => {
  * @param {string} endpoint - API endpoint
  * @param {Object} data - Request body data
  * @param {string} debugMessage - Debug message for logging
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} API response data
  */
-const apiPost = async (endpoint, data = {}, debugMessage = '') => {
-  const client = createApiClient()
+const apiPost = async (endpoint, data = {}, debugMessage = '', enableDebug = false) => {
+  const client = createApiClient(enableDebug)
   
   const requestInfo = {
     endpoint,
     data,
   }
 
-  debug(config, debugMessage || `Making POST request to ${endpoint}`)
+  if (enableDebug) {
+    debug(config, debugMessage || `Making POST request to ${endpoint}`)
+  }
 
   try {
     const response = await retryWithBackoff(async () => {
       return await client.post(endpoint, data)
     })
 
-    debug(config, `Request successful: ${response.status}`)
+    if (enableDebug) {
+      debug(config, `Request successful: ${response.status}`)
+    }
     return response.data
   } catch (error) {
     throw handleApiError(error, requestInfo)
@@ -342,18 +370,20 @@ const runTest = async (identifier, onEvent = () => {}) => {
 
 /**
  * Get test status from the API
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} Test status data
  */
-const getTestStatus = async () => {
-  return apiGet('/api/status/tests', {}, 'Getting test status')
+const getTestStatus = async (enableDebug = false) => {
+  return apiGet('/api/status/tests', {}, 'Getting test status', enableDebug)
 }
 
 /**
  * Get user information from the API
+ * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} User data including company information
  */
-const getUserInfo = async () => {
-  return apiGet('/api/user', {}, 'Getting user information')
+const getUserInfo = async (enableDebug = false) => {
+  return apiGet('/api/user', {}, 'Getting user information', enableDebug)
 }
 
 /**
@@ -428,6 +458,39 @@ const deleteHealthCheck = async (name) => {
  */
 const undoUpdate = async (updateId) => {
   return apiPost(`/api/updates/undo/${updateId}`, {}, `Undoing update: ${updateId}`)
+}
+
+/**
+ * Run an interactive Robot Framework command
+ * @param {string} command - Robot Framework command to execute
+ * @param {number} line - Line number for debugging context
+ * @param {string} sessionId - Session ID to maintain state
+ * @param {string} timestamp - Timestamp for the command execution
+ * @returns {Promise<Object>} Result of the interactive command execution
+ */
+const runInteractiveCommand = async (command, line = 0, sessionId = 'interactive', timestamp = new Date().toISOString()) => {
+  const requestData = {
+    command,
+    line,
+    test: sessionId,
+    timestamp
+  }
+  
+  debug(config, `Running interactive command: ${command} (session: ${sessionId})`)
+  
+  try {
+    // Use streaming post to handle the real-time response from the robot service
+    const response = await apiStreamPost(
+      '/api/test/command',
+      requestData,
+      `Running interactive command: ${command}`
+    )
+    
+    return response
+  } catch (error) {
+    debug(config, `Error running interactive command: ${error.message}`)
+    throw error
+  }
 }
 
 /**
@@ -549,6 +612,7 @@ export {
   deleteTest,
   deleteHealthCheck,
   undoUpdate,
+  runInteractiveCommand,
   testConnection,
   displayApiError,
   validateResponse,
@@ -576,6 +640,7 @@ export default {
   deleteTest,
   deleteHealthCheck,
   undoUpdate,
+  runInteractiveCommand,
   testConnection,
   displayApiError,
   validateResponse,

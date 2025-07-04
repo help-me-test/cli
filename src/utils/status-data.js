@@ -137,12 +137,12 @@ export async function collectStatusData(options = {}) {
   const { verbose = false } = options
   
   try {
-    // Get all data in parallel
+    // Get all data in parallel, passing verbose flag to enable debug logging
     const [userInfo, healthChecks, tests, testStatus] = await Promise.all([
-      getUserInfo().catch(() => ({ activeCompany: 'Unknown Company', requestCompany: { name: 'Unknown Company' } })),
-      getAllHealthChecks().catch(() => []),
-      getAllTests().catch(() => []),
-      getTestStatus().catch(() => [])
+      getUserInfo(verbose).catch(() => ({ activeCompany: 'Unknown Company', requestCompany: { name: 'Unknown Company' } })),
+      getAllHealthChecks({}, verbose).catch(() => []),
+      getAllTests({}, verbose).catch(() => []),
+      getTestStatus(verbose).catch(() => [])
     ])
 
     // Ensure arrays are actually arrays
