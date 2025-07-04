@@ -19,7 +19,7 @@ import open from 'open'
 import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
-import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate, runInteractiveCommand, getUserInfo } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate, runInteractiveCommand } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { libraries } from '../keywords.js'
 
