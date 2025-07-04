@@ -236,7 +236,7 @@ export function createMcpServer(options = {}) {
     'helpmetest_run_test',
     {
       title: 'Help Me Test: Run Test Tool',
-      description: 'Run a test by name, tag, or ID',
+      description: 'Run a test by name, tag, or ID. After execution, provides a detailed explanation of what happened, including test results, keyword execution status, and next steps for debugging if needed.',
       inputSchema: {
         identifier: z.string().describe('Test name, tag (tag:tagname), or ID to run'),
       },
@@ -284,7 +284,7 @@ export function createMcpServer(options = {}) {
     'helpmetest_create_test',
     {
       title: 'Help Me Test: Create Test Tool',
-      description: 'Create a new test with specified parameters. After creation, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).',
+      description: 'Create a new test with specified parameters. After creation, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a comprehensive explanation of what was accomplished, including test creation status, automatic test run results, and next steps.',
       inputSchema: {
         id: z.string().optional().describe('Test ID (optional - will auto-generate if not provided)'),
         name: z.string().describe('Test name (required)'),
@@ -352,7 +352,7 @@ export function createMcpServer(options = {}) {
     'helpmetest_modify_test',
     {
       title: 'Help Me Test: Modify Test Tool',
-      description: 'Modify an existing test by providing its ID and updated parameters. The test will be automatically run after modification and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).',
+      description: 'Modify an existing test by providing its ID and updated parameters. The test will be automatically run after modification and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a detailed explanation of what changes were made, automatic test run results, and guidance for next steps.',
       inputSchema: {
         id: z.string().describe('Test ID (required - ID of the existing test to modify)'),
         name: z.string().optional().describe('Test name (optional - if not provided, keeps existing name)'),
@@ -389,7 +389,7 @@ export function createMcpServer(options = {}) {
     'helpmetest_run_interactive_command',
     {
       title: 'Help Me Test: Interactive Robot Framework Command Tool',
-      description: 'Execute a single Robot Framework command interactively for debugging and testing. This starts an interactive session that maintains browser state between commands. Use "Exit" command to close the session.',
+      description: 'Execute a single Robot Framework command interactively for debugging and testing. This starts an interactive session that maintains browser state between commands. Use "Exit" command to close the session. Provides detailed explanations of what each command accomplished, context-specific guidance for next steps, and debugging tips if commands fail.',
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
@@ -1017,11 +1017,14 @@ async function handleRunTest(args) {
     const hasFailures = testResults.some(r => r.status === 'FAIL')
     response.success = !hasFailures && testResults.length > 0
     
+    // Create user-friendly explanation
+    const explanation = createTestRunExplanation(response, identifier)
+    
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(response),
+          text: explanation,
         },
       ],
       isError: hasFailures,
@@ -1183,11 +1186,14 @@ async function handleCreateTest(args) {
       response.browserError = openError.message
     }
     
+    // Create user-friendly explanation
+    const explanation = createTestCreationExplanation(response)
+    
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(response),
+          text: explanation,
         },
       ],
       isError: false,
@@ -1375,11 +1381,14 @@ async function handleModifyTest(args) {
       response.browserError = openError.message
     }
     
+    // Create user-friendly explanation
+    const explanation = createTestModificationExplanation(response)
+    
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(response),
+          text: explanation,
         },
       ],
       isError: false,
@@ -1705,18 +1714,22 @@ async function handleInteractiveCommand(args) {
       interactiveSessions.delete('interactive')
     }
     
+    // Create user-friendly explanation
+    const commandResult = {
+      command,
+      line,
+      test: 'interactive',
+      timestamp: sessionTimestamp,
+      result: response,
+      success: true
+    }
+    const explanation = createInteractiveCommandExplanation(commandResult)
+    
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            command,
-            line,
-            test: 'interactive',
-            timestamp: sessionTimestamp,
-            result: response,
-            success: true
-          }),
+          text: explanation,
         },
       ],
     }
@@ -3983,6 +3996,280 @@ async function handleUndoUpdate(args) {
       isError: true,
     }
   }
+}
+
+/**
+ * Create user-friendly explanation for test run results
+ * @param {Object} response - Test run response object
+ * @param {string} identifier - Test identifier
+ * @returns {string} User-friendly explanation
+ */
+function createTestRunExplanation(response, identifier) {
+  const { success, testResults, keywords, totalEvents } = response
+  
+  let explanation = `## Test Execution Complete\n\n`
+  explanation += `**Test Identifier:** ${identifier}\n`
+  explanation += `**Status:** ${success ? '✅ PASSED' : '❌ FAILED'}\n`
+  explanation += `**Total Events:** ${totalEvents}\n\n`
+  
+  if (testResults && testResults.length > 0) {
+    explanation += `### Test Results:\n`
+    testResults.forEach(result => {
+      const statusIcon = result.status === 'PASS' ? '✅' : '❌'
+      explanation += `- ${statusIcon} **${result.testId}** (${result.duration})\n`
+      if (result.message) {
+        explanation += `  ${result.message}\n`
+      }
+    })
+    explanation += `\n`
+  }
+  
+  if (keywords && keywords.length > 0) {
+    explanation += `### Keywords Executed:\n`
+    keywords.slice(0, 10).forEach(kw => {
+      const statusIcon = kw.status === 'PASS' ? '✅' : kw.status === 'FAIL' ? '❌' : '⏸️'
+      const duration = kw.duration ? ` (${kw.duration}s)` : ''
+      explanation += `- ${statusIcon} ${kw.keyword}${duration}\n`
+    })
+    if (keywords.length > 10) {
+      explanation += `... and ${keywords.length - 10} more keywords\n`
+    }
+    explanation += `\n`
+  }
+  
+  if (!success) {
+    explanation += `### What Happened:\n`
+    explanation += `The test execution completed but some steps failed. Review the failed keywords above to understand what went wrong.\n\n`
+    explanation += `### Next Steps:\n`
+    explanation += `1. Use \`helpmetest_run_interactive_command\` to debug failing steps\n`
+    explanation += `2. Fix the issues and run \`helpmetest_modify_test\` to update the test\n`
+    explanation += `3. Re-run the test to verify the fixes\n\n`
+  } else {
+    explanation += `### What Happened:\n`
+    explanation += `The test executed successfully! All keywords completed without errors.\n\n`
+  }
+  
+  // Include raw data for debugging
+  explanation += `### Raw Response Data:\n`
+  explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
+  
+  return explanation
+}
+
+/**
+ * Create user-friendly explanation for test creation results
+ * @param {Object} response - Test creation response object
+ * @returns {string} User-friendly explanation
+ */
+function createTestCreationExplanation(response) {
+  const { success, id, name, testRunResult, testUrl, browserOpened } = response
+  
+  let explanation = `## Test Created Successfully! 🎉\n\n`
+  explanation += `**Test Name:** ${name}\n`
+  explanation += `**Test ID:** ${id}\n`
+  explanation += `**Test URL:** ${testUrl}\n\n`
+  
+  if (testRunResult) {
+    explanation += `### Automatic Test Run Results:\n`
+    const statusIcon = testRunResult.status === 'PASS' ? '✅' : testRunResult.status === 'FAIL' ? '❌' : '⚠️'
+    explanation += `**Status:** ${statusIcon} ${testRunResult.status}\n`
+    
+    if (testRunResult.testResults && testRunResult.testResults.length > 0) {
+      explanation += `**Duration:** ${testRunResult.testResults[0].duration}\n`
+    }
+    
+    if (testRunResult.keywords && testRunResult.keywords.length > 0) {
+      explanation += `**Keywords Executed:** ${testRunResult.keywords.length}\n`
+    }
+    explanation += `\n`
+    
+    if (testRunResult.status === 'FAIL' || testRunResult.status === 'ERROR') {
+      explanation += `### ⚠️ Test Failed on First Run\n`
+      explanation += `This is normal for new tests. The test was created successfully, but it needs debugging.\n\n`
+      explanation += `### Next Steps:\n`
+      explanation += `1. Use \`helpmetest_run_interactive_command\` to debug the test step by step\n`
+      explanation += `2. Fix any issues you find\n`
+      explanation += `3. Use \`helpmetest_modify_test\` to update the test with working commands\n`
+      explanation += `4. Re-run the test to verify it works\n\n`
+    } else {
+      explanation += `### ✅ Test Passed on First Run!\n`
+      explanation += `Great! Your test is working correctly right away.\n\n`
+    }
+  }
+  
+  if (browserOpened) {
+    explanation += `### Browser Access:\n`
+    explanation += `✅ Test opened automatically in your browser\n\n`
+  } else {
+    explanation += `### Browser Access:\n`
+    explanation += `⚠️ Could not automatically open browser. You can manually visit: ${testUrl}\n\n`
+  }
+  
+  explanation += `### What Was Done:\n`
+  explanation += `1. ✅ Created new test "${name}" with ID: ${id}\n`
+  explanation += `2. ✅ Automatically ran the test to check if it works\n`
+  explanation += `3. ${browserOpened ? '✅' : '⚠️'} ${browserOpened ? 'Opened' : 'Attempted to open'} test in browser\n`
+  explanation += `4. ✅ Test is now available in your HelpMeTest dashboard\n\n`
+  
+  // Include raw data for debugging
+  explanation += `### Raw Response Data:\n`
+  explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
+  
+  return explanation
+}
+
+/**
+ * Create user-friendly explanation for test modification results
+ * @param {Object} response - Test modification response object
+ * @returns {string} User-friendly explanation
+ */
+function createTestModificationExplanation(response) {
+  const { success, id, name, testRunResult, testUrl, browserOpened, changes } = response
+  
+  let explanation = `## Test Modified Successfully! 🔄\n\n`
+  explanation += `**Test Name:** ${name}\n`
+  explanation += `**Test ID:** ${id}\n`
+  explanation += `**Test URL:** ${testUrl}\n\n`
+  
+  if (changes) {
+    explanation += `### Changes Made:\n`
+    if (changes.name) {
+      explanation += `- **Name:** "${changes.name.from}" → "${changes.name.to}"\n`
+    }
+    if (changes.description) {
+      explanation += `- **Description:** Updated\n`
+    }
+    if (changes.tags) {
+      explanation += `- **Tags:** [${changes.tags.from.join(', ')}] → [${changes.tags.to.join(', ')}]\n`
+    }
+    if (changes.testData) {
+      explanation += `- **Test Data:** ✅ Updated with new Robot Framework commands\n`
+    }
+    explanation += `\n`
+  }
+  
+  if (testRunResult) {
+    explanation += `### Automatic Test Run Results:\n`
+    const statusIcon = testRunResult.status === 'PASS' ? '✅' : testRunResult.status === 'FAIL' ? '❌' : '⚠️'
+    explanation += `**Status:** ${statusIcon} ${testRunResult.status}\n`
+    
+    if (testRunResult.testResults && testRunResult.testResults.length > 0) {
+      explanation += `**Duration:** ${testRunResult.testResults[0].duration}\n`
+    }
+    
+    if (testRunResult.keywords && testRunResult.keywords.length > 0) {
+      explanation += `**Keywords Executed:** ${testRunResult.keywords.length}\n`
+    }
+    explanation += `\n`
+    
+    if (testRunResult.status === 'FAIL' || testRunResult.status === 'ERROR') {
+      explanation += `### ⚠️ Modified Test Still Has Issues\n`
+      explanation += `The test was updated successfully, but it's still failing. This might need more debugging.\n\n`
+      explanation += `### Next Steps:\n`
+      explanation += `1. Use \`helpmetest_run_interactive_command\` to debug the remaining issues\n`
+      explanation += `2. Fix any problems you find\n`
+      explanation += `3. Use \`helpmetest_modify_test\` again to apply more fixes\n`
+      explanation += `4. Repeat until the test passes\n\n`
+    } else {
+      explanation += `### ✅ Modified Test Now Passes!\n`
+      explanation += `Excellent! Your changes fixed the test and it's now working correctly.\n\n`
+    }
+  }
+  
+  if (browserOpened) {
+    explanation += `### Browser Access:\n`
+    explanation += `✅ Modified test opened automatically in your browser\n\n`
+  } else {
+    explanation += `### Browser Access:\n`
+    explanation += `⚠️ Could not automatically open browser. You can manually visit: ${testUrl}\n\n`
+  }
+  
+  explanation += `### What Was Done:\n`
+  explanation += `1. ✅ Modified test "${name}" (ID: ${id})\n`
+  explanation += `2. ✅ Automatically ran the modified test to check if it works\n`
+  explanation += `3. ${browserOpened ? '✅' : '⚠️'} ${browserOpened ? 'Opened' : 'Attempted to open'} test in browser\n`
+  explanation += `4. ✅ Changes are now live in your HelpMeTest dashboard\n\n`
+  
+  // Include raw data for debugging
+  explanation += `### Raw Response Data:\n`
+  explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
+  
+  return explanation
+}
+
+/**
+ * Create user-friendly explanation for interactive command results
+ * @param {Object} commandResult - Interactive command result object
+ * @returns {string} User-friendly explanation
+ */
+function createInteractiveCommandExplanation(commandResult) {
+  const { command, result, success } = commandResult
+  
+  let explanation = `## Interactive Command Executed\n\n`
+  explanation += `**Command:** \`${command}\`\n`
+  explanation += `**Status:** ${success ? '✅ SUCCESS' : '❌ FAILED'}\n\n`
+  
+  if (command.trim() === 'Exit') {
+    explanation += `### Session Ended\n`
+    explanation += `The interactive debugging session has been closed. You can start a new session anytime by running another \`helpmetest_run_interactive_command\`.\n\n`
+  } else {
+    explanation += `### What Happened:\n`
+    if (success) {
+      explanation += `The Robot Framework command executed successfully in the interactive browser session.\n\n`
+      
+      // Provide context-specific guidance based on command type
+      if (command.toLowerCase().includes('go to')) {
+        explanation += `### Next Steps:\n`
+        explanation += `- The browser navigated to the specified URL\n`
+        explanation += `- You can now interact with elements on the page\n`
+        explanation += `- Try commands like \`Click\`, \`Type\`, or \`Get Text\` to continue testing\n\n`
+      } else if (command.toLowerCase().includes('click')) {
+        explanation += `### Next Steps:\n`
+        explanation += `- The click action was performed successfully\n`
+        explanation += `- Check if the page changed as expected\n`
+        explanation += `- You might want to add a wait or verification step next\n\n`
+      } else if (command.toLowerCase().includes('type') || command.toLowerCase().includes('fill')) {
+        explanation += `### Next Steps:\n`
+        explanation += `- Text was entered into the specified field\n`
+        explanation += `- You might want to submit the form or click a button next\n`
+        explanation += `- Consider adding verification to check the input was accepted\n\n`
+      } else if (command.toLowerCase().includes('should') || command.toLowerCase().includes('get')) {
+        explanation += `### Next Steps:\n`
+        explanation += `- The verification/retrieval command completed successfully\n`
+        explanation += `- Check the result to see if it matches your expectations\n`
+        explanation += `- Continue with the next step in your test scenario\n\n`
+      }
+      
+      explanation += `### Continue Testing:\n`
+      explanation += `- Run more \`helpmetest_run_interactive_command\` calls to build up your test\n`
+      explanation += `- Once you have a working sequence, use \`helpmetest_modify_test\` to update your test\n`
+      explanation += `- Use \`Exit\` command when you're done with this session\n\n`
+    } else {
+      explanation += `The command failed to execute. This could be due to:\n`
+      explanation += `- Element not found (try different selectors)\n`
+      explanation += `- Timing issues (add wait commands)\n`
+      explanation += `- Page not loaded (check current page state)\n`
+      explanation += `- Incorrect syntax (verify Robot Framework syntax)\n\n`
+      
+      explanation += `### Debugging Tips:\n`
+      explanation += `1. Try \`Take Screenshot\` to see the current page state\n`
+      explanation += `2. Use \`Get Title\` or \`Get Url\` to verify page location\n`
+      explanation += `3. Try different selector strategies (css, xpath, text)\n`
+      explanation += `4. Add wait commands like \`Sleep  2s\` before retrying\n\n`
+    }
+  }
+  
+  // Include raw result data
+  if (result) {
+    explanation += `### Command Result:\n`
+    explanation += `\`\`\`json\n${JSON.stringify(result, null, 2)}\`\`\`\n\n`
+  }
+  
+  // Include raw data for debugging
+  explanation += `### Raw Response Data:\n`
+  explanation += `\`\`\`json\n${JSON.stringify(commandResult, null, 2)}\`\`\`\n`
+  
+  return explanation
 }
 
 /**
