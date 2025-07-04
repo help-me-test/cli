@@ -5,11 +5,8 @@
  * and using the HelpMeTest MCP server with their AI assistant.
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { getVersion } from '../utils/version.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
