@@ -7,7 +7,7 @@
 
 import axios from 'axios'
 import { output } from './colors.js'
-import { config, getRequestConfig, debug, setUserSubdomain, getUserSubdomain } from './config.js'
+import { config, getRequestConfig, debug, getUserSubdomain } from './config.js'
 
 /**
  * API Error class for structured error handling
