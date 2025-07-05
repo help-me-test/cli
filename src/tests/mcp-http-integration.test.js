@@ -15,13 +15,13 @@ const __dirname = path.dirname(__filename)
 
 describe('MCP HTTP Integration Tests', () => {
   // Skip tests when running in GitHub Actions
-  const isGithubActions = process.env.GITHUB_ACTIONS === 'true';
+  const isGithubActions = process.env.GITHUB_ACTIONS === 'true'
   
   if (isGithubActions) {
     test.skip('Skipping MCP HTTP integration tests in GitHub Actions environment', () => {
-      console.log('Skipping MCP HTTP integration tests in GitHub Actions environment');
-    });
-    return;
+      console.log('Skipping MCP HTTP integration tests in GitHub Actions environment')
+    })
+    return
   }
 
   let serverProcess
