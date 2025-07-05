@@ -19,6 +19,8 @@ import keywordsCommand from './commands/keywords.js'
 import { runTestCommand } from './commands/test.js'
 import deleteCommand, { deleteHealthCheckCommand, deleteTestCommand } from './commands/delete.js'
 import undoCommand from './commands/undo.js'
+import versionCommand from './commands/version.js'
+import updateCommand from './commands/update.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
 
@@ -27,7 +29,7 @@ const program = new Command()
 program
   .name(colors.brand('helpmetest'))
   .description(colors.dim('HelpMeTest CLI tool for health check monitoring'))
-  .version(packageJson.version)
+  .version(packageJson.version, '-V, --version', 'display version number')
 
 // Register the health command
 program
@@ -417,6 +419,50 @@ ${colors.subtitle('Important Notes:')}
     await undoCommand(updateId, options)
   })
 
+// Register the version command
+program
+  .command('version')
+  .description('Show version information')
+  .option('--verbose', 'Show detailed version information')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest version')}                           ${colors.dim('# Show current version')}
+  ${colors.dim('$')} ${colors.command('helpmetest version')} ${colors.option('--verbose')}                ${colors.dim('# Show detailed version information')}
+  ${colors.dim('$')} ${colors.command('helpmetest')} ${colors.option('-V')}                              ${colors.dim('# Show version (short form)')}
+  ${colors.dim('$')} ${colors.command('helpmetest')} ${colors.option('--version')}                       ${colors.dim('# Show version (long form)')}
+`)
+  .action(versionCommand)
+
+// Register the update command
+program
+  .command('update')
+  .description('Update HelpMeTest CLI to the latest version')
+  .option('--dry-run', 'Show what would be executed without actually updating')
+  .option('--verbose', 'Show detailed update process')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest update')}                            ${colors.dim('# Update to latest version')}
+  ${colors.dim('$')} ${colors.command('helpmetest update')} ${colors.option('--verbose')}                ${colors.dim('# Update with detailed output')}
+  ${colors.dim('$')} ${colors.command('helpmetest update')} ${colors.option('--dry-run')}                ${colors.dim('# Preview update without executing')}
+
+${colors.subtitle('What it does:')}
+  ${colors.dim('•')} Downloads the official installer from ${colors.url('https://helpmetest.com/install')}
+  ${colors.dim('•')} Automatically detects your OS and architecture
+  ${colors.dim('•')} Installs the latest version to ${colors.highlight('/usr/local/bin/helpmetest')}
+  ${colors.dim('•')} Preserves your existing configuration and data
+
+${colors.subtitle('Requirements:')}
+  ${colors.dim('•')} ${colors.key('curl')} - for downloading the installer
+  ${colors.dim('•')} ${colors.key('bash')} - for running the install script
+  ${colors.dim('•')} ${colors.key('sudo')} - may be required for installation to /usr/local/bin
+
+${colors.subtitle('Manual Installation:')}
+  ${colors.dim('If the update command fails, you can install manually:')}
+  ${colors.dim('$')} ${colors.command('curl -fsSL https://helpmetest.com/install | bash')}
+  ${colors.dim('Or visit:')} ${colors.url('https://helpmetest.com/docs/installation')}
+`)
+  .action(updateCommand)
+
 // Add global help examples
 program.addHelpText('after', `
 ${colors.subtitle('Examples:')}
@@ -437,6 +483,8 @@ ${colors.subtitle('Examples:')}
   ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.option('--type libraries')}         ${colors.dim('# List available libraries')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--verbose')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--json')} ${colors.option('--basic')}
+  ${colors.dim('$')} ${colors.command('helpmetest version')}                        ${colors.dim('# Show current version')}
+  ${colors.dim('$')} ${colors.command('helpmetest update')}                         ${colors.dim('# Update to latest version')}
 
 ${colors.subtitle('Environment Variables:')}
   ${colors.key('HELPMETEST_API_TOKEN')}    ${colors.error('Required.')} Your HelpMeTest API token
