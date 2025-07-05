@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.6.0 (2025-07-30)
+
+### New Features
+
+- **Self-Update Functionality**: Added CLI self-update command that downloads and runs the official installer script
+- **Version Management**: Implemented dedicated version command with detailed version information display
+- **Command Utilities**: Enhanced version utilities for consistent version reporting across the application
+
+### Improvements
+
+- **Testing**: Added comprehensive integration tests for version and update commands
+- **Debug Tools**: Implemented extensive test suite for debug test tools
+- **Error Handling**: Fixed incorrect test expectations in MCP interactive command tests
+
 ## v1.5.0 (2025-07-15)
 
 ### New Features
