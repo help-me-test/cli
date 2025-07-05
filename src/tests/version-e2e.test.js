@@ -16,7 +16,7 @@ const __dirname = dirname(__filename)
 const CLI_ROOT = join(__dirname, '../..')
 
 describe('HelpMeTest CLI Version E2E Tests', () => {
-  // Skip all tests - focusing only on interactive command tests
+  // Tests for version command and version utilities
 
   let expectedVersion
 
@@ -58,7 +58,7 @@ describe('HelpMeTest CLI Version E2E Tests', () => {
       })
       
       expect(result).toContain('--version')
-      expect(result).toContain('output the version number')
+      expect(result).toContain('display version number')
     })
   })
 
