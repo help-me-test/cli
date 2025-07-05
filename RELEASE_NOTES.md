@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.7.0 (2025-07-12)
+
+### New Features
+
+- **Test Modification Tool**: Added new MCP tool for modifying tests, providing enhanced test management capabilities
+- **Documentation Improvements**: Enhanced MCP server documentation with comprehensive examples and usage guidelines
+
+### Improvements
+
+- **Test Environment**: Optimized test execution in CI environments by skipping certain integration tests in GitHub Actions
+- **Code Quality**: Fixed code style issues in MCP HTTP integration tests for better maintainability
+- **Test Reliability**: Updated version tests to match actual help text output for more reliable testing
+
 ## v1.6.0 (2025-07-05)
 
 ### New Features
