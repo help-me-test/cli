@@ -1,5 +1,39 @@
 # Release Notes
 
+## v1.6.0 (2025-07-05)
+
+### New Features
+
+- **Self-Update Functionality**: Added CLI self-update command that downloads and runs the official installer script
+- **Version Management**: Implemented dedicated version command with detailed version information display
+- **Command Utilities**: Enhanced version utilities for consistent version reporting across the application
+
+### Improvements
+
+- **Testing**: Added comprehensive integration tests for version and update commands
+- **Debug Tools**: Implemented extensive test suite for debug test tools
+- **Error Handling**: Fixed incorrect test expectations in MCP interactive command tests
+
+## v1.5.0 (2025-07-05)
+
+### New Features
+
+- **Multi-tenant Support**: Added user-specific subdomain handling for improved multi-tenant deployments
+- **Interactive Commands**: Implemented interactive Robot Framework command functionality for better developer experience
+- **Test Operations**: Added detailed explanations for test operations to improve usability
+
+### Improvements
+
+- **Configuration**: Enhanced subdomain support for multi-tenant URL configurations
+- **Logging**: Improved debug logging capabilities in API and status data modules
+- **Documentation**: Updated documentation with latest features and usage examples
+
+### Bug Fixes
+
+- **API Integration**: Fixed import statement for config utilities
+- **MCP Server**: Resolved API import issues for getUserInfo function
+- **Tests**: Updated MCP integration workflow test imports for better reliability
+
 ## v1.4.7 (2025-06-30)
 
 ### Improvements
@@ -14,7 +48,7 @@
 - **Publishing**: Resolved issues with release notes synchronization between repositories
 - **Documentation**: Ensured consistent formatting across all documentation channels
 
-## v1.4.6 (2024-12-19)
+## v1.4.6 (2025-06-30)
 
 ### Improvements
 
@@ -27,7 +61,7 @@
 - **Release Notes**: Fixed issue where help-me-test/cli repository was getting basic release notes instead of detailed ones
 - **Publishing**: Corrected release script to use comprehensive release notes from RELEASE_NOTES.md
 
-## v1.4.5 (2024-06-30)
+## v1.4.5 (2025-06-30)
 
 ### Improvements
 
@@ -42,7 +76,7 @@
 - **MCP Server**: Improved error messages for network connectivity issues
 - **Documentation**: Updated container integration documentation with best practices
 
-## v1.4.0 (2024-06-29)
+## v1.4.0 (2025-06-28)
 
 ### New Features
 
@@ -57,7 +91,7 @@
 - **API Utilities**: Added robust API utilities for deletion and restoration operations
 - **Error Handling**: Improved error handling and user feedback for resource management operations
 
-## v1.3.1 (2024-06-26)
+## v1.3.1 (2025-06-25)
 
 ### Improvements
 
@@ -69,7 +103,7 @@
 - **Health Check**: Fixed integration bugs in health check monitoring functionality
 - **Updates Monitoring**: Resolved issues with updates monitoring integration in the MCP server
 
-## v1.3.0 (2024-06-25)
+## v1.3.0 (2025-06-25)
 
 ### New Features
 
