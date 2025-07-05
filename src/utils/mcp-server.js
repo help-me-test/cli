@@ -301,7 +301,26 @@ export function createMcpServer(options = {}) {
     'helpmetest_create_test',
     {
       title: 'Help Me Test: Create Test Tool',
-      description: 'Create a new test with specified parameters. After creation, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a comprehensive explanation of what was accomplished, including test creation status, automatic test run results, and next steps.',
+      description: `Create a new test with specified parameters using a systematic approach. Follow this algorithm for best results:
+
+1. **Check Current Test Structure**: Use helpmetest_status_test to understand existing tests
+2. **Research Available Keywords**: Use helpmetest_keywords to find relevant Robot Framework commands
+3. **Interactive Development**: Use helpmetest_run_interactive_command to debug test steps one by one:
+   - Start with basic navigation (Go To)
+   - Test each interaction step by step
+   - Verify results at each stage
+   - Exit interactive session when satisfied
+4. **Create Final Test**: Use this tool with the working sequence from interactive testing
+
+After creation, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a comprehensive explanation of what was accomplished, including test creation status, automatic test run results, and next steps.
+
+**Example Workflow:**
+- helpmetest_status_test (check existing tests)
+- helpmetest_keywords search="navigation" (find Go To, Click keywords)
+- helpmetest_run_interactive_command command="Go To https://example.com"
+- helpmetest_run_interactive_command command="Click a"
+- helpmetest_run_interactive_command command="Exit"
+- helpmetest_create_test with working sequence`,
       inputSchema: {
         id: z.string().optional().describe('Test ID (optional - will auto-generate if not provided)'),
         name: z.string().describe('Test name (required)'),
@@ -369,7 +388,27 @@ export function createMcpServer(options = {}) {
     'helpmetest_modify_test',
     {
       title: 'Help Me Test: Modify Test Tool',
-      description: 'Modify an existing test by providing its ID and updated parameters. The test will be automatically run after modification and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a detailed explanation of what changes were made, automatic test run results, and guidance for next steps.',
+      description: `Modify an existing test by providing its ID and updated parameters using a systematic approach. Follow this algorithm for best results:
+
+1. **Check Current Test Structure**: Use helpmetest_status_test to see existing tests and their IDs
+2. **Research Available Keywords**: Use helpmetest_keywords to find relevant Robot Framework commands for new functionality
+3. **Interactive Development**: Use helpmetest_run_interactive_command to debug new test steps:
+   - Test new interactions step by step
+   - Verify each step works as expected
+   - Build up the complete sequence
+   - Exit interactive session when satisfied
+4. **Modify Test**: Use this tool with the working sequence from interactive testing
+
+After modification, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a detailed explanation of what changes were made, automatic test run results, and guidance for next steps.
+
+**Example Workflow:**
+- helpmetest_status_test (find test ID to modify)
+- helpmetest_keywords search="form" (find form interaction keywords)
+- helpmetest_run_interactive_command command="Go To https://example.com/form"
+- helpmetest_run_interactive_command command="Type text=test id=username"
+- helpmetest_run_interactive_command command="Click button"
+- helpmetest_run_interactive_command command="Exit"
+- helpmetest_modify_test id="test123" testData="new working sequence"`,
       inputSchema: {
         id: z.string().describe('Test ID (required - ID of the existing test to modify)'),
         name: z.string().optional().describe('Test name (optional - if not provided, keeps existing name)'),
@@ -2464,49 +2503,100 @@ The following Robot Framework libraries are available: ${availableLibraries}
 - \`helpmetest_keywords\`: Search available Robot Framework keywords and libraries
 - \`helpmetest_list_tests\`: List existing tests for reference
 
-## Test Creation Process
+## Test Creation Process - SYSTEMATIC ALGORITHM
 
-### 1. Gather Requirements
-Ask the user about:
-- **Test Purpose**: What should this test verify?
-- **Test Steps**: What actions need to be performed?
-- **Expected Results**: What should happen when the test runs?
-- **Test Data**: What data is needed for the test?
+### STEP 1: Check Current Test Structure
+Use \`helpmetest_status_test\` to understand existing tests:
+- See what tests already exist
+- Understand naming patterns
+- Check test organization and tags
 
-### 2. Search Available Keywords
-Use \`helpmetest_keywords\` to find relevant Robot Framework keywords:
-- Search for keywords related to the test functionality
-- Look for assertion keywords (search for "should")
-- Find setup/teardown keywords if needed
+### STEP 2: Research Available Keywords
+Use \`helpmetest_keywords\` to find relevant Robot Framework commands:
+- Search for navigation keywords: \`helpmetest_keywords search="go to"\`
+- Search for interaction keywords: \`helpmetest_keywords search="click"\`
+- Search for verification keywords: \`helpmetest_keywords search="should"\`
+- Look for specific functionality: \`helpmetest_keywords search="form"\`
 
-### 3. Design Test Keywords
-Plan ONLY the keywords to execute (browser is already launched):
-- **Navigation**: Go To, Click, etc.
-- **Interactions**: Input Text, Select From List, etc.
-- **Assertions**: Get Title, Should Be Equal, etc.
-- **NO browser setup needed** (New Browser, New Page are filtered out)
+### STEP 3: Interactive Development (CRITICAL STEP)
+Use \`helpmetest_run_interactive_command\` to debug test steps one by one:
+- Start with basic navigation: \`helpmetest_run_interactive_command command="Go To https://example.com"\`
+- Test each interaction step by step: \`helpmetest_run_interactive_command command="Click a"\`
+- Verify results at each stage: \`helpmetest_run_interactive_command command="Get Url"\`
+- Build up the complete sequence interactively
+- Exit when satisfied: \`helpmetest_run_interactive_command command="Exit"\`
 
-### 4. Create the Test
-Use \`helpmetest_create_test\` with:
+**Why Interactive Development is Essential:**
+- Identifies available elements on the page
+- Tests selectors before committing to final test
+- Reveals navigation flow and timing issues
+- Provides immediate feedback on each step
+- Prevents test failures from untested assumptions
+
+### STEP 4: Create Final Test
+Use \`helpmetest_create_test\` with the working sequence from interactive testing:
 - **name**: Descriptive test name
 - **description**: Detailed description of what the test does
 - **tags**: Relevant tags for organization
 - **testData**: ONLY Robot Framework keywords (no *** Test Cases *** structure needed)
 
-## Test Modification Process
+**Example Complete Workflow:**
+1. \`helpmetest_status_test\` (check existing tests)
+2. \`helpmetest_keywords search="navigation"\` (find Go To, Click keywords)
+3. \`helpmetest_run_interactive_command command="Go To https://example.com"\`
+4. \`helpmetest_run_interactive_command command="Click a"\`
+5. \`helpmetest_run_interactive_command command="Get Url"\`
+6. \`helpmetest_run_interactive_command command="Exit"\`
+7. \`helpmetest_create_test\` with working sequence
 
-### 1. Find the Test to Modify
-Use \`helpmetest_list_tests\` to find the test ID you want to modify.
+## Test Modification Process - SYSTEMATIC ALGORITHM
 
-### 2. Modify the Test
-Use \`helpmetest_modify_test\` with:
+### STEP 1: Check Current Test Structure
+Use \`helpmetest_status_test\` to see existing tests and their IDs:
+- Find the test you want to modify
+- Review current test content and structure
+- Understand existing tags and organization
+
+### STEP 2: Research Available Keywords
+Use \`helpmetest_keywords\` to find relevant Robot Framework commands for new functionality:
+- Search for new features you want to add: \`helpmetest_keywords search="form"\`
+- Find interaction keywords: \`helpmetest_keywords search="type"\`
+- Look for verification keywords: \`helpmetest_keywords search="should"\`
+- Explore specific functionality: \`helpmetest_keywords search="wait"\`
+
+### STEP 3: Interactive Development (CRITICAL STEP)
+Use \`helpmetest_run_interactive_command\` to debug new test steps:
+- Test new interactions step by step: \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
+- Verify each step works as expected: \`helpmetest_run_interactive_command command="Type text=test id=username"\`
+- Build up the complete sequence: \`helpmetest_run_interactive_command command="Click button"\`
+- Test the full flow: \`helpmetest_run_interactive_command command="Get Text id=result"\`
+- Exit when satisfied: \`helpmetest_run_interactive_command command="Exit"\`
+
+**Why Interactive Development is Essential for Modifications:**
+- Tests new functionality before updating the actual test
+- Identifies correct selectors and element interactions
+- Reveals timing and synchronization requirements
+- Provides immediate feedback on new steps
+- Prevents breaking existing working tests
+
+### STEP 4: Modify Test
+Use \`helpmetest_modify_test\` with the working sequence from interactive testing:
 - **id**: Test ID (required - the ID of the existing test to modify)
 - **name**: New test name (optional - keeps existing if not provided)
 - **description**: New description (optional - keeps existing if not provided)
 - **tags**: New tags array (optional - keeps existing if not provided)
 - **testData**: New Robot Framework keywords (optional - keeps existing if not provided)
 
-### 3. Partial Updates
+**Example Complete Workflow:**
+1. \`helpmetest_status_test\` (find test ID to modify)
+2. \`helpmetest_keywords search="form"\` (find form interaction keywords)
+3. \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
+4. \`helpmetest_run_interactive_command command="Type text=test id=username"\`
+5. \`helpmetest_run_interactive_command command="Click button"\`
+6. \`helpmetest_run_interactive_command command="Exit"\`
+7. \`helpmetest_modify_test id="test123" testData="new working sequence"\`
+
+### STEP 5: Partial Updates
 You can update only specific fields:
 - To change only the name: provide just \`id\` and \`name\`
 - To update only test steps: provide just \`id\` and \`testData\`
@@ -2803,20 +2893,54 @@ ${allKeywords.map(keyword => `- ${keyword}`).join('\n')}
 - \`helpmetest_list_tests\`: List existing tests to find the test ID you want to modify
 - \`helpmetest_keywords\`: Search available Robot Framework keywords and libraries
 
-## Test Modification Process
+## Test Modification Process - SYSTEMATIC ALGORITHM
 
-### 1. Find the Test to Modify
-Use \`helpmetest_list_tests\` to find the test ID you want to modify.
+### STEP 1: Check Current Test Structure
+Use \`helpmetest_status_test\` to see existing tests and their IDs:
+- Find the test you want to modify
+- Review current test content and structure
+- Understand existing tags and organization
 
-### 2. Modify the Test
-Use \`helpmetest_modify_test\` with:
+### STEP 2: Research Available Keywords
+Use \`helpmetest_keywords\` to find relevant Robot Framework commands for new functionality:
+- Search for new features you want to add: \`helpmetest_keywords search="form"\`
+- Find interaction keywords: \`helpmetest_keywords search="type"\`
+- Look for verification keywords: \`helpmetest_keywords search="should"\`
+- Explore specific functionality: \`helpmetest_keywords search="wait"\`
+
+### STEP 3: Interactive Development (CRITICAL STEP)
+Use \`helpmetest_run_interactive_command\` to debug new test steps:
+- Test new interactions step by step: \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
+- Verify each step works as expected: \`helpmetest_run_interactive_command command="Type text=test id=username"\`
+- Build up the complete sequence: \`helpmetest_run_interactive_command command="Click button"\`
+- Test the full flow: \`helpmetest_run_interactive_command command="Get Text id=result"\`
+- Exit when satisfied: \`helpmetest_run_interactive_command command="Exit"\`
+
+**Why Interactive Development is Essential for Modifications:**
+- Tests new functionality before updating the actual test
+- Identifies correct selectors and element interactions
+- Reveals timing and synchronization requirements
+- Provides immediate feedback on new steps
+- Prevents breaking existing working tests
+
+### STEP 4: Modify Test
+Use \`helpmetest_modify_test\` with the working sequence from interactive testing:
 - **id**: Test ID (required - the ID of the existing test to modify)
 - **name**: New test name (optional - keeps existing if not provided)
 - **description**: New description (optional - keeps existing if not provided)
 - **tags**: New tags array (optional - keeps existing if not provided)
 - **testData**: New Robot Framework keywords (optional - keeps existing if not provided)
 
-### 3. Partial Updates
+**Example Complete Workflow:**
+1. \`helpmetest_status_test\` (find test ID to modify)
+2. \`helpmetest_keywords search="form"\` (find form interaction keywords)
+3. \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
+4. \`helpmetest_run_interactive_command command="Type text=test id=username"\`
+5. \`helpmetest_run_interactive_command command="Click button"\`
+6. \`helpmetest_run_interactive_command command="Exit"\`
+7. \`helpmetest_modify_test id="test123" testData="new working sequence"\`
+
+### STEP 5: Partial Updates
 You can update only specific fields:
 - To change only the name: provide just \`id\` and \`name\`
 - To update only test steps: provide just \`id\` and \`testData\`
