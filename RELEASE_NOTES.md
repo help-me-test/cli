@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.8.0 (2025-07-19)
+
+### New Features
+
+- **Test Runs API**: Added new API functionality to retrieve test runs with detailed error information
+- **Enhanced MCP Server**: Improved test modification tool with more comprehensive guidance and context-specific help
+- **Interactive Command Feedback**: Added context-aware guidance for different command types in interactive sessions
+
+### Improvements
+
+- **User Experience**: Enhanced interactive command feedback with tailored next steps based on command type
+- **Documentation**: Improved descriptions for test modification and creation tools with clearer best practices
+- **Error Handling**: Added more detailed error explanations and debugging tips for failed interactive commands
+
 ## v1.7.0 (2025-07-12)
 
 ### New Features
