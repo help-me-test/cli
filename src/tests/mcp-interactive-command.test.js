@@ -60,7 +60,7 @@ describe('MCP Interactive Robot Framework Command Tests', () => {
     )
     
     expect(interactiveTool).toBeDefined()
-    expect(interactiveTool.description).toContain('Execute a single Robot Framework command interactively')
+    expect(interactiveTool.description).toContain('Execute Robot Framework commands interactively')
     // Note: inputSchema is a Zod schema object, not a plain object with properties
     expect(interactiveTool.inputSchema).toBeDefined()
   })
