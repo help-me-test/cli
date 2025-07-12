@@ -19,7 +19,7 @@ import open from 'open'
 import { output } from './colors.js'
 import { config, debug } from './config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
-import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate, runInteractiveCommand, getUserInfo } from './api.js'
+import { getAllHealthChecks, getAllTests, runTest, createTest, deleteTest, deleteHealthCheck, undoUpdate, runInteractiveCommand, getUserInfo, getTestRuns } from './api.js'
 import { getFormattedStatusData } from './status-data.js'
 import { libraries } from '../keywords.js'
 
@@ -174,7 +174,16 @@ export function createMcpServer(options = {}) {
     version: serverConfig.version,
   })
 
-
+  /*
+   * 🚨 CRITICAL AI INSTRUCTION PATTERN:
+   * All tool descriptions include explicit instructions for AI to:
+   * 1. ALWAYS explain what they're doing BEFORE calling tools
+   * 2. ALWAYS describe results and next steps AFTER tool execution
+   * 3. NEVER just say "Done" - be descriptive about actions and outcomes
+   * 
+   * This prevents cryptic "Done" messages and ensures users understand
+   * what the AI is testing, checking, or modifying.
+   */
 
   // Add message logging
   server.onrequest = (request, extra) => {
@@ -192,7 +201,9 @@ export function createMcpServer(options = {}) {
     'helpmetest_health_check',
     {
       title: 'Help Me Test: Health Check Tool',
-      description: 'Perform a health check on a specified URL',
+      description: `Perform a health check on a specified URL
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which URL you're checking and why. After getting results, describe whether the health check passed or failed and what that means. Don't just say "Done".`,
       inputSchema: {
         url: z.string().describe('URL to check'),
         timeout: z.number().optional().default(30).describe('Timeout in seconds (optional)'),
@@ -237,7 +248,9 @@ export function createMcpServer(options = {}) {
     'helpmetest_status',
     {
       title: 'Help Me Test: Complete Status Tool',
-      description: 'Get comprehensive status of all tests and health checks in the helpmetest system. When verbose=true, includes full test content and additional healthcheck data.',
+      description: `Get comprehensive status of all tests and health checks in the helpmetest system. When verbose=true, includes full test content and additional healthcheck data.
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're checking and why. After getting results, summarize the key findings in plain language - don't just say "Done". Tell the user about test statuses, any failures, health check issues, etc.`,
       inputSchema: {
         verbose: z.boolean().optional().default(false).describe('Enable verbose output with test content, descriptions, and additional debug information'),
       },
@@ -253,7 +266,9 @@ export function createMcpServer(options = {}) {
     'helpmetest_run_test',
     {
       title: 'Help Me Test: Run Test Tool',
-      description: 'Run a test by name, tag, or ID. After execution, provides a detailed explanation of what happened, including test results, keyword execution status, and next steps for debugging if needed.',
+      description: `Run a test by name, tag, or ID. After execution, provides a detailed explanation of what happened, including test results, keyword execution status, and next steps for debugging if needed.
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're running and why. After getting results, describe what happened during the test execution - whether it passed or failed, what steps were executed, and what the results mean. Don't just say "Done".`,
       inputSchema: {
         identifier: z.string().describe('Test name, tag (tag:tagname), or ID to run'),
       },
@@ -269,7 +284,9 @@ export function createMcpServer(options = {}) {
     'helpmetest_status_test',
     {
       title: 'Help Me Test: Test Status Tool',
-      description: 'Get status of all tests in the helpmetest system. When verbose=true, includes full test content and descriptions.',
+      description: `Get status of all tests in the helpmetest system. When verbose=true, includes full test content and descriptions.
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're checking. After getting results, summarize the test statuses in plain language - tell them how many tests passed/failed, which ones need attention, etc. Don't just say "Done".`,
       inputSchema: {
         verbose: z.boolean().optional().default(false).describe('Enable verbose output with full test content, descriptions, and execution details'),
       },
@@ -285,7 +302,9 @@ export function createMcpServer(options = {}) {
     'helpmetest_status_health',
     {
       title: 'Help Me Test: Health Status Tool',
-      description: 'Get status of all health checks in the helpmetest system. When verbose=true, includes additional healthcheck metadata and heartbeat data.',
+      description: `Get status of all health checks in the helpmetest system. When verbose=true, includes additional healthcheck metadata and heartbeat data.
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're checking. After getting results, summarize the health check statuses in plain language - tell them which services are up/down, any issues found, etc. Don't just say "Done".`,
       inputSchema: {
         verbose: z.boolean().optional().default(false).describe('Enable verbose output with additional healthcheck metadata, heartbeat data, and debug information'),
       },
@@ -301,26 +320,37 @@ export function createMcpServer(options = {}) {
     'helpmetest_create_test',
     {
       title: 'Help Me Test: Create Test Tool',
-      description: `Create a new test with specified parameters using a systematic approach. Follow this algorithm for best results:
+      description: `Create a new test with Robot Framework keywords.
 
-1. **Check Current Test Structure**: Use helpmetest_status_test to understand existing tests
-2. **Research Available Keywords**: Use helpmetest_keywords to find relevant Robot Framework commands
-3. **Interactive Development**: Use helpmetest_run_interactive_command to debug test steps one by one:
-   - Start with basic navigation (Go To)
-   - Test each interaction step by step
-   - Verify results at each stage
-   - Exit interactive session when satisfied
-4. **Create Final Test**: Use this tool with the working sequence from interactive testing
+⚠️ **DO NOT USE THIS TOOL DIRECTLY WITHOUT INTERACTIVE TESTING FIRST**
 
-After creation, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a comprehensive explanation of what was accomplished, including test creation status, automatic test run results, and next steps.
+🎯 **BEST PRACTICE: Interactive Development First**
 
-**Example Workflow:**
-- helpmetest_status_test (check existing tests)
-- helpmetest_keywords search="navigation" (find Go To, Click keywords)
-- helpmetest_run_interactive_command command="Go To https://example.com"
-- helpmetest_run_interactive_command command="Click a"
-- helpmetest_run_interactive_command command="Exit"
-- helpmetest_create_test with working sequence`,
+For reliable tests, it's highly recommended to use interactive development:
+
+**Why Interactive Development Matters:**
+- **Element Discovery**: Find correct selectors that actually work on the page
+- **Timing Issues**: Identify when waits are needed for dynamic content
+- **Error Prevention**: Catch issues before they become failing tests
+- **Faster Debugging**: Get immediate feedback on each step
+
+**Recommended Workflow:**
+1. \`helpmetest_status_test\` - Check existing tests for patterns
+2. \`helpmetest_keywords search="relevant_topic"\` - Find the right Robot Framework commands
+3. \`helpmetest_run_interactive_command\` - Test each step interactively:
+   - Start with navigation: \`Go To https://example.com\`
+   - Test interactions: \`Click button\`, \`Fill Text input value\`
+   - Verify results: \`Get Text h1\`, \`Should Contain text\`
+   - Build up your complete flow step by step
+   - Use \`Exit\` when you don't need this session anymore (you debugged and fixed all the problems and you are sure that this session will not be used in the future)
+4. \`helpmetest_create_test\` - Create the test with your proven sequence
+
+**Direct Usage:**
+You can also create tests directly if you're confident in the Robot Framework syntax and element selectors. The test will be automatically executed after creation.
+
+Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what test you're creating, what it will do, and why. After creating the test, describe what was created and what the next steps are. Don't just say "Done".`,
       inputSchema: {
         id: z.string().optional().describe('Test ID (optional - will auto-generate if not provided)'),
         name: z.string().describe('Test name (required)'),
@@ -340,7 +370,9 @@ After creation, the test will be automatically run and optionally opened in brow
     'helpmetest_delete_test',
     {
       title: 'Help Me Test: Delete Test Tool',
-      description: 'Delete a test by ID, name, or tag. This operation can be undone using the undo_update tool if the update is revertable.',
+      description: `Delete a test by ID, name, or tag. This operation can be undone using the undo_update tool if the update is revertable.
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're deleting and why. After deletion, confirm what was deleted and mention that it can be undone if needed. Don't just say "Done".`,
       inputSchema: {
         identifier: z.string().describe('Test ID, name, or tag (with tag: prefix) to delete'),
       },
@@ -388,27 +420,37 @@ After creation, the test will be automatically run and optionally opened in brow
     'helpmetest_modify_test',
     {
       title: 'Help Me Test: Modify Test Tool',
-      description: `Modify an existing test by providing its ID and updated parameters using a systematic approach. Follow this algorithm for best results:
+      description: `Modify an existing test with new Robot Framework keywords.
 
-1. **Check Current Test Structure**: Use helpmetest_status_test to see existing tests and their IDs
-2. **Research Available Keywords**: Use helpmetest_keywords to find relevant Robot Framework commands for new functionality
-3. **Interactive Development**: Use helpmetest_run_interactive_command to debug new test steps:
-   - Test new interactions step by step
-   - Verify each step works as expected
-   - Build up the complete sequence
-   - Exit interactive session when satisfied
-4. **Modify Test**: Use this tool with the working sequence from interactive testing
+⚠️ **DO NOT USE THIS TOOL DIRECTLY WITHOUT INTERACTIVE TESTING FIRST**
 
-After modification, the test will be automatically run and optionally opened in browser. Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched). Provides a detailed explanation of what changes were made, automatic test run results, and guidance for next steps.
+🎯 **BEST PRACTICE: Interactive Development for Changes**
 
-**Example Workflow:**
-- helpmetest_status_test (find test ID to modify)
-- helpmetest_keywords search="form" (find form interaction keywords)
-- helpmetest_run_interactive_command command="Go To https://example.com/form"
-- helpmetest_run_interactive_command command="Type text=test id=username"
-- helpmetest_run_interactive_command command="Click button"
-- helpmetest_run_interactive_command command="Exit"
-- helpmetest_modify_test id="test123" testData="new working sequence"`,
+When modifying tests, especially adding new functionality, interactive development helps ensure reliability:
+
+**Why Interactive Development for Modifications:**
+- **Test New Steps**: Verify new functionality works before adding to existing test
+- **Preserve Working Code**: Avoid breaking existing test steps that already work
+- **Element Changes**: Web pages change - verify selectors still work
+- **Integration Testing**: Ensure new steps work with existing flow
+
+**Recommended Workflow for Modifications:**
+1. \`helpmetest_status_test\` - Find the test ID and review current content
+2. \`helpmetest_keywords search="new_functionality"\` - Research commands for new features
+3. \`helpmetest_run_interactive_command\` - Test new/changed steps:
+   - Test new interactions: \`Go To https://example.com/new-page\`
+   - Verify new elements: \`Click new-button\`, \`Fill Text new-input value\`
+   - Test integration: \`Get Text result\`, \`Should Contain expected\`
+   - Build up the complete modified flow
+   - Use \`Exit\` when you don't need this session anymore (you debugged and fixed all the problems and you are sure that this session will not be used in the future)
+4. \`helpmetest_modify_test\` - Update the test with proven changes
+
+**Direct Usage:**
+You can also modify tests directly if you're confident in the changes. The test will be automatically executed after modification to verify it still works.
+
+Only provide the fields you want to change - other fields will be preserved from the existing test.
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're modifying, what changes you're making, and why. After modifying the test, describe what was changed and what the results mean. Don't just say "Done".`,
       inputSchema: {
         id: z.string().describe('Test ID (required - ID of the existing test to modify)'),
         name: z.string().optional().describe('Test name (optional - if not provided, keeps existing name)'),
@@ -428,7 +470,9 @@ After modification, the test will be automatically run and optionally opened in 
     'helpmetest_keywords',
     {
       title: 'Help Me Test: Keywords Search Tool',
-      description: 'Search and get documentation for available Robot Framework keywords and libraries',
+      description: `Search and get documentation for available Robot Framework keywords and libraries
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're searching for and why. After getting results, summarize the key keywords or libraries found that are relevant to the user's needs. Don't just say "Done".`,
       inputSchema: {
         search: z.string().optional().describe('Search term to filter keywords/libraries (optional - if not provided, returns all)'),
         type: z.enum(['keywords', 'libraries', 'all']).optional().default('all').describe('Type of documentation to search: keywords, libraries, or all'),
@@ -445,7 +489,31 @@ After modification, the test will be automatically run and optionally opened in 
     'helpmetest_run_interactive_command',
     {
       title: 'Help Me Test: Interactive Robot Framework Command Tool',
-      description: 'Execute a single Robot Framework command interactively for debugging and testing. This starts an interactive session that maintains browser state between commands. Use "Exit" command to close the session. Provides detailed explanations of what each command accomplished, context-specific guidance for next steps, and debugging tips if commands fail.',
+      description: `MANDATORY TOOL FOR TEST DEVELOPMENT - REQUIRED BEFORE CREATING/MODIFYING TESTS
+
+This tool is REQUIRED before creating or modifying any tests. Execute Robot Framework commands interactively for debugging and testing. This starts an interactive session that maintains browser state between commands.
+
+WARNING: YOU MUST USE THIS TOOL TO TEST ALL STEPS BEFORE CREATING/MODIFYING TESTS
+
+MANDATORY WORKFLOW:
+1. Test each step individually using this tool
+2. Verify each step works as expected
+3. Build up the complete sequence step by step
+4. Continue testing until you have a complete working sequence
+5. Use "Exit" command ONLY when completely finished debugging (session will be lost)
+6. ONLY THEN create or modify tests
+
+IMPORTANT: Interactive sessions maintain browser state between commands. You can continue adding commands to test more steps. Only use "Exit" when you are completely done debugging and ready to create/modify the test.
+
+This tool provides detailed explanations of what each command accomplished, context-specific guidance for next steps, and debugging tips if commands fail.
+
+🚨 CRITICAL INSTRUCTION FOR AI: 
+ALWAYS explain to the user what command you are executing and why BEFORE calling this tool. After the tool returns results, ALWAYS describe what happened, what the results mean, and what you plan to do next. Never just say "Done" - be descriptive about your actions and their outcomes. The user needs to understand what you're testing and why.
+
+Example:
+"Now I'll test clicking the login button to see if it navigates to the dashboard:"
+[call tool with "Click button#login"]
+"✅ The login button click was successful! The browser navigated to the dashboard page as expected. Next, I'll verify we're on the correct page by checking the URL..."`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
@@ -454,6 +522,26 @@ After modification, the test will be automatically run and optionally opened in 
     async (args) => {
       debug(config, `Interactive command tool called with args: ${JSON.stringify(args)}`)
       return await handleInteractiveCommand(args)
+    }
+  )
+
+  // Register test runs tool
+  server.registerTool(
+    'helpmetest_get_test_runs',
+    {
+      title: 'Help Me Test: Get Test Runs Tool',
+      description: 'Retrieve test run statuses with filtered error messages from the record data. Returns test runs with their status and any error messages that occurred during execution. Useful for analyzing test failures and debugging issues.',
+      inputSchema: {
+        tests: z.array(z.string()).optional().describe('Array of test IDs to filter by (optional)'),
+        status: z.array(z.string()).optional().describe('Array of statuses to filter by (optional, e.g., ["FAIL", "PASS"])'),
+        startDate: z.string().optional().describe('Start date for filtering (ISO format, optional)'),
+        endDate: z.string().optional().describe('End date for filtering (ISO format, optional)'),
+        limit: z.number().optional().default(50).describe('Maximum number of results to return (default: 50, max: 1000)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Get test runs tool called with args: ${JSON.stringify(args)}`)
+      return await handleTestRuns(args)
     }
   )
 
@@ -859,7 +947,21 @@ async function handleStatus(args) {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(statusData),
+          text: `📊 HelpMeTest System Status
+
+Raw Status Data:
+\`\`\`json
+${JSON.stringify(statusData, null, 2)}
+\`\`\`
+
+🚨 AI INSTRUCTION: Analyze the raw status data above and provide a clear summary to the user including:
+1. How many tests and health checks are in the system
+2. Current status of tests (passed/failed/unknown)
+3. Current status of health checks (up/down/unknown)
+4. Any issues that need attention
+5. Overall system health assessment
+
+The raw data contains all the information you need - analyze it and explain it clearly to the user.`,
         },
       ],
     }
@@ -933,7 +1035,21 @@ async function handleTestStatus(args) {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(filteredData),
+          text: `🧪 HelpMeTest Tests Status
+
+Raw Test Data:
+\`\`\`json
+${JSON.stringify(filteredData, null, 2)}
+\`\`\`
+
+🚨 AI INSTRUCTION: Analyze the raw test data above and provide a clear summary to the user including:
+1. Total number of tests in the system
+2. Status breakdown (how many passed/failed/unknown)
+3. Recent test execution results
+4. Any failing tests that need attention
+5. Test execution times and patterns
+
+The raw data contains all the information you need - analyze it and explain it clearly to the user.`,
         },
       ],
     }
@@ -993,7 +1109,21 @@ async function handleHealthStatus(args) {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(filteredData),
+          text: `🏥 HelpMeTest Health Checks Status
+
+Raw Health Check Data:
+\`\`\`json
+${JSON.stringify(filteredData, null, 2)}
+\`\`\`
+
+🚨 AI INSTRUCTION: Analyze the raw health check data above and provide a clear summary to the user including:
+1. Total number of health checks in the system
+2. Status breakdown (how many up/down/unknown)
+3. Recent health check results
+4. Any failing health checks that need attention
+5. Last heartbeat times and patterns
+
+The raw data contains all the information you need - analyze it and explain it clearly to the user.`,
         },
       ],
     }
@@ -1011,6 +1141,100 @@ async function handleHealthStatus(args) {
         status: error.status || null,
         verbose
       }
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle test runs tool call
+ * @param {Object} args - Tool arguments
+ * @param {Array<string>} [args.tests] - Array of test IDs to filter by
+ * @param {Array<string>} [args.status] - Array of statuses to filter by
+ * @param {string} [args.startDate] - Start date for filtering (ISO format)
+ * @param {string} [args.endDate] - End date for filtering (ISO format)
+ * @param {number} [args.limit=50] - Maximum number of results to return
+ * @returns {Object} Test runs result with error details
+ */
+async function handleTestRuns(args) {
+  const { tests, status, startDate, endDate, limit = 50 } = args
+  
+  debug(config, `Getting test runs with filters: ${JSON.stringify(args)}`)
+  
+  try {
+    const filters = {}
+    
+    // Add filters if provided
+    if (tests && Array.isArray(tests) && tests.length > 0) {
+      filters.tests = tests
+    }
+    
+    if (status && Array.isArray(status) && status.length > 0) {
+      filters.status = status
+    }
+    
+    if (startDate) {
+      filters.startDate = startDate
+    }
+    
+    if (endDate) {
+      filters.endDate = endDate
+    }
+    
+    if (limit) {
+      filters.limit = Math.min(parseInt(limit) || 50, 1000)
+    }
+    
+    const testRunsData = await getTestRuns(filters, true)
+    debug(config, `Retrieved ${testRunsData.count} test runs`)
+    
+    // Create user-friendly explanation
+    const explanation = createTestRunsExplanation(testRunsData, filters)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: explanation,
+        },
+      ],
+    }
+  } catch (error) {
+    debug(config, `Error getting test runs: ${error.message}`)
+    
+    const errorResponse = {
+      error: true,
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: new Date().toISOString(),
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null,
+        filters: args
+      }
+    }
+    
+    // Add specific error details if available
+    if (error.status === 401) {
+      errorResponse.suggestion = 'Check your HELPMETEST_API_TOKEN environment variable'
+    } else if (error.status === 403) {
+      errorResponse.suggestion = 'Your API token may not have permission for this operation'
+    } else if (error.status === 404) {
+      errorResponse.suggestion = 'The API endpoint was not found - check your HELPMETEST_API_URL'
+    } else if (error.status >= 500) {
+      errorResponse.suggestion = 'Server error - please try again later'
+    } else if (!error.status) {
+      errorResponse.suggestion = 'Check your internet connection and API URL configuration'
     }
     
     return {
@@ -1126,6 +1350,17 @@ async function handleCreateTest(args) {
   const { id = 'new', name, description = '', tags = [], testData = '' } = args
   
   debug(config, `Creating test with name: ${name}`)
+  
+  // Log interactive development status for debugging
+  const hasRecentInteractiveSession = Array.from(interactiveSessions.keys()).some(sessionId => {
+    const session = interactiveSessions.get(sessionId)
+    const timeSinceLastUsed = Date.now() - session.lastUsed.getTime()
+    return timeSinceLastUsed < 15 * 60 * 1000 // 15 minutes
+  })
+  
+  if (!hasRecentInteractiveSession && testData && testData.trim()) {
+    debug(config, `Test being created without recent interactive development session`)
+  }
   
   try {
     // Process testData to ensure it contains only keywords (no test case structure)
@@ -1299,6 +1534,19 @@ async function handleModifyTest(args) {
   }
   
   debug(config, `Modifying test with ID: ${id}`)
+  
+  // Log interactive development status for debugging
+  if (testData && testData.trim()) {
+    const hasRecentInteractiveSession = Array.from(interactiveSessions.keys()).some(sessionId => {
+      const session = interactiveSessions.get(sessionId)
+      const timeSinceLastUsed = Date.now() - session.lastUsed.getTime()
+      return timeSinceLastUsed < 15 * 60 * 1000 // 15 minutes
+    })
+    
+    if (!hasRecentInteractiveSession) {
+      debug(config, `Test ${id} being modified without recent interactive development session`)
+    }
+  }
   
   try {
     // First, get the existing test to preserve fields that aren't being updated
@@ -1755,11 +2003,14 @@ async function handleInteractiveCommand(args) {
       interactiveSessions.set('interactive', {
         timestamp: sessionTimestamp,
         created: new Date(),
-        lastUsed: new Date()
+        lastUsed: new Date(),
+        commandCount: 0
       })
     } else {
-      // Update last used time
-      interactiveSessions.get('interactive').lastUsed = new Date()
+      // Update last used time and increment command count
+      const session = interactiveSessions.get('interactive')
+      session.lastUsed = new Date()
+      session.commandCount = (session.commandCount || 0) + 1
     }
     
     // Call the robot service directly via the app API with fixed parameters
@@ -2460,9 +2711,49 @@ function generateTestCreationPrompt(testType, targetSystem) {
   // Sort keywords alphabetically for better readability
   allKeywords.sort()
   
-  let prompt = `# Test Creation Assistant for HelpMeTest Platform
+  let prompt = `# MANDATORY INTERACTIVE DEVELOPMENT WORKFLOW
+
+CRITICAL WARNING: DO NOT CREATE TESTS WITHOUT INTERACTIVE DEVELOPMENT FIRST
 
 You are helping create comprehensive Robot Framework tests using the HelpMeTest platform.
+
+## MANDATORY WORKFLOW - ALL STEPS REQUIRED
+
+### STEP 1: Check Current Test Structure
+Use \`helpmetest_status_test\` to understand existing tests:
+- See what tests already exist
+- Understand naming patterns
+- Check test organization and tags
+
+### STEP 2: Research Available Keywords
+Use \`helpmetest_keywords\` to find relevant Robot Framework commands:
+- Search for navigation keywords: \`helpmetest_keywords search="go to"\`
+- Search for interaction keywords: \`helpmetest_keywords search="click"\`
+- Search for verification keywords: \`helpmetest_keywords search="should"\`
+- Look for specific functionality: \`helpmetest_keywords search="form"\`
+
+### STEP 3: MANDATORY INTERACTIVE DEVELOPMENT
+**YOU MUST USE \`helpmetest_run_interactive_command\` TO TEST EVERY SINGLE STEP BEFORE CREATING THE TEST**
+
+Interactive development is NOT OPTIONAL - it is REQUIRED:
+- Start with basic navigation: \`helpmetest_run_interactive_command command="Go To https://example.com"\`
+- Test EACH interaction step individually: \`helpmetest_run_interactive_command command="Click a"\`
+- Verify results at EACH stage: \`helpmetest_run_interactive_command command="Get Url"\`
+- Build up the COMPLETE sequence step by step
+- Continue testing until you have a complete working flow
+- Exit ONLY when completely finished: \`helpmetest_run_interactive_command command="Exit"\`
+
+**DO NOT SKIP INTERACTIVE DEVELOPMENT - IT IS MANDATORY**
+
+**Why Interactive Development is REQUIRED:**
+- Identifies available elements on the page
+- Tests selectors before committing to final test
+- Reveals navigation flow and timing issues
+- Provides immediate feedback on each step
+- Prevents test failures from untested assumptions
+- **Tests created without interactive development WILL FAIL**
+
+### STEP 4: Create Final Test (ONLY AFTER INTERACTIVE DEVELOPMENT)
 
 ## CRITICAL: Available Keywords Only
 You MUST ONLY use keywords from the following list. Using any keyword not in this list is FORBIDDEN and will cause test failures.
@@ -2498,58 +2789,30 @@ The following Robot Framework libraries are available: ${availableLibraries}
 - Status Should Be, Response Should Contain
 
 ## Available MCP Tools
-- \`helpmetest_create_test\`: Create a new test with specified parameters
-- \`helpmetest_modify_test\`: Modify an existing test by providing its ID and updated parameters
+- \`helpmetest_create_test\`: Create a new test with specified parameters (ONLY AFTER INTERACTIVE DEVELOPMENT)
+- \`helpmetest_modify_test\`: Modify an existing test by providing its ID and updated parameters (ONLY AFTER INTERACTIVE DEVELOPMENT)
 - \`helpmetest_keywords\`: Search available Robot Framework keywords and libraries
-- \`helpmetest_list_tests\`: List existing tests for reference
+- \`helpmetest_run_interactive_command\`: MANDATORY tool for testing each step before creating/modifying tests
 
-## Test Creation Process - SYSTEMATIC ALGORITHM
+## MANDATORY EXAMPLE WORKFLOW FOR TEST CREATION
+**ALL STEPS ARE REQUIRED - DO NOT SKIP ANY:**
 
-### STEP 1: Check Current Test Structure
-Use \`helpmetest_status_test\` to understand existing tests:
-- See what tests already exist
-- Understand naming patterns
-- Check test organization and tags
+1. \`helpmetest_status_test\` (check existing tests) ✅ REQUIRED
+2. \`helpmetest_keywords search="navigation"\` (find Go To, Click keywords) ✅ REQUIRED
+3. \`helpmetest_run_interactive_command command="Go To https://example.com"\` REQUIRED
+4. \`helpmetest_run_interactive_command command="Click a"\` REQUIRED
+5. \`helpmetest_run_interactive_command command="Get Url"\` REQUIRED
+6. Continue testing more steps as needed...
+7. \`helpmetest_run_interactive_command command="Exit"\` ONLY when completely finished
+8. \`helpmetest_create_test\` with working sequence ONLY AFTER STEPS 1-7
 
-### STEP 2: Research Available Keywords
-Use \`helpmetest_keywords\` to find relevant Robot Framework commands:
-- Search for navigation keywords: \`helpmetest_keywords search="go to"\`
-- Search for interaction keywords: \`helpmetest_keywords search="click"\`
-- Search for verification keywords: \`helpmetest_keywords search="should"\`
-- Look for specific functionality: \`helpmetest_keywords search="form"\`
-
-### STEP 3: Interactive Development (CRITICAL STEP)
-Use \`helpmetest_run_interactive_command\` to debug test steps one by one:
-- Start with basic navigation: \`helpmetest_run_interactive_command command="Go To https://example.com"\`
-- Test each interaction step by step: \`helpmetest_run_interactive_command command="Click a"\`
-- Verify results at each stage: \`helpmetest_run_interactive_command command="Get Url"\`
-- Build up the complete sequence interactively
-- Exit when satisfied: \`helpmetest_run_interactive_command command="Exit"\`
-
-**Why Interactive Development is Essential:**
-- Identifies available elements on the page
-- Tests selectors before committing to final test
-- Reveals navigation flow and timing issues
-- Provides immediate feedback on each step
-- Prevents test failures from untested assumptions
-
-### STEP 4: Create Final Test
 Use \`helpmetest_create_test\` with the working sequence from interactive testing:
 - **name**: Descriptive test name
 - **description**: Detailed description of what the test does
 - **tags**: Relevant tags for organization
 - **testData**: ONLY Robot Framework keywords (no *** Test Cases *** structure needed)
 
-**Example Complete Workflow:**
-1. \`helpmetest_status_test\` (check existing tests)
-2. \`helpmetest_keywords search="navigation"\` (find Go To, Click keywords)
-3. \`helpmetest_run_interactive_command command="Go To https://example.com"\`
-4. \`helpmetest_run_interactive_command command="Click a"\`
-5. \`helpmetest_run_interactive_command command="Get Url"\`
-6. \`helpmetest_run_interactive_command command="Exit"\`
-7. \`helpmetest_create_test\` with working sequence
-
-## Test Modification Process - SYSTEMATIC ALGORITHM
+## MANDATORY WORKFLOW FOR TEST MODIFICATION
 
 ### STEP 1: Check Current Test Structure
 Use \`helpmetest_status_test\` to see existing tests and their IDs:
@@ -2564,13 +2827,16 @@ Use \`helpmetest_keywords\` to find relevant Robot Framework commands for new fu
 - Look for verification keywords: \`helpmetest_keywords search="should"\`
 - Explore specific functionality: \`helpmetest_keywords search="wait"\`
 
-### STEP 3: Interactive Development (CRITICAL STEP)
+### STEP 3: MANDATORY INTERACTIVE DEVELOPMENT
+**YOU MUST USE \`helpmetest_run_interactive_command\` TO TEST ALL NEW/CHANGED STEPS**
+
 Use \`helpmetest_run_interactive_command\` to debug new test steps:
 - Test new interactions step by step: \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
 - Verify each step works as expected: \`helpmetest_run_interactive_command command="Type text=test id=username"\`
 - Build up the complete sequence: \`helpmetest_run_interactive_command command="Click button"\`
 - Test the full flow: \`helpmetest_run_interactive_command command="Get Text id=result"\`
-- Exit when satisfied: \`helpmetest_run_interactive_command command="Exit"\`
+- Continue testing until all new functionality works
+- Exit ONLY when completely finished: \`helpmetest_run_interactive_command command="Exit"\`
 
 **Why Interactive Development is Essential for Modifications:**
 - Tests new functionality before updating the actual test
@@ -2876,24 +3142,13 @@ function generateTestModificationPrompt(testId, modificationType) {
   // Sort keywords alphabetically for better readability
   allKeywords.sort()
   
-  let prompt = `# Robot Framework Test Modification Guide for HelpMeTest Platform
+  let prompt = `# MANDATORY INTERACTIVE DEVELOPMENT FOR TEST MODIFICATION
+
+CRITICAL WARNING: DO NOT MODIFY TESTS WITHOUT INTERACTIVE DEVELOPMENT FIRST
 
 This guide helps you modify existing Robot Framework tests using the HelpMeTest platform.
 
-## CRITICAL: Available Keywords Only
-You MUST ONLY use keywords from the following list. Using any keyword not in this list is FORBIDDEN and will cause test failures.
-
-**Available Libraries**: ${availableLibraries}
-
-**Available Keywords** (${allKeywords.length} total):
-${allKeywords.map(keyword => `- ${keyword}`).join('\n')}
-
-## Available MCP Tools
-- \`helpmetest_modify_test\`: Modify an existing test by providing its ID and updated parameters
-- \`helpmetest_list_tests\`: List existing tests to find the test ID you want to modify
-- \`helpmetest_keywords\`: Search available Robot Framework keywords and libraries
-
-## Test Modification Process - SYSTEMATIC ALGORITHM
+## MANDATORY WORKFLOW - ALL STEPS REQUIRED
 
 ### STEP 1: Check Current Test Structure
 Use \`helpmetest_status_test\` to see existing tests and their IDs:
@@ -2908,22 +3163,42 @@ Use \`helpmetest_keywords\` to find relevant Robot Framework commands for new fu
 - Look for verification keywords: \`helpmetest_keywords search="should"\`
 - Explore specific functionality: \`helpmetest_keywords search="wait"\`
 
-### STEP 3: Interactive Development (CRITICAL STEP)
-Use \`helpmetest_run_interactive_command\` to debug new test steps:
-- Test new interactions step by step: \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
-- Verify each step works as expected: \`helpmetest_run_interactive_command command="Type text=test id=username"\`
-- Build up the complete sequence: \`helpmetest_run_interactive_command command="Click button"\`
-- Test the full flow: \`helpmetest_run_interactive_command command="Get Text id=result"\`
-- Exit when satisfied: \`helpmetest_run_interactive_command command="Exit"\`
+### STEP 3: MANDATORY INTERACTIVE DEVELOPMENT
+**YOU MUST USE \`helpmetest_run_interactive_command\` TO TEST ALL NEW/CHANGED STEPS BEFORE MODIFYING THE TEST**
 
-**Why Interactive Development is Essential for Modifications:**
+Interactive development is NOT OPTIONAL - it is REQUIRED:
+- Test new interactions step by step: \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
+- Verify EACH step works as expected: \`helpmetest_run_interactive_command command="Type text=test id=username"\`
+- Build up the COMPLETE sequence: \`helpmetest_run_interactive_command command="Click button"\`
+- Test the FULL flow: \`helpmetest_run_interactive_command command="Get Text id=result"\`
+- Continue testing until all new functionality works
+- Exit ONLY when completely finished: \`helpmetest_run_interactive_command command="Exit"\`
+
+**DO NOT SKIP INTERACTIVE DEVELOPMENT - IT IS MANDATORY**
+
+**Why Interactive Development is REQUIRED for Modifications:**
 - Tests new functionality before updating the actual test
 - Identifies correct selectors and element interactions
 - Reveals timing and synchronization requirements
 - Provides immediate feedback on new steps
 - Prevents breaking existing working tests
+- **Test modifications without interactive development WILL BREAK TESTS**
 
-### STEP 4: Modify Test
+### STEP 4: Modify Test (ONLY AFTER INTERACTIVE DEVELOPMENT)
+
+## MANDATORY EXAMPLE WORKFLOW FOR TEST MODIFICATION
+**ALL STEPS ARE REQUIRED - DO NOT SKIP ANY:**
+
+1. \`helpmetest_status_test\` (find test ID to modify) REQUIRED
+2. \`helpmetest_keywords search="form"\` (find form interaction keywords) REQUIRED
+3. \`helpmetest_run_interactive_command command="Go To https://example.com/form"\` REQUIRED
+4. \`helpmetest_run_interactive_command command="Type text=test id=username"\` REQUIRED
+5. \`helpmetest_run_interactive_command command="Click button"\` REQUIRED
+6. \`helpmetest_run_interactive_command command="Get Text id=result"\` REQUIRED
+7. Continue testing more steps as needed...
+8. \`helpmetest_run_interactive_command command="Exit"\` ONLY when completely finished
+9. \`helpmetest_modify_test id="test123" testData="new working sequence"\` ONLY AFTER STEPS 1-8
+
 Use \`helpmetest_modify_test\` with the working sequence from interactive testing:
 - **id**: Test ID (required - the ID of the existing test to modify)
 - **name**: New test name (optional - keeps existing if not provided)
@@ -2931,14 +3206,19 @@ Use \`helpmetest_modify_test\` with the working sequence from interactive testin
 - **tags**: New tags array (optional - keeps existing if not provided)
 - **testData**: New Robot Framework keywords (optional - keeps existing if not provided)
 
-**Example Complete Workflow:**
-1. \`helpmetest_status_test\` (find test ID to modify)
-2. \`helpmetest_keywords search="form"\` (find form interaction keywords)
-3. \`helpmetest_run_interactive_command command="Go To https://example.com/form"\`
-4. \`helpmetest_run_interactive_command command="Type text=test id=username"\`
-5. \`helpmetest_run_interactive_command command="Click button"\`
-6. \`helpmetest_run_interactive_command command="Exit"\`
-7. \`helpmetest_modify_test id="test123" testData="new working sequence"\`
+## CRITICAL: Available Keywords Only
+You MUST ONLY use keywords from the following list. Using any keyword not in this list is FORBIDDEN and will cause test failures.
+
+**Available Libraries**: ${availableLibraries}
+
+**Available Keywords** (${allKeywords.length} total):
+${allKeywords.map(keyword => `- ${keyword}`).join('\n')}
+
+## Available MCP Tools
+- \`helpmetest_modify_test\`: Modify an existing test by providing its ID and updated parameters (ONLY AFTER INTERACTIVE DEVELOPMENT)
+- \`helpmetest_status_test\`: List existing tests to find the test ID you want to modify
+- \`helpmetest_keywords\`: Search available Robot Framework keywords and libraries
+- \`helpmetest_run_interactive_command\`: MANDATORY tool for testing each step before modifying tests
 
 ### STEP 5: Partial Updates
 You can update only specific fields:
@@ -4140,277 +4420,326 @@ async function handleUndoUpdate(args) {
 }
 
 /**
- * Create user-friendly explanation for test run results
+ * Create response for test run results - provides template and raw data for AI analysis
  * @param {Object} response - Test run response object
  * @param {string} identifier - Test identifier
- * @returns {string} User-friendly explanation
+ * @returns {string} Raw response with AI instruction and template
  */
 function createTestRunExplanation(response, identifier) {
-  const { success, testResults, keywords, totalEvents } = response
+  return `🧪 Test Execution Response
+
+Raw Test Execution Data:
+\`\`\`json
+${JSON.stringify(response, null, 2)}
+\`\`\`
+
+🚨 AI INSTRUCTION: Analyze the raw test execution data above and explain it to the user using this template structure:
+
+## Test Execution Complete
+
+**Test Identifier:** ${identifier}
+**Status:** [✅ PASSED / ❌ FAILED based on response.success]
+**Total Events:** [extract from response.totalEvents if available]
+
+### Test Results:
+[if testResults exists, analyze each result:]
+- [✅/❌] **[testId]** ([duration])
+  [message if available]
+
+### Keywords Executed:
+[if keywords exists, show first 10 with status icons:]
+- [✅/❌/⏸️] [keyword name] ([duration if available])
+[if more than 10 keywords, mention "... and X more keywords"]
+
+[If test failed:]
+### What Happened:
+The test execution completed but some steps failed. Review the failed keywords above to understand what went wrong.
+
+### Next Steps:
+1. Use \`helpmetest_run_interactive_command\` to debug failing steps
+2. Fix the issues and run \`helpmetest_modify_test\` to update the test
+3. Re-run the test to verify the fixes
+
+[If test passed:]
+### What Happened:
+The test executed successfully! All keywords completed without errors.
+
+Fill in the template above with actual data from the raw response. Don't just copy the template - analyze the data and provide real values and insights.`
+}
+
+/**
+ * Create user-friendly explanation for test runs results
+ * @param {Object} testRunsData - Test runs response object
+ * @param {Object} filters - Applied filters
+ * @returns {string} User-friendly explanation
+ */
+function createTestRunsExplanation(testRunsData, filters) {
+  const { runs, count } = testRunsData
   
-  let explanation = `## Test Execution Complete\n\n`
-  explanation += `**Test Identifier:** ${identifier}\n`
-  explanation += `**Status:** ${success ? '✅ PASSED' : '❌ FAILED'}\n`
-  explanation += `**Total Events:** ${totalEvents}\n\n`
+  let explanation = `## Test Runs Report\n\n`
+  explanation += `**Total Results:** ${count}\n`
   
-  if (testResults && testResults.length > 0) {
-    explanation += `### Test Results:\n`
-    testResults.forEach(result => {
-      const statusIcon = result.status === 'PASS' ? '✅' : '❌'
-      explanation += `- ${statusIcon} **${result.testId}** (${result.duration})\n`
-      if (result.message) {
-        explanation += `  ${result.message}\n`
-      }
-    })
-    explanation += `\n`
-  }
-  
-  if (keywords && keywords.length > 0) {
-    explanation += `### Keywords Executed:\n`
-    keywords.slice(0, 10).forEach(kw => {
-      const statusIcon = kw.status === 'PASS' ? '✅' : kw.status === 'FAIL' ? '❌' : '⏸️'
-      const duration = kw.duration ? ` (${kw.duration}s)` : ''
-      explanation += `- ${statusIcon} ${kw.keyword}${duration}\n`
-    })
-    if (keywords.length > 10) {
-      explanation += `... and ${keywords.length - 10} more keywords\n`
+  // Show applied filters
+  if (Object.keys(filters).length > 0) {
+    explanation += `**Applied Filters:**\n`
+    if (filters.tests) {
+      explanation += `- Tests: ${filters.tests.join(', ')}\n`
     }
+    if (filters.status) {
+      explanation += `- Status: ${filters.status.join(', ')}\n`
+    }
+    if (filters.startDate) {
+      explanation += `- Start Date: ${filters.startDate}\n`
+    }
+    if (filters.endDate) {
+      explanation += `- End Date: ${filters.endDate}\n`
+    }
+    if (filters.limit) {
+      explanation += `- Limit: ${filters.limit}\n`
+    }
+  }
+  explanation += `\n`
+  
+  if (runs && runs.length > 0) {
+    // Group runs by status for summary
+    const statusCounts = runs.reduce((acc, run) => {
+      acc[run.status] = (acc[run.status] || 0) + 1
+      return acc
+    }, {})
+    
+    explanation += `### Status Summary:\n`
+    Object.entries(statusCounts).forEach(([status, count]) => {
+      const icon = status === 'PASS' ? '✅' : status === 'FAIL' ? '❌' : '⏸️'
+      explanation += `- ${icon} ${status}: ${count}\n`
+    })
     explanation += `\n`
+    
+    explanation += `### Test Run Details:\n`
+    runs.forEach((run, index) => {
+      const statusIcon = run.status === 'PASS' ? '✅' : run.status === 'FAIL' ? '❌' : '⏸️'
+      const timestamp = new Date(run.timestamp).toLocaleString()
+      const elapsedTime = run.elapsedTime ? ` (${run.elapsedTime}ms)` : ''
+      
+      explanation += `#### ${index + 1}. ${statusIcon} Test: ${run.test}\n`
+      explanation += `- **Status:** ${run.status}\n`
+      explanation += `- **Timestamp:** ${timestamp}\n`
+      explanation += `- **Company:** ${run.company}\n`
+      if (run.elapsedTime) {
+        explanation += `- **Duration:** ${run.elapsedTime}ms\n`
+      }
+      
+      if (run.errors && run.errors.length > 0) {
+        explanation += `- **Errors (${run.errors.length}):**\n`
+        run.errors.forEach((error, errorIndex) => {
+          explanation += `  ${errorIndex + 1}. **Keyword:** ${error.keyword}\n`
+          explanation += `     **Message:** ${error.message.split('\\n')[0]}...\n`
+        })
+      } else {
+        explanation += `- **Errors:** None\n`
+      }
+      explanation += `\n`
+    })
+    
+    // Show error patterns if there are failed tests
+    const failedRuns = runs.filter(run => run.status === 'FAIL' && run.errors.length > 0)
+    if (failedRuns.length > 0) {
+      explanation += `### Common Error Patterns:\n`
+      const errorKeywords = {}
+      failedRuns.forEach(run => {
+        run.errors.forEach(error => {
+          if (!errorKeywords[error.keyword]) {
+            errorKeywords[error.keyword] = 0
+          }
+          errorKeywords[error.keyword]++
+        })
+      })
+      
+      Object.entries(errorKeywords)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5)
+        .forEach(([keyword, count]) => {
+          explanation += `- **${keyword}**: Failed ${count} time(s)\n`
+        })
+      explanation += `\n`
+    }
+  } else {
+    explanation += `### No Results Found\n`
+    explanation += `No test runs match the specified criteria. Try adjusting your filters or check if tests have been executed recently.\n\n`
   }
   
-  if (!success) {
-    explanation += `### What Happened:\n`
-    explanation += `The test execution completed but some steps failed. Review the failed keywords above to understand what went wrong.\n\n`
-    explanation += `### Next Steps:\n`
-    explanation += `1. Use \`helpmetest_run_interactive_command\` to debug failing steps\n`
-    explanation += `2. Fix the issues and run \`helpmetest_modify_test\` to update the test\n`
-    explanation += `3. Re-run the test to verify the fixes\n\n`
-  } else {
-    explanation += `### What Happened:\n`
-    explanation += `The test executed successfully! All keywords completed without errors.\n\n`
-  }
+  explanation += `### Usage Tips:\n`
+  explanation += `- Use \`helpmetest_run_test\` to execute a specific test\n`
+  explanation += `- Use \`helpmetest_status_test\` to see all available tests\n`
+  explanation += `- Filter by specific test IDs using the \`tests\` parameter\n`
+  explanation += `- Filter by status (PASS, FAIL) using the \`status\` parameter\n`
+  explanation += `- Use date ranges to analyze test trends over time\n\n`
   
   // Include raw data for debugging
   explanation += `### Raw Response Data:\n`
-  explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
+  explanation += `\`\`\`json\n${JSON.stringify(testRunsData, null, 2)}\`\`\`\n`
   
   return explanation
 }
 
 /**
- * Create user-friendly explanation for test creation results
+ * Create response for test creation results - provides template and raw data for AI analysis
  * @param {Object} response - Test creation response object
- * @returns {string} User-friendly explanation
+ * @returns {string} Raw response with AI instruction and template
  */
 function createTestCreationExplanation(response) {
-  const { success, id, name, testRunResult, testUrl, browserOpened } = response
-  
-  let explanation = `## Test Created Successfully! 🎉\n\n`
-  explanation += `**Test Name:** ${name}\n`
-  explanation += `**Test ID:** ${id}\n`
-  explanation += `**Test URL:** ${testUrl}\n\n`
-  
-  if (testRunResult) {
-    explanation += `### Automatic Test Run Results:\n`
-    const statusIcon = testRunResult.status === 'PASS' ? '✅' : testRunResult.status === 'FAIL' ? '❌' : '⚠️'
-    explanation += `**Status:** ${statusIcon} ${testRunResult.status}\n`
-    
-    if (testRunResult.testResults && testRunResult.testResults.length > 0) {
-      explanation += `**Duration:** ${testRunResult.testResults[0].duration}\n`
-    }
-    
-    if (testRunResult.keywords && testRunResult.keywords.length > 0) {
-      explanation += `**Keywords Executed:** ${testRunResult.keywords.length}\n`
-    }
-    explanation += `\n`
-    
-    if (testRunResult.status === 'FAIL' || testRunResult.status === 'ERROR') {
-      explanation += `### ⚠️ Test Failed on First Run\n`
-      explanation += `This is normal for new tests. The test was created successfully, but it needs debugging.\n\n`
-      explanation += `### Next Steps:\n`
-      explanation += `1. Use \`helpmetest_run_interactive_command\` to debug the test step by step\n`
-      explanation += `2. Fix any issues you find\n`
-      explanation += `3. Use \`helpmetest_modify_test\` to update the test with working commands\n`
-      explanation += `4. Re-run the test to verify it works\n\n`
-    } else {
-      explanation += `### ✅ Test Passed on First Run!\n`
-      explanation += `Great! Your test is working correctly right away.\n\n`
-    }
-  }
-  
-  if (browserOpened) {
-    explanation += `### Browser Access:\n`
-    explanation += `✅ Test opened automatically in your browser\n\n`
-  } else {
-    explanation += `### Browser Access:\n`
-    explanation += `⚠️ Could not automatically open browser. You can manually visit: ${testUrl}\n\n`
-  }
-  
-  explanation += `### What Was Done:\n`
-  explanation += `1. ✅ Created new test "${name}" with ID: ${id}\n`
-  explanation += `2. ✅ Automatically ran the test to check if it works\n`
-  explanation += `3. ${browserOpened ? '✅' : '⚠️'} ${browserOpened ? 'Opened' : 'Attempted to open'} test in browser\n`
-  explanation += `4. ✅ Test is now available in your HelpMeTest dashboard\n\n`
-  
-  // Include raw data for debugging
-  explanation += `### Raw Response Data:\n`
-  explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
-  
-  return explanation
+  return `🧪 Test Creation Response
+
+Raw Test Creation Data:
+\`\`\`json
+${JSON.stringify(response, null, 2)}
+\`\`\`
+
+🚨 AI INSTRUCTION: Analyze the raw test creation data above and explain it to the user using this template structure:
+
+## Test Created Successfully! 🎉
+
+**Test Name:** [extract from response.name]
+**Test ID:** [extract from response.id]
+**Test URL:** [extract from response.testUrl if available]
+
+### Automatic Test Run Results:
+[if testRunResult exists, analyze and explain:]
+- **Status:** [✅/❌ based on testRunResult.status]
+- **Duration:** [from testRunResult.testResults if available]
+- **Keywords Executed:** [from testRunResult.keywords if available]
+
+[If test failed on first run:]
+### ⚠️ Test Failed on First Run
+This is normal for new tests. The test was created successfully, but it needs debugging.
+
+### Next Steps:
+1. Use \`helpmetest_run_interactive_command\` to debug the test step by step
+2. Fix any issues you find
+3. Use \`helpmetest_modify_test\` to update the test with working commands
+4. Re-run the test to verify it works
+
+[If test passed:]
+### ✅ Test Passed on First Run!
+Great! Your test is working correctly right away.
+
+### Browser Access:
+[Based on browserOpened field - explain if browser opened automatically or not]
+
+### What Was Done:
+1. ✅ Created new test "[name]" with ID: [id]
+2. ✅ Automatically ran the test to check if it works
+3. [✅/⚠️] Browser access status
+4. ✅ Test is now available in your HelpMeTest dashboard
+
+Fill in the template above with actual data from the raw response. Don't just copy the template - analyze the data and provide real values.`
 }
 
 /**
- * Create user-friendly explanation for test modification results
+ * Create response for test modification results - provides template and raw data for AI analysis
  * @param {Object} response - Test modification response object
- * @returns {string} User-friendly explanation
+ * @returns {string} Raw response with AI instruction and template
  */
 function createTestModificationExplanation(response) {
-  const { success, id, name, testRunResult, testUrl, browserOpened, changes } = response
-  
-  let explanation = `## Test Modified Successfully! 🔄\n\n`
-  explanation += `**Test Name:** ${name}\n`
-  explanation += `**Test ID:** ${id}\n`
-  explanation += `**Test URL:** ${testUrl}\n\n`
-  
-  if (changes) {
-    explanation += `### Changes Made:\n`
-    if (changes.name) {
-      explanation += `- **Name:** "${changes.name.from}" → "${changes.name.to}"\n`
-    }
-    if (changes.description) {
-      explanation += `- **Description:** Updated\n`
-    }
-    if (changes.tags) {
-      explanation += `- **Tags:** [${changes.tags.from.join(', ')}] → [${changes.tags.to.join(', ')}]\n`
-    }
-    if (changes.testData) {
-      explanation += `- **Test Data:** ✅ Updated with new Robot Framework commands\n`
-    }
-    explanation += `\n`
-  }
-  
-  if (testRunResult) {
-    explanation += `### Automatic Test Run Results:\n`
-    const statusIcon = testRunResult.status === 'PASS' ? '✅' : testRunResult.status === 'FAIL' ? '❌' : '⚠️'
-    explanation += `**Status:** ${statusIcon} ${testRunResult.status}\n`
-    
-    if (testRunResult.testResults && testRunResult.testResults.length > 0) {
-      explanation += `**Duration:** ${testRunResult.testResults[0].duration}\n`
-    }
-    
-    if (testRunResult.keywords && testRunResult.keywords.length > 0) {
-      explanation += `**Keywords Executed:** ${testRunResult.keywords.length}\n`
-    }
-    explanation += `\n`
-    
-    if (testRunResult.status === 'FAIL' || testRunResult.status === 'ERROR') {
-      explanation += `### ⚠️ Modified Test Still Has Issues\n`
-      explanation += `The test was updated successfully, but it's still failing. This might need more debugging.\n\n`
-      explanation += `### Next Steps:\n`
-      explanation += `1. Use \`helpmetest_run_interactive_command\` to debug the remaining issues\n`
-      explanation += `2. Fix any problems you find\n`
-      explanation += `3. Use \`helpmetest_modify_test\` again to apply more fixes\n`
-      explanation += `4. Repeat until the test passes\n\n`
-    } else {
-      explanation += `### ✅ Modified Test Now Passes!\n`
-      explanation += `Excellent! Your changes fixed the test and it's now working correctly.\n\n`
-    }
-  }
-  
-  if (browserOpened) {
-    explanation += `### Browser Access:\n`
-    explanation += `✅ Modified test opened automatically in your browser\n\n`
-  } else {
-    explanation += `### Browser Access:\n`
-    explanation += `⚠️ Could not automatically open browser. You can manually visit: ${testUrl}\n\n`
-  }
-  
-  explanation += `### What Was Done:\n`
-  explanation += `1. ✅ Modified test "${name}" (ID: ${id})\n`
-  explanation += `2. ✅ Automatically ran the modified test to check if it works\n`
-  explanation += `3. ${browserOpened ? '✅' : '⚠️'} ${browserOpened ? 'Opened' : 'Attempted to open'} test in browser\n`
-  explanation += `4. ✅ Changes are now live in your HelpMeTest dashboard\n\n`
-  
-  // Include raw data for debugging
-  explanation += `### Raw Response Data:\n`
-  explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
-  
-  return explanation
+  return `🔄 Test Modification Response
+
+Raw Test Modification Data:
+\`\`\`json
+${JSON.stringify(response, null, 2)}
+\`\`\`
+
+🚨 AI INSTRUCTION: Analyze the raw test modification data above and explain it to the user using this template structure:
+
+## Test Modified Successfully! 🔄
+
+**Test Name:** [extract from response.name]
+**Test ID:** [extract from response.id]
+**Test URL:** [extract from response.testUrl if available]
+
+### Changes Made:
+[if changes exist, analyze and list:]
+- **Name:** [if changed, show from → to]
+- **Description:** [if changed, mention it was updated]
+- **Tags:** [if changed, show from → to arrays]
+- **Test Data:** [if changed, mention Robot Framework commands were updated]
+
+### Automatic Test Run Results:
+[if testRunResult exists, analyze and explain:]
+- **Status:** [✅/❌ based on testRunResult.status]
+- **Duration:** [from testRunResult.testResults if available]
+- **Keywords Executed:** [from testRunResult.keywords if available]
+
+[If modified test still fails:]
+### ⚠️ Modified Test Still Has Issues
+The test was updated successfully, but it's still failing. This might need more debugging.
+
+### Next Steps:
+1. Use \`helpmetest_run_interactive_command\` to debug the remaining issues
+2. Fix any problems you find
+3. Use \`helpmetest_modify_test\` again to apply more fixes
+4. Repeat until the test passes
+
+[If modified test now passes:]
+### ✅ Modified Test Now Passes!
+Excellent! Your changes fixed the test and it's now working correctly.
+
+### Browser Access:
+[Based on browserOpened field - explain if browser opened automatically or not]
+
+### What Was Done:
+1. ✅ Modified test "[name]" (ID: [id])
+2. ✅ Automatically ran the modified test to check if it works
+3. [✅/⚠️] Browser access status
+4. ✅ Changes are now live in your HelpMeTest dashboard
+
+Fill in the template above with actual data from the raw response. Don't just copy the template - analyze the data and provide real values.`
 }
 
 /**
- * Create user-friendly explanation for interactive command results
+ * Create response for interactive command results - focuses on raw output for AI analysis
  * @param {Object} commandResult - Interactive command result object
- * @returns {string} User-friendly explanation
+ * @returns {string} Raw response with AI instruction to analyze and explain
  */
 function createInteractiveCommandExplanation(commandResult) {
-  const { command, result, success } = commandResult
+  const { command, success } = commandResult
   
-  let explanation = `## Interactive Command Executed\n\n`
-  explanation += `**Command:** \`${command}\`\n`
-  explanation += `**Status:** ${success ? '✅ SUCCESS' : '❌ FAILED'}\n\n`
-  
+  // Handle Exit command
   if (command.trim() === 'Exit') {
-    explanation += `### Session Ended\n`
-    explanation += `The interactive debugging session has been closed. You can start a new session anytime by running another \`helpmetest_run_interactive_command\`.\n\n`
-  } else {
-    explanation += `### What Happened:\n`
-    if (success) {
-      explanation += `The Robot Framework command executed successfully in the interactive browser session.\n\n`
-      
-      // Provide context-specific guidance based on command type
-      if (command.toLowerCase().includes('go to')) {
-        explanation += `### Next Steps:\n`
-        explanation += `- The browser navigated to the specified URL\n`
-        explanation += `- You can now interact with elements on the page\n`
-        explanation += `- Try commands like \`Click\`, \`Type\`, or \`Get Text\` to continue testing\n\n`
-      } else if (command.toLowerCase().includes('click')) {
-        explanation += `### Next Steps:\n`
-        explanation += `- The click action was performed successfully\n`
-        explanation += `- Check if the page changed as expected\n`
-        explanation += `- You might want to add a wait or verification step next\n\n`
-      } else if (command.toLowerCase().includes('type') || command.toLowerCase().includes('fill')) {
-        explanation += `### Next Steps:\n`
-        explanation += `- Text was entered into the specified field\n`
-        explanation += `- You might want to submit the form or click a button next\n`
-        explanation += `- Consider adding verification to check the input was accepted\n\n`
-      } else if (command.toLowerCase().includes('should') || command.toLowerCase().includes('get')) {
-        explanation += `### Next Steps:\n`
-        explanation += `- The verification/retrieval command completed successfully\n`
-        explanation += `- Check the result to see if it matches your expectations\n`
-        explanation += `- Continue with the next step in your test scenario\n\n`
-      }
-      
-      explanation += `### Continue Testing:\n`
-      explanation += `- Run more \`helpmetest_run_interactive_command\` calls to build up your test\n`
-      explanation += `- Once you have a working sequence, use \`helpmetest_modify_test\` to update your test\n`
-      explanation += `- Use \`Exit\` command when you're done with this session\n\n`
-    } else {
-      explanation += `The command failed to execute. This could be due to:\n`
-      explanation += `- Element not found (try different selectors)\n`
-      explanation += `- Timing issues (add wait commands)\n`
-      explanation += `- Page not loaded (check current page state)\n`
-      explanation += `- Incorrect syntax (verify Robot Framework syntax)\n\n`
-      
-      explanation += `### Debugging Tips:\n`
-      explanation += `1. Try \`Take Screenshot\` to see the current page state\n`
-      explanation += `2. Use \`Get Title\` or \`Get Url\` to verify page location\n`
-      explanation += `3. Try different selector strategies (css, xpath, text)\n`
-      explanation += `4. Add wait commands like \`Sleep  2s\` before retrying\n\n`
-    }
+    return `🔚 Interactive Session Ended
+
+Command: "${command}"
+Status: ${success ? '✅ SUCCESS' : '❌ FAILED'}
+
+The interactive debugging session has been closed.
+
+Raw Response Data:
+\`\`\`json
+${JSON.stringify(commandResult, null, 2)}
+\`\`\`
+
+🚨 AI: Analyze the raw response above and explain to the user what happened during session closure.`
   }
-  
-  // Include raw result data
-  if (result) {
-    explanation += `### Command Result:\n`
-    explanation += `\`\`\`json\n${JSON.stringify(result, null, 2)}\`\`\`\n\n`
-  }
-  
-  // Include raw data for debugging
-  explanation += `### Raw Response Data:\n`
-  explanation += `\`\`\`json\n${JSON.stringify(commandResult, null, 2)}\`\`\`\n`
-  
-  return explanation
+
+  // For all other commands, provide raw output and instruct AI to analyze
+  return `🤖 Interactive Command Executed
+
+Command: "${command}"
+Status: ${success ? '✅ SUCCESS' : '❌ FAILED'}
+
+Raw Response Data:
+\`\`\`json
+${JSON.stringify(commandResult, null, 2)}
+\`\`\`
+
+🚨 AI INSTRUCTION: 
+1. Analyze the raw response data above carefully
+2. Explain to the user what this command accomplished (or why it failed)
+3. Look at the response data to understand the current browser state
+4. Suggest logical next steps based on what you see in the response
+5. If the command failed, analyze the error details and suggest specific fixes
+6. Remember: Your browser session is still active - you can continue testing
+7. Only use "Exit" when completely done debugging
+
+The raw response contains all the information you need - analyze it and explain it clearly to the user.`
 }
 
 /**
