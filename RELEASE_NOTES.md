@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.9.0 (2025-07-21)
+
+### New Features
+
+- **Test Runs API**: Added new API functionality to retrieve test runs with detailed error information and comprehensive filtering options
+- **Enhanced Interactive Feedback**: Implemented context-aware guidance for different command types in interactive sessions
+
+### Improvements
+
+- **User Experience**: Added tailored next steps and suggestions based on command type in interactive sessions
+- **Error Handling**: Enhanced debugging tips for failed interactive commands with specific troubleshooting guidance
+- **Infrastructure**: Updated deployment workflow to automatically restart installer after publishing
+- **Documentation**: Cleaned up outdated test documentation and improved code organization
+
 ## v1.8.0 (2025-07-19)
 
 ### New Features
