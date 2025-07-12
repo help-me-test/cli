@@ -379,6 +379,21 @@ const getTestStatus = async (enableDebug = false) => {
 }
 
 /**
+ * Get test runs with error details from the API
+ * @param {Object} filters - Optional filters
+ * @param {Array<string>} [filters.tests] - Array of test IDs to filter by
+ * @param {Array<string>} [filters.status] - Array of statuses to filter by (e.g., ['FAIL', 'PASS'])
+ * @param {string} [filters.startDate] - Start date for filtering (ISO format)
+ * @param {string} [filters.endDate] - End date for filtering (ISO format)
+ * @param {number} [filters.limit=50] - Maximum number of results to return
+ * @param {boolean} enableDebug - Whether to enable debug logging
+ * @returns {Promise<Object>} Test runs data with error details
+ */
+const getTestRuns = async (filters = {}, enableDebug = false) => {
+  return apiGet('/api/test/runs', filters, 'Getting test runs with error details', enableDebug)
+}
+
+/**
  * Get user information from the API
  * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} User data including company information
@@ -610,6 +625,7 @@ export {
   getAllTests,
   runTest,
   getTestStatus,
+  getTestRuns,
   getUserInfo,
   createTest,
   deleteTest,
@@ -638,6 +654,7 @@ export default {
   getAllTests,
   runTest,
   getTestStatus,
+  getTestRuns,
   getUserInfo,
   createTest,
   deleteTest,
