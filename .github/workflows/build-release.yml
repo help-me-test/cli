@@ -43,3 +43,8 @@ jobs:
         run: |
           cd cli-build
           ./scripts/publish.sh
+          
+      - name: Restart installer deployment
+        run: |
+          kubectl rollout restart deployment installer -n helpmetest
+          kubectl rollout status deployment installer -n helpmetest
