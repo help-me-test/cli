@@ -644,6 +644,25 @@ Example:
     }
   )
 
+  // Register open_test tool
+  server.registerTool(
+    'helpmetest_open_test',
+    {
+      title: 'Help Me Test: Open Test in Browser Tool',
+      description: `Open a test in the browser by test ID, name, or tag. This tool opens the test page where you can view test details, execution history, and run the test manually.
+
+🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're opening and why. After opening, confirm that the browser was opened successfully or report any errors. Don't just say "Done".`,
+      inputSchema: {
+        identifier: z.string().describe('Test ID, name, or tag (with tag: prefix) to open in browser'),
+        runId: z.string().optional().describe('Optional specific run ID to open (if you want to view a specific test execution)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Open test tool called with args: ${JSON.stringify(args)}`)
+      return await handleOpenTest(args)
+    }
+  )
+
   // Register prompts
   server.registerPrompt(
     'helpmetest_create_test',
@@ -1520,27 +1539,12 @@ async function handleCreateTest(args) {
       testRunResult: testRunResult,
       message: `Test "${name}" created successfully with ID: ${createdTest.id}`,
       timestamp: new Date().toISOString(),
-      actions: {
-        openInBrowser: {
-          question: "Would you like to open this test in your browser?",
-          url: testUrl,
-          action: "open_browser"
-        }
+      suggestion: {
+        action: "open_test_in_browser",
+        message: "You can open this test in your browser using the 'helpmetest_open_test' command",
+        testId: createdTest.id,
+        testUrl: testUrl
       }
-    }
-    
-    // Ask user if they want to open the test in browser
-    // Note: In a real MCP implementation, this would be handled by the client
-    // For now, we'll include the URL and action in the response
-    try {
-      // Attempt to open browser automatically (this might not work in all environments)
-      debug(config, `Opening test in browser: ${testUrl}`)
-      await open(testUrl)
-      response.browserOpened = true
-    } catch (openError) {
-      debug(config, `Could not automatically open browser: ${openError.message}`)
-      response.browserOpened = false
-      response.browserError = openError.message
     }
     
     // Create user-friendly explanation
@@ -1728,27 +1732,12 @@ async function handleModifyTest(args) {
         tags: tags !== undefined ? { from: existingTest.tags || [], to: updatedTest.tags } : null,
         testData: testData !== undefined ? { updated: true } : null
       },
-      actions: {
-        openInBrowser: {
-          question: "Would you like to open this modified test in your browser?",
-          url: testUrl,
-          action: "open_browser"
-        }
+      suggestion: {
+        action: "open_test_in_browser",
+        message: "You can open this modified test in your browser using the 'helpmetest_open_test' command",
+        testId: updatedTest.id,
+        testUrl: testUrl
       }
-    }
-    
-    // Ask user if they want to open the test in browser
-    // Note: In a real MCP implementation, this would be handled by the client
-    // For now, we'll include the URL and action in the response
-    try {
-      // Attempt to open browser automatically (this might not work in all environments)
-      debug(config, `Opening modified test in browser: ${testUrl}`)
-      await open(testUrl)
-      response.browserOpened = true
-    } catch (openError) {
-      debug(config, `Could not automatically open browser: ${openError.message}`)
-      response.browserOpened = false
-      response.browserError = openError.message
     }
     
     // Create user-friendly explanation
@@ -4486,6 +4475,138 @@ async function handleUndoUpdate(args) {
 }
 
 /**
+ * Handle opening a test in browser
+ * @param {Object} args - Arguments containing test identifier and optional run ID
+ * @returns {Promise<Object>} MCP response object
+ */
+async function handleOpenTest(args) {
+  try {
+    const { identifier, runId } = args
+    
+    if (!identifier) {
+      throw new Error('Test identifier is required')
+    }
+    
+    debug(config, `Opening test in browser: ${identifier}${runId ? ` (run: ${runId})` : ''}`)
+    
+    // First, try to get the test to validate it exists and get its ID
+    let testId = identifier
+    let testName = identifier
+    
+    // If identifier looks like a tag, we need to find the test first
+    if (identifier.startsWith('tag:')) {
+      const allTests = await getAllTests()
+      const tagName = identifier.substring(4) // Remove 'tag:' prefix
+      const matchingTests = allTests.filter(test => 
+        test.tags && test.tags.includes(tagName)
+      )
+      
+      if (matchingTests.length === 0) {
+        throw new Error(`No tests found with tag: ${tagName}`)
+      }
+      
+      if (matchingTests.length > 1) {
+        throw new Error(`Multiple tests found with tag: ${tagName}. Please specify a test ID or name instead.`)
+      }
+      
+      testId = matchingTests[0].id
+      testName = matchingTests[0].name
+    } else if (!identifier.match(/^[a-zA-Z0-9_-]+$/)) {
+      // If identifier doesn't look like an ID, try to find by name
+      const allTests = await getAllTests()
+      const matchingTest = allTests.find(test => test.name === identifier)
+      
+      if (!matchingTest) {
+        throw new Error(`Test not found: ${identifier}`)
+      }
+      
+      testId = matchingTest.id
+      testName = matchingTest.name
+    }
+    
+    // Construct the test URL for browser opening using the configured API base URL
+    const webBaseUrl = await getWebUrlFromApiUrl(config.apiBaseUrl)
+    let testUrl = `${webBaseUrl}/test/${testId}`
+    
+    // If a specific run ID is provided, append it to the URL
+    if (runId) {
+      testUrl = `${webBaseUrl}/test/${testId}/${runId}`
+    }
+    
+    debug(config, `Constructed test URL: ${testUrl}`)
+    
+    // Attempt to open the test in browser
+    try {
+      await open(testUrl)
+      debug(config, `Successfully opened test in browser: ${testUrl}`)
+      
+      const response = {
+        success: true,
+        testId: testId,
+        testName: testName,
+        testUrl: testUrl,
+        runId: runId || null,
+        message: `Test "${testName}" opened in browser successfully`,
+        timestamp: new Date().toISOString(),
+        browserOpened: true
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response),
+          },
+        ],
+        isError: false,
+      }
+    } catch (openError) {
+      debug(config, `Failed to open browser: ${openError.message}`)
+      
+      const response = {
+        success: false,
+        testId: testId,
+        testName: testName,
+        testUrl: testUrl,
+        runId: runId || null,
+        message: `Test URL generated but failed to open browser: ${openError.message}`,
+        error: openError.message,
+        timestamp: new Date().toISOString(),
+        browserOpened: false,
+        note: "You can manually copy and paste the testUrl into your browser"
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response),
+          },
+        ],
+        isError: true,
+      }
+    }
+  } catch (error) {
+    debug(config, `Error opening test: ${error.message}`)
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            error: error.message,
+            identifier: args.identifier,
+            runId: args.runId || null,
+            timestamp: new Date().toISOString()
+          }),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
  * Create response for test run results - provides template and raw data for AI analysis
  * @param {Object} response - Test run response object
  * @param {string} identifier - Test identifier
@@ -4724,6 +4845,10 @@ ${JSON.stringify(response, null, 2)}
 [If test passed:]
 1. Test is ready to use
 2. Consider adding it to your regular test suite
+3. You can view the test in browser using \`helpmetest_open_test\` with the test ID
+
+### Browser Access:
+To view this test in your browser, use: \`helpmetest_open_test\` with identifier "${response.id || 'TEST_ID'}"
 
 REMEMBER: A created test that fails is NOT a success - it's a starting point that needs work.`
 }
@@ -4797,6 +4922,10 @@ ${JSON.stringify(response, null, 2)}
 [If modified test now passes:]
 1. Test is now ready to use
 2. Consider adding it to your regular test suite
+3. You can view the test in browser using \`helpmetest_open_test\` with the test ID
+
+### Browser Access:
+To view this modified test in your browser, use: \`helpmetest_open_test\` with identifier "${response.id || 'TEST_ID'}"
 
 REMEMBER: A modified test that still fails is NOT a success - it's a partially fixed test that needs more work.`
 }
