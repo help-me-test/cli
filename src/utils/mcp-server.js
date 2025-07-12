@@ -180,9 +180,18 @@ export function createMcpServer(options = {}) {
    * 1. ALWAYS explain what they're doing BEFORE calling tools
    * 2. ALWAYS describe results and next steps AFTER tool execution
    * 3. NEVER just say "Done" - be descriptive about actions and outcomes
+   * 4. BE HONEST about failures - don't celebrate when things fail
+   * 5. ANALYZE actual response data, don't assume success
+   * 6. FOLLOW the mandatory interactive testing workflow
+   * 7. DO NOT create/modify tests without interactive verification first
+   * 8. STOP and debug when steps fail, don't continue blindly
    * 
-   * This prevents cryptic "Done" messages and ensures users understand
-   * what the AI is testing, checking, or modifying.
+   * This prevents:
+   * - Cryptic "Done" messages
+   * - False celebrations of failures
+   * - Skipping mandatory interactive testing
+   * - Creating broken tests
+   * - Ignoring actual error messages
    */
 
   // Add message logging
@@ -322,35 +331,42 @@ export function createMcpServer(options = {}) {
       title: 'Help Me Test: Create Test Tool',
       description: `Create a new test with Robot Framework keywords.
 
-⚠️ **DO NOT USE THIS TOOL DIRECTLY WITHOUT INTERACTIVE TESTING FIRST**
+🚨 **STOP: DO NOT USE THIS TOOL WITHOUT INTERACTIVE TESTING FIRST**
 
-🎯 **BEST PRACTICE: Interactive Development First**
+⛔ **MANDATORY REQUIREMENT: Interactive Development First**
 
-For reliable tests, it's highly recommended to use interactive development:
+You MUST use interactive development before creating tests. This is not optional.
 
-**Why Interactive Development Matters:**
+**Why Interactive Development is MANDATORY:**
 - **Element Discovery**: Find correct selectors that actually work on the page
 - **Timing Issues**: Identify when waits are needed for dynamic content
 - **Error Prevention**: Catch issues before they become failing tests
 - **Faster Debugging**: Get immediate feedback on each step
+- **Avoid Wasted Time**: Don't create tests that immediately fail
 
-**Recommended Workflow:**
+**MANDATORY Workflow - DO NOT SKIP:**
 1. \`helpmetest_status_test\` - Check existing tests for patterns
 2. \`helpmetest_keywords search="relevant_topic"\` - Find the right Robot Framework commands
-3. \`helpmetest_run_interactive_command\` - Test each step interactively:
+3. \`helpmetest_run_interactive_command\` - Test EVERY step interactively:
    - Start with navigation: \`Go To https://example.com\`
    - Test interactions: \`Click button\`, \`Fill Text input value\`
    - Verify results: \`Get Text h1\`, \`Should Contain text\`
    - Build up your complete flow step by step
-   - Use \`Exit\` when you don't need this session anymore (you debugged and fixed all the problems and you are sure that this session will not be used in the future)
-4. \`helpmetest_create_test\` - Create the test with your proven sequence
+   - VERIFY each step works before moving to next
+   - Use \`Exit\` when you have a COMPLETE WORKING sequence
+4. \`helpmetest_create_test\` - Create the test with your PROVEN sequence
 
-**Direct Usage:**
-You can also create tests directly if you're confident in the Robot Framework syntax and element selectors. The test will be automatically executed after creation.
+**Direct Usage (NOT RECOMMENDED):**
+You can create tests directly if you're confident in the Robot Framework syntax and element selectors, but this often leads to failing tests that need debugging anyway.
 
 Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).
 
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what test you're creating, what it will do, and why. After creating the test, describe what was created and what the next steps are. Don't just say "Done".`,
+🚨 CRITICAL INSTRUCTION FOR AI: 
+1. ALWAYS explain what test you're creating and why
+2. If the test fails after creation, DO NOT celebrate - acknowledge the failure
+3. Be honest about test results - failing tests are problems, not successes
+4. Guide the user through debugging if the test fails
+5. Don't just say "Done" - analyze the actual results`,
       inputSchema: {
         id: z.string().optional().describe('Test ID (optional - will auto-generate if not provided)'),
         name: z.string().describe('Test name (required)'),
@@ -422,35 +438,42 @@ Test content should contain only Robot Framework keywords (no test case structur
       title: 'Help Me Test: Modify Test Tool',
       description: `Modify an existing test with new Robot Framework keywords.
 
-⚠️ **DO NOT USE THIS TOOL DIRECTLY WITHOUT INTERACTIVE TESTING FIRST**
+🚨 **STOP: DO NOT USE THIS TOOL WITHOUT INTERACTIVE TESTING FIRST**
 
-🎯 **BEST PRACTICE: Interactive Development for Changes**
+⛔ **MANDATORY REQUIREMENT: Interactive Development for Changes**
 
-When modifying tests, especially adding new functionality, interactive development helps ensure reliability:
+You MUST use interactive development before modifying tests. This is not optional.
 
-**Why Interactive Development for Modifications:**
+**Why Interactive Development for Modifications is MANDATORY:**
 - **Test New Steps**: Verify new functionality works before adding to existing test
 - **Preserve Working Code**: Avoid breaking existing test steps that already work
 - **Element Changes**: Web pages change - verify selectors still work
 - **Integration Testing**: Ensure new steps work with existing flow
+- **Avoid Breaking Tests**: Don't modify tests that then fail
 
-**Recommended Workflow for Modifications:**
+**MANDATORY Workflow for Modifications - DO NOT SKIP:**
 1. \`helpmetest_status_test\` - Find the test ID and review current content
 2. \`helpmetest_keywords search="new_functionality"\` - Research commands for new features
-3. \`helpmetest_run_interactive_command\` - Test new/changed steps:
+3. \`helpmetest_run_interactive_command\` - Test ALL new/changed steps:
    - Test new interactions: \`Go To https://example.com/new-page\`
    - Verify new elements: \`Click new-button\`, \`Fill Text new-input value\`
    - Test integration: \`Get Text result\`, \`Should Contain expected\`
    - Build up the complete modified flow
-   - Use \`Exit\` when you don't need this session anymore (you debugged and fixed all the problems and you are sure that this session will not be used in the future)
-4. \`helpmetest_modify_test\` - Update the test with proven changes
+   - VERIFY each step works before moving to next
+   - Use \`Exit\` when you have a COMPLETE WORKING sequence
+4. \`helpmetest_modify_test\` - Update the test with PROVEN changes
 
-**Direct Usage:**
-You can also modify tests directly if you're confident in the changes. The test will be automatically executed after modification to verify it still works.
+**Direct Usage (NOT RECOMMENDED):**
+You can modify tests directly if you're confident in the changes, but this often leads to breaking working tests.
 
 Only provide the fields you want to change - other fields will be preserved from the existing test.
 
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're modifying, what changes you're making, and why. After modifying the test, describe what was changed and what the results mean. Don't just say "Done".`,
+🚨 CRITICAL INSTRUCTION FOR AI: 
+1. ALWAYS explain which test you're modifying and what changes you're making
+2. If the modified test fails, DO NOT celebrate - acknowledge the failure
+3. Be honest about test results - breaking tests are problems, not successes
+4. Guide the user through debugging if the test fails after modification
+5. Don't just say "Done" - analyze the actual results`,
       inputSchema: {
         id: z.string().describe('Test ID (required - ID of the existing test to modify)'),
         name: z.string().optional().describe('Test name (optional - if not provided, keeps existing name)'),
@@ -489,31 +512,44 @@ Only provide the fields you want to change - other fields will be preserved from
     'helpmetest_run_interactive_command',
     {
       title: 'Help Me Test: Interactive Robot Framework Command Tool',
-      description: `MANDATORY TOOL FOR TEST DEVELOPMENT - REQUIRED BEFORE CREATING/MODIFYING TESTS
+      description: `🚨 MANDATORY TOOL FOR TEST DEVELOPMENT - REQUIRED BEFORE CREATING/MODIFYING TESTS
 
-This tool is REQUIRED before creating or modifying any tests. Execute Robot Framework commands interactively for debugging and testing. This starts an interactive session that maintains browser state between commands.
+⚠️ WARNING: DO NOT CREATE OR MODIFY TESTS WITHOUT USING THIS TOOL FIRST
 
-WARNING: YOU MUST USE THIS TOOL TO TEST ALL STEPS BEFORE CREATING/MODIFYING TESTS
+This tool is ABSOLUTELY REQUIRED before creating or modifying any tests. Execute Robot Framework commands interactively for debugging and testing. This starts an interactive session that maintains browser state between commands.
 
-MANDATORY WORKFLOW:
-1. Test each step individually using this tool
-2. Verify each step works as expected
-3. Build up the complete sequence step by step
-4. Continue testing until you have a complete working sequence
-5. Use "Exit" command ONLY when completely finished debugging (session will be lost)
-6. ONLY THEN create or modify tests
+🔴 CRITICAL WORKFLOW - FOLLOW EXACTLY:
+1. Start with navigation: "Go To https://example.com"
+2. Test EACH step individually using this tool
+3. VERIFY each step works as expected before moving to next step
+4. If ANY step fails, debug it until it works
+5. Build up the complete sequence step by step
+6. Continue testing until you have a COMPLETE WORKING sequence
+7. Use "Exit" command ONLY when completely finished debugging (session will be lost)
+8. ONLY THEN create or modify tests
+
+🚨 MANDATORY VERIFICATION PROCESS:
+- Test navigation works
+- Test element finding works (Click, Fill Text, etc.)
+- Test assertions work (Should Contain, etc.)
+- Test the complete flow from start to finish
+- Fix any failures before proceeding
 
 IMPORTANT: Interactive sessions maintain browser state between commands. You can continue adding commands to test more steps. Only use "Exit" when you are completely done debugging and ready to create/modify the test.
 
-This tool provides detailed explanations of what each command accomplished, context-specific guidance for next steps, and debugging tips if commands fail.
-
 🚨 CRITICAL INSTRUCTION FOR AI: 
-ALWAYS explain to the user what command you are executing and why BEFORE calling this tool. After the tool returns results, ALWAYS describe what happened, what the results mean, and what you plan to do next. Never just say "Done" - be descriptive about your actions and their outcomes. The user needs to understand what you're testing and why.
+1. ALWAYS explain what command you are executing and why BEFORE calling this tool
+2. ALWAYS analyze the response carefully - look for actual errors or failures
+3. DO NOT proceed to next step if current step failed
+4. DO NOT create tests until you have verified the complete working sequence
+5. BE METHODICAL - test one thing at a time
+6. If something fails, debug it before moving forward
 
 Example:
 "Now I'll test clicking the login button to see if it navigates to the dashboard:"
 [call tool with "Click button#login"]
-"✅ The login button click was successful! The browser navigated to the dashboard page as expected. Next, I'll verify we're on the correct page by checking the URL..."`,
+[Analyze response carefully]
+"❌ The login button click failed with error: 'Element not found'. I need to find the correct selector before proceeding."`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
@@ -954,14 +990,32 @@ Raw Status Data:
 ${JSON.stringify(statusData, null, 2)}
 \`\`\`
 
-🚨 AI INSTRUCTION: Analyze the raw status data above and provide a clear summary to the user including:
-1. How many tests and health checks are in the system
-2. Current status of tests (passed/failed/unknown)
-3. Current status of health checks (up/down/unknown)
-4. Any issues that need attention
-5. Overall system health assessment
+🚨 CRITICAL AI INSTRUCTION: 
+1. CAREFULLY analyze the raw status data above
+2. BE HONEST about test and health check statuses
+3. DO NOT say "everything is working" unless you can prove it from the data
+4. Look for actual failure indicators, error messages, and status fields
+5. Focus on what the data actually shows, not assumptions
 
-The raw data contains all the information you need - analyze it and explain it clearly to the user.`,
+### Analysis Requirements:
+1. Count tests and health checks accurately from the data
+2. Check actual status fields - look for "PASS"/"FAIL" for tests, "up"/"down" for health checks
+3. Identify any failing tests or down health checks specifically
+4. Report any issues that need immediate attention
+5. Provide an honest overall system health assessment
+
+### Template:
+**System Overview:**
+- Tests: [count] total ([count] passing, [count] failing, [count] unknown)
+- Health Checks: [count] total ([count] up, [count] down, [count] unknown)
+
+**Issues Found:**
+[List any failing tests or down health checks specifically]
+
+**Overall Assessment:**
+[HONEST assessment based on actual data - if things are failing, say so]
+
+The raw data contains all the information you need - analyze it carefully and explain it honestly to the user.`,
         },
       ],
     }
@@ -1042,14 +1096,20 @@ Raw Test Data:
 ${JSON.stringify(filteredData, null, 2)}
 \`\`\`
 
-🚨 AI INSTRUCTION: Analyze the raw test data above and provide a clear summary to the user including:
-1. Total number of tests in the system
-2. Status breakdown (how many passed/failed/unknown)
-3. Recent test execution results
-4. Any failing tests that need attention
-5. Test execution times and patterns
+🚨 CRITICAL AI INSTRUCTION: 
+1. CAREFULLY analyze the raw test data above
+2. BE HONEST about test statuses - don't assume tests are working
+3. Look for actual status indicators like "PASS"/"FAIL" in the data
+4. Focus on what the data actually shows, not assumptions
 
-The raw data contains all the information you need - analyze it and explain it clearly to the user.`,
+### Analysis Requirements:
+1. Count total tests accurately from the data
+2. Check actual status fields for each test
+3. Identify any failing tests specifically by name/ID
+4. Report any issues that need immediate attention
+5. Provide honest assessment of test health
+
+The raw data contains all the information you need - analyze it carefully and be honest about what you find.`,
         },
       ],
     }
@@ -1116,14 +1176,20 @@ Raw Health Check Data:
 ${JSON.stringify(filteredData, null, 2)}
 \`\`\`
 
-🚨 AI INSTRUCTION: Analyze the raw health check data above and provide a clear summary to the user including:
-1. Total number of health checks in the system
-2. Status breakdown (how many up/down/unknown)
-3. Recent health check results
-4. Any failing health checks that need attention
-5. Last heartbeat times and patterns
+🚨 CRITICAL AI INSTRUCTION: 
+1. CAREFULLY analyze the raw health check data above
+2. BE HONEST about health check statuses - don't assume services are up
+3. Look for actual status indicators like "up"/"down" in the data
+4. Focus on what the data actually shows, not assumptions
 
-The raw data contains all the information you need - analyze it and explain it clearly to the user.`,
+### Analysis Requirements:
+1. Count total health checks accurately from the data
+2. Check actual status fields for each health check
+3. Identify any failing/down health checks specifically by name
+4. Report any issues that need immediate attention
+5. Provide honest assessment of system health
+
+The raw data contains all the information you need - analyze it carefully and be honest about what you find.`,
         },
       ],
     }
@@ -4433,38 +4499,53 @@ Raw Test Execution Data:
 ${JSON.stringify(response, null, 2)}
 \`\`\`
 
-🚨 AI INSTRUCTION: Analyze the raw test execution data above and explain it to the user using this template structure:
+🚨 CRITICAL AI INSTRUCTION: 
+1. CAREFULLY analyze the raw test execution data above
+2. DO NOT celebrate or say "success" unless response.success is true AND all testResults show "PASS"
+3. BE HONEST about failures - they are problems that need fixing
+4. Look at the actual error messages and failed keywords
+5. Focus on what actually happened, not what was intended
 
-## Test Execution Complete
+### Analysis Template:
 
 **Test Identifier:** ${identifier}
-**Status:** [✅ PASSED / ❌ FAILED based on response.success]
+**Execution Status:** [PASSED/FAILED - based on response.success and actual testResults status]
 **Total Events:** [extract from response.totalEvents if available]
 
-### Test Results:
-[if testResults exists, analyze each result:]
-- [✅/❌] **[testId]** ([duration])
+### Test Results Analysis:
+[CRITICAL: Look at each testResult status - this tells you if the test actually worked]
+[For each testResult, show:]
+- [✅ if status="PASS" / ❌ if status="FAIL"] **[testId]** ([duration])
   [message if available]
 
 ### Keywords Executed:
-[if keywords exists, show first 10 with status icons:]
-- [✅/❌/⏸️] [keyword name] ([duration if available])
+[Look at keywords array and show status for each:]
+- [✅ if status="PASS" / ❌ if status="FAIL" / ⏸️ if other] [keyword name] ([duration if available])
 [if more than 10 keywords, mention "... and X more keywords"]
 
-[If test failed:]
-### What Happened:
-The test execution completed but some steps failed. Review the failed keywords above to understand what went wrong.
+### What Actually Happened:
+[If any testResult has status="FAIL" or response.success is false:]
+❌ **TEST FAILED** - The test execution completed but failed.
+- Look at the failed keywords above to see exactly what went wrong
+- This test is NOT working and needs to be fixed
+- DO NOT consider this a success
+
+[If all testResults have status="PASS" and response.success is true:]
+✅ **TEST PASSED** - The test executed successfully and all steps worked.
 
 ### Next Steps:
-1. Use \`helpmetest_run_interactive_command\` to debug failing steps
-2. Fix the issues and run \`helpmetest_modify_test\` to update the test
-3. Re-run the test to verify the fixes
+[If test failed:]
+1. Use \`helpmetest_run_interactive_command\` to debug the failing steps
+2. Find out exactly what failed and why
+3. Fix the issues step by step
+4. Use \`helpmetest_modify_test\` to update the test with working commands
+5. Re-run the test until it passes
 
 [If test passed:]
-### What Happened:
-The test executed successfully! All keywords completed without errors.
+1. Test is working correctly and ready to use
+2. Consider adding it to your regular test suite
 
-Fill in the template above with actual data from the raw response. Don't just copy the template - analyze the data and provide real values and insights.`
+REMEMBER: A test that fails is NOT a success - it's a broken test that needs fixing.`
 }
 
 /**
@@ -4594,44 +4675,57 @@ Raw Test Creation Data:
 ${JSON.stringify(response, null, 2)}
 \`\`\`
 
-🚨 AI INSTRUCTION: Analyze the raw test creation data above and explain it to the user using this template structure:
+🚨 CRITICAL AI INSTRUCTION: 
+1. ANALYZE the raw test creation data above CAREFULLY
+2. DO NOT celebrate or say "success" unless the test actually PASSED
+3. BE HONEST about failures - they are problems that need fixing
+4. Focus on what actually happened, not what was intended
 
-## Test Created Successfully! 🎉
+### Analysis Template:
 
+**Test Creation Status:** [CREATED/FAILED - based on response.success]
 **Test Name:** [extract from response.name]
 **Test ID:** [extract from response.id]
-**Test URL:** [extract from response.testUrl if available]
 
-### Automatic Test Run Results:
-[if testRunResult exists, analyze and explain:]
-- **Status:** [✅/❌ based on testRunResult.status]
-- **Duration:** [from testRunResult.testResults if available]
-- **Keywords Executed:** [from testRunResult.keywords if available]
+### Automatic Test Execution Results:
+[CRITICAL: Look at testRunResult.status - this tells you if the test actually works]
 
-[If test failed on first run:]
-### ⚠️ Test Failed on First Run
-This is normal for new tests. The test was created successfully, but it needs debugging.
+[If testRunResult.status is "PASS":]
+✅ **Test PASSED on first run** - The test is working correctly.
 
-### Next Steps:
-1. Use \`helpmetest_run_interactive_command\` to debug the test step by step
-2. Fix any issues you find
-3. Use \`helpmetest_modify_test\` to update the test with working commands
-4. Re-run the test to verify it works
+[If testRunResult.status is "FAIL" or "ERROR":]
+❌ **Test FAILED on first run** - The test has issues that need to be fixed.
+- Status: [exact status from testRunResult.status]
+- This means the test was created but doesn't work yet
+- The test needs debugging before it can be considered functional
+
+[If no testRunResult or status is unclear:]
+⚠️ **Test execution status unclear** - Need to check if the test actually works.
+
+### What This Means:
+[If test failed:]
+- The test was created in the system but it's NOT working
+- Creating a test ≠ having a working test
+- You need to debug and fix the issues before this test is useful
+- DO NOT consider this "done" until the test passes
 
 [If test passed:]
-### ✅ Test Passed on First Run!
-Great! Your test is working correctly right away.
+- The test was created AND it's working correctly
+- This is ready to use
 
-### Browser Access:
-[Based on browserOpened field - explain if browser opened automatically or not]
+### Next Steps:
+[If test failed:]
+1. Use \`helpmetest_run_interactive_command\` to debug each step
+2. Find out exactly what's failing and why
+3. Fix the issues step by step
+4. Use \`helpmetest_modify_test\` to update with working commands
+5. Re-run until it passes
 
-### What Was Done:
-1. ✅ Created new test "[name]" with ID: [id]
-2. ✅ Automatically ran the test to check if it works
-3. [✅/⚠️] Browser access status
-4. ✅ Test is now available in your HelpMeTest dashboard
+[If test passed:]
+1. Test is ready to use
+2. Consider adding it to your regular test suite
 
-Fill in the template above with actual data from the raw response. Don't just copy the template - analyze the data and provide real values.`
+REMEMBER: A created test that fails is NOT a success - it's a starting point that needs work.`
 }
 
 /**
@@ -4647,13 +4741,17 @@ Raw Test Modification Data:
 ${JSON.stringify(response, null, 2)}
 \`\`\`
 
-🚨 AI INSTRUCTION: Analyze the raw test modification data above and explain it to the user using this template structure:
+🚨 CRITICAL AI INSTRUCTION: 
+1. ANALYZE the raw test modification data above CAREFULLY
+2. DO NOT celebrate or say "success" unless the test actually PASSED after modification
+3. BE HONEST about failures - they are problems that need fixing
+4. Focus on what actually happened, not what was intended
 
-## Test Modified Successfully! 🔄
+### Analysis Template:
 
+**Test Modification Status:** [MODIFIED/FAILED - based on response.success]
 **Test Name:** [extract from response.name]
 **Test ID:** [extract from response.id]
-**Test URL:** [extract from response.testUrl if available]
 
 ### Changes Made:
 [if changes exist, analyze and list:]
@@ -4662,36 +4760,45 @@ ${JSON.stringify(response, null, 2)}
 - **Tags:** [if changed, show from → to arrays]
 - **Test Data:** [if changed, mention Robot Framework commands were updated]
 
-### Automatic Test Run Results:
-[if testRunResult exists, analyze and explain:]
-- **Status:** [✅/❌ based on testRunResult.status]
-- **Duration:** [from testRunResult.testResults if available]
-- **Keywords Executed:** [from testRunResult.keywords if available]
+### Automatic Test Execution Results:
+[CRITICAL: Look at testRunResult.status - this tells you if the modified test actually works]
 
+[If testRunResult.status is "PASS":]
+✅ **Modified test PASSED** - The changes fixed the test and it's working correctly.
+
+[If testRunResult.status is "FAIL" or "ERROR":]
+❌ **Modified test FAILED** - The test was updated but still has issues.
+- Status: [exact status from testRunResult.status]
+- This means the modifications didn't fix the problems
+- The test still needs more debugging and fixes
+
+[If no testRunResult or status is unclear:]
+⚠️ **Test execution status unclear** - Need to check if the modified test actually works.
+
+### What This Means:
 [If modified test still fails:]
-### ⚠️ Modified Test Still Has Issues
-The test was updated successfully, but it's still failing. This might need more debugging.
-
-### Next Steps:
-1. Use \`helpmetest_run_interactive_command\` to debug the remaining issues
-2. Fix any problems you find
-3. Use \`helpmetest_modify_test\` again to apply more fixes
-4. Repeat until the test passes
+- The test was modified in the system but it's STILL NOT working
+- Modifying a test ≠ having a working test
+- You need to continue debugging and fixing the issues
+- DO NOT consider this "done" until the test passes
 
 [If modified test now passes:]
-### ✅ Modified Test Now Passes!
-Excellent! Your changes fixed the test and it's now working correctly.
+- The test was modified AND it's now working correctly
+- The changes successfully fixed the previous issues
 
-### Browser Access:
-[Based on browserOpened field - explain if browser opened automatically or not]
+### Next Steps:
+[If modified test still fails:]
+1. Use \`helpmetest_run_interactive_command\` to debug the remaining issues
+2. Find out exactly what's still failing and why
+3. Fix the issues step by step
+4. Use \`helpmetest_modify_test\` again to apply more fixes
+5. Repeat until the test passes
 
-### What Was Done:
-1. ✅ Modified test "[name]" (ID: [id])
-2. ✅ Automatically ran the modified test to check if it works
-3. [✅/⚠️] Browser access status
-4. ✅ Changes are now live in your HelpMeTest dashboard
+[If modified test now passes:]
+1. Test is now ready to use
+2. Consider adding it to your regular test suite
 
-Fill in the template above with actual data from the raw response. Don't just copy the template - analyze the data and provide real values.`
+REMEMBER: A modified test that still fails is NOT a success - it's a partially fixed test that needs more work.`
 }
 
 /**
@@ -4730,16 +4837,30 @@ Raw Response Data:
 ${JSON.stringify(commandResult, null, 2)}
 \`\`\`
 
-🚨 AI INSTRUCTION: 
-1. Analyze the raw response data above carefully
-2. Explain to the user what this command accomplished (or why it failed)
-3. Look at the response data to understand the current browser state
-4. Suggest logical next steps based on what you see in the response
-5. If the command failed, analyze the error details and suggest specific fixes
-6. Remember: Your browser session is still active - you can continue testing
-7. Only use "Exit" when completely done debugging
+🚨 CRITICAL AI INSTRUCTION: 
+1. CAREFULLY analyze the raw response data above
+2. BE HONEST about what happened - don't assume success without evidence
+3. Look for actual error messages, status codes, or failure indicators
+4. If the command failed, explain WHY it failed based on the actual error data
+5. If the command succeeded, explain what SPECIFICALLY was accomplished
+6. Check the response for browser state information (current URL, page content, etc.)
+7. Suggest the NEXT logical step based on what actually happened
+8. DO NOT move forward with the test flow if this step failed
+9. DO NOT say "everything is working" unless you can prove it from the response data
 
-The raw response contains all the information you need - analyze it and explain it clearly to the user.`
+### Analysis Requirements:
+- **What happened:** [Based on actual response data, not assumptions]
+- **Current browser state:** [URL, page status, any visible elements]
+- **Success/Failure:** [Based on actual status, error messages, or response content]
+- **Next step:** [Only suggest next step if current step actually worked]
+
+### Debugging Mindset:
+- Each command must work before moving to the next one
+- Failures must be investigated and fixed, not ignored
+- Test each interaction step by step
+- Verify each step actually accomplished what was intended
+
+REMEMBER: Interactive testing is about methodically verifying each step works. Don't rush ahead if something failed.`
 }
 
 /**
