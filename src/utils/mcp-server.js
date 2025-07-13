@@ -1810,10 +1810,10 @@ function processTestDataForKeywordsOnly(testData) {
   for (const line of lines) {
     const trimmedLine = line.trim()
     
-    // Skip empty lines and comments
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
-      continue
-    }
+    // // Skip empty lines and comments
+    // if (!trimmedLine || trimmedLine.startsWith('#')) {
+    //   continue
+    // }
     
     // Skip section headers
     if (trimmedLine.startsWith('***') && trimmedLine.endsWith('***')) {
