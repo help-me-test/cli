@@ -7,7 +7,7 @@
 
 import { output } from '../utils/colors.js'
 import { config, debug, isDebugMode } from '../utils/config.js'
-import { createMcpServer, startStdioServer, startHttpServer } from '../utils/mcp-server.js'
+import { createMcpServer, startStdioServer, startHttpServer } from '../mcp.js'
 import { getMcpServerInfo } from '../utils/version.js'
 
 /**
