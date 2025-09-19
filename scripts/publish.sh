@@ -24,7 +24,7 @@ VERSION=$(node -p "require('./package.json').version")
 echo "📦 Version: $VERSION"
 
 # Check if required files exist
-REQUIRED_FILES=("README.md" "RELEASE_NOTES.md" "package.json" "docs")
+REQUIRED_FILES=("README.md" "RELEASE_NOTES.md" "package.json")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -e "$file" ]; then
         echo "❌ Required file/directory missing: $file"
