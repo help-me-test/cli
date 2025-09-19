@@ -41,14 +41,14 @@ fi
 
 echo "✅ All prerequisites met"
 
-# Copy build artifacts to release-assets
-echo "📦 Preparing release assets..."
-cp -r test-archives release-assets
+# Use test-archives directly (they already exist)
+echo "📦 Using existing release assets from test-archives..."
+ASSETS_DIR="test-archives"
 
 # Verify checksums exist
-ls -la release-assets/
+ls -la ${ASSETS_DIR}/
 echo "Checksums file:"
-cat release-assets/helpmetest-cli_${VERSION}_checksums.txt
+cat ${ASSETS_DIR}/helpmetest-cli_${VERSION}_checksums.txt
 
 # Delete existing release if it exists (in cli-code repo)
 echo "🗑️  Cleaning up existing releases..."
@@ -58,42 +58,8 @@ gh release delete v$VERSION --yes || true
 echo "🏷️  Creating release in cli-code repository..."
 ./scripts/release.sh
 
-# Clone the CLI repository
-echo "📥 Cloning help-me-test/cli repository..."
-rm -rf cli-repo
-git clone "https://slavaGanzin:${GITHUB_TOKEN}@github.com/help-me-test/cli.git" cli-repo
-
-# Clear existing content except .git
-echo "🧹 Clearing existing content..."
-find cli-repo -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-
-# Copy user-facing files (exclude DEVELOPMENT.md)
-echo "📋 Copying user-facing files..."
-cp README.md cli-repo/
-cp RELEASE_NOTES.md cli-repo/
-cp package.json cli-repo/
-cp -r docs cli-repo/
-
-# Commit and push
-echo "💾 Committing changes to help-me-test/cli..."
-cd cli-repo
-git config user.name "GitHub Actions"
-git config user.email "actions@github.com"
-git add .
-
-if ! git diff --staged --quiet; then
-    git commit -m "Update CLI to version $VERSION
-
-Source: $(git -C .. rev-parse HEAD)"
-    git push origin main
-    echo "✅ Changes pushed to help-me-test/cli"
-else
-    echo "ℹ️  No changes to commit"
-fi
-
 # Create release in CLI repo with assets
 echo "🏷️  Creating release in help-me-test/cli repository..."
-cd ..
 
 # Use the same release notes that were generated for cli-code
 if [ -f "release-notes.md" ]; then
@@ -112,7 +78,7 @@ gh release create v$VERSION \
     --repo help-me-test/cli \
     --title "HelpMeTest CLI v$VERSION" \
     --notes-file "$RELEASE_NOTES_FILE" \
-    release-assets/*
+    ${ASSETS_DIR}/*
 
 # Clean up temporary file if created
 if [ -f "basic-release-notes.md" ]; then
@@ -122,7 +88,6 @@ fi
 echo "🎉 Successfully published CLI v$VERSION to help-me-test/cli!"
 
 # Clean up
-rm -rf cli-repo release-assets
-rm -f release-notes.md
+rm -f release-notes.md basic-release-notes.md
 
 echo "✨ Publishing complete!"

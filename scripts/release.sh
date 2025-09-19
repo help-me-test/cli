@@ -41,13 +41,9 @@ else
   # In manual mode, we build to test-archives
   ASSETS_DIR="test-archives"
   
-  # Build release assets in manual mode
-  echo "🔨 Building release assets..."
-  bun run build:release
-  
-  # Check if release assets exist
+  # Check if release assets exist (should be built already)
   if [ ! -d "$ASSETS_DIR" ] || [ -z "$(ls -A $ASSETS_DIR)" ]; then
-      echo "❌ No release assets found. Build may have failed."
+      echo "❌ No release assets found. Run 'bun run build:release' first."
       exit 1
   fi
   
