@@ -1,0 +1,277 @@
+/**
+ * Install Command Handler
+ * 
+ * Handles the install mcp command for setting up MCP integration
+ * with various editors (Cursor, VSCode, Claude).
+ */
+
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import { output } from '../utils/colors.js'
+import { config } from '../utils/config.js'
+import { getUserInfo } from '../utils/api.js'
+import open from 'open'
+import inquirer from 'inquirer'
+
+const execAsync = promisify(exec)
+
+/**
+ * Check if an editor is installed by checking both PATH and Applications folder
+ * @param {string} editor - Editor name (cursor, code, claude)
+ * @returns {Promise<boolean>} - True if editor is installed
+ */
+async function checkEditor(editor) {
+  // First check PATH
+  try {
+    await execAsync(`which ${editor}`)
+    return true
+  } catch {
+    // If not in PATH, check Applications folder
+    const appNames = {
+      cursor: 'Cursor.app',
+      code: 'Visual Studio Code.app', 
+      claude: 'Claude.app'
+    }
+    
+    const appName = appNames[editor]
+    if (!appName) return false
+    
+    try {
+      await execAsync(`test -d "/Applications/${appName}"`)
+      return true
+    } catch {
+      return false
+    }
+  }
+}
+
+/**
+ * Get API token from argument or environment
+ * @param {string} token - Token from command line argument
+ * @returns {string} - API token
+ */
+function getApiToken(token) {
+  return token || process.env.HELPMETEST_API_TOKEN
+}
+
+/**
+ * Get the command path for this CLI
+ * @returns {string} - Path to the CLI executable
+ */
+function getCliCommand() {
+  return process.argv[1]
+}
+
+/**
+ * Generate MCP configuration for VSCode/Cursor
+ * @param {string} apiToken - API token
+ * @param {string} companyName - Company name
+ * @returns {Object} - MCP configuration object
+ */
+function generateMcpConfig(apiToken, companyName) {
+  const serverName = `HelpMeTest for ${companyName}`
+  
+  return {
+    [serverName]: {
+      "type": "stdio",
+      "command": getCliCommand(),
+      "args": [
+        "mcp",
+        apiToken
+      ]
+    }
+  }
+}
+
+/**
+ * Handle install mcp command execution
+ * @param {string} token - API token (optional, will use env var if not provided)
+ * @param {Object} options - Command options
+ */
+export default async function installCommand(token, options) {
+  try {
+    const apiToken = getApiToken(token)
+    
+    if (!apiToken) {
+      output.error('API token is required. Provide it as an argument or set HELPMETEST_API_TOKEN environment variable.')
+      output.info('Usage: helpmetest install mcp HELP-your-token-here')
+      process.exit(1)
+    }
+
+    const userInfo = await getUserInfo()
+    
+    if (!userInfo.companyName && !userInfo.requestCompany?.name) {
+      output.error('No user found for this API token. Check your token or contact support.')
+      process.exit(1)
+    }
+    
+    const companyName = userInfo.companyName
+
+    // Check for available binaries
+    const editors = [
+      { name: 'Claude Code', value: 'claude' },
+      { name: 'VSCode', value: 'code' },
+      { name: 'Cursor', value: 'cursor' }
+    ]
+
+    const checks = await Promise.all([
+      checkEditor('claude'),
+      checkEditor('code'),
+      checkEditor('cursor')
+    ])
+
+    const editorChoices = editors.map((editor, index) => ({
+      name: `${editor.name}${checks[index] ? '' : ' (not installed)'}`,
+      value: editor.value,
+      disabled: false
+    }))
+
+    const availableCount = checks.filter(Boolean).length
+    if (availableCount === 0) {
+      output.warning('No supported editors found (cursor, code, claude)')
+      return
+    }
+
+    // Show interactive selection
+    let selectedEditor
+    
+    // For testing purposes, if all available editors should be selected
+    if (options.all) {
+      const availableEditor = editorChoices.find((_, index) => checks[index])
+      selectedEditor = availableEditor ? availableEditor.value : editorChoices[0].value
+    } else {
+      const result = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'selectedEditor',
+          message: 'Select editor to install MCP integration:',
+          choices: editorChoices
+        }
+      ])
+      selectedEditor = result.selectedEditor
+    }
+
+    // Generate installation instructions for selected editor
+    const editorIndex = editors.findIndex(e => e.value === selectedEditor)
+    const isInstalled = checks[editorIndex]
+    
+    if (!isInstalled) {
+      output.warning(`${editors[editorIndex].name} is not installed on this system - cannot install MCP integration`)
+      return
+    }
+    
+    switch (selectedEditor) {
+      case 'cursor':
+        await handleCursorInstall(apiToken, companyName)
+        break
+      case 'code':
+        await handleVSCodeInstall(apiToken, companyName)
+        break
+      case 'claude':
+        await handleClaudeInstall(apiToken, companyName)
+        break
+    }
+
+  } catch (error) {
+    output.error(`Failed to install MCP integration: ${error.message}`)
+    process.exit(1)
+  }
+}
+
+/**
+ * Handle Cursor installation
+ * @param {string} apiToken - API token
+ * @param {string} companyName - Company name
+ */
+async function handleCursorInstall(apiToken, companyName) {
+  // Generate proper MCP config for Cursor
+  const serverName = `HelpMeTest for ${companyName}`
+  const mcpConfig = {
+    name: serverName,
+    type: "stdio",
+    command: getCliCommand(),
+    args: ["mcp", apiToken]
+  }
+  
+  const configBase64 = Buffer.from(JSON.stringify(mcpConfig)).toString('base64')
+  const deeplinkUrl = `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(serverName)}&config=${configBase64}`
+  
+  try {
+    await open(deeplinkUrl)
+    output.success('Opened Cursor installation link')
+  } catch (error) {
+    output.info('Could not open link automatically. Manual configuration:')
+    const config = generateMcpConfig(apiToken, companyName)
+    console.log(JSON.stringify(config, null, 2))
+  }
+}
+
+/**
+ * Handle VSCode installation
+ * @param {string} apiToken - API token
+ * @param {string} companyName - Company name
+ */
+async function handleVSCodeInstall(apiToken, companyName) {
+  // Generate VSCode MCP install URL
+  const serverName = `HelpMeTest for ${companyName}`
+  const installUrl = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({
+    name: serverName,
+    type: "stdio", 
+    command: getCliCommand(),
+    args: ["mcp", apiToken]
+  }))}`
+  
+  try {
+    await open(installUrl)
+    output.success('Opened VSCode installation link')
+  } catch (error) {
+    output.info('Could not open link automatically. Manual configuration:')
+    const config = generateMcpConfig(apiToken, companyName)
+    console.log(JSON.stringify(config, null, 2))
+  }
+}
+
+/**
+ * Handle Claude installation  
+ * @param {string} apiToken - API token
+ * @param {string} companyName - Company name
+ */
+async function handleClaudeInstall(apiToken, companyName) {
+  // Claude requires server names with only letters, numbers, hyphens, and underscores
+  const safeServerName = `HelpMeTest-for-${companyName.replace(/[^a-zA-Z0-9-_]/g, '-')}`
+  const addCommand = `claude mcp add "${safeServerName}" ${getCliCommand()} mcp ${apiToken}`
+  
+  try {
+    const result = await execAsync(addCommand)
+    output.success('Successfully added to Claude MCP')
+  } catch (error) {
+    if (error.message.includes('already exists')) {
+      // Remove existing and re-add
+      const removeCommand = `claude mcp remove "${safeServerName}"`
+      try {
+        await execAsync(removeCommand)
+        await execAsync(addCommand)
+        output.success('Successfully updated Claude MCP')
+      } catch (updateError) {
+        output.info('Could not install automatically. Run this command:')
+        console.log(addCommand)
+        return
+      }
+    } else {
+      output.info('Could not install automatically. Run this command:')
+      console.log(addCommand)
+      return
+    }
+  }
+  
+  // Show the list after installation
+  try {
+    const listResult = await execAsync('claude mcp list')
+    console.log(listResult.stdout)
+  } catch (error) {
+    // Ignore list errors
+  }
+}
+
+export default installCommand
+export { getCliCommand }
