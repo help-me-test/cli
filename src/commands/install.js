@@ -273,5 +273,4 @@ async function handleClaudeInstall(apiToken, companyName) {
   }
 }
 
-export default installCommand
 export { getCliCommand }
