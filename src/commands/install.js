@@ -8,7 +8,6 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { output } from '../utils/colors.js'
-import { config } from '../utils/config.js'
 import { getUserInfo } from '../utils/api.js'
 import open from 'open'
 import inquirer from 'inquirer'
@@ -59,6 +58,12 @@ function getApiToken(token) {
  * @returns {string} - Path to the CLI executable
  */
 function getCliCommand() {
+  for (const arg of process.argv) {
+    if (arg.includes('helpmetest') || arg.includes('index.js')) {
+      return arg
+    }
+  }
+
   return process.argv[1]
 }
 

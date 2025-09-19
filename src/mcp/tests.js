@@ -5,7 +5,7 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import { getAllTests, runTest, createTest, deleteTest } from '../utils/api.js'
+import { runTest, createTest, deleteTest } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
 
