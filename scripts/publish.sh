@@ -41,9 +41,11 @@ fi
 
 echo "✅ All prerequisites met"
 
-# Use test-archives directly (they already exist)
-echo "📦 Using existing release assets from test-archives..."
-ASSETS_DIR="test-archives"
+# Copy test-archives contents to release-assets for consistent paths
+echo "📦 Preparing release assets..."
+mkdir -p release-assets
+cp test-archives/* release-assets/
+ASSETS_DIR="release-assets"
 
 # Verify checksums exist
 ls -la ${ASSETS_DIR}/
@@ -56,7 +58,54 @@ gh release delete v$VERSION --yes || true
 
 # Create release in cli-code repo
 echo "🏷️  Creating release in cli-code repository..."
-./scripts/release.sh
+
+# Generate release notes
+echo "📝 Generating release notes..."
+if [ -f "RELEASE_NOTES.md" ]; then
+  echo "📝 Found RELEASE_NOTES.md, extracting latest release notes..."
+  
+  # Extract the latest version's release notes
+  awk -v version="v${VERSION}" '
+      BEGIN { printing = 0; }
+      $0 ~ "^## " version { printing = 1; next; }
+      $0 ~ "^## v[0-9]" && printing == 1 { printing = 0; exit; }
+      printing == 1 { print; }
+  ' RELEASE_NOTES.md > latest_notes.txt
+  
+  # Create the full release notes with template and latest changes
+  {
+    echo "# HelpMeTest CLI v${VERSION}"
+    echo ""
+    cat latest_notes.txt
+    echo ""
+    cat .github/INSTALLATION_TEMPLATE.md
+  } > release-notes.md
+  
+  # Clean up temporary file
+  rm -f latest_notes.txt
+else
+  echo "⚠️ RELEASE_NOTES.md not found, using default template..."
+  # Create release notes with default template
+  {
+    echo "# HelpMeTest CLI v${VERSION}"
+    echo ""
+    echo "## 🚀 What's New"
+    echo ""
+    echo "- Automated release with cross-platform binaries"
+    echo "- Support for Linux, macOS, and Windows platforms"
+    echo "- Single binary distribution with embedded runtime"
+    echo ""
+    cat .github/INSTALLATION_TEMPLATE.md
+  } > release-notes.md
+fi
+
+echo "📝 Release notes created"
+
+# Create release in cli-code repo
+gh release delete v$VERSION --yes || true
+gh release create v$VERSION \
+    --notes-file release-notes.md \
+    ${ASSETS_DIR}/*
 
 # Create release in CLI repo with assets
 echo "🏷️  Creating release in help-me-test/cli repository..."
@@ -87,7 +136,19 @@ fi
 
 echo "🎉 Successfully published CLI v$VERSION to help-me-test/cli!"
 
+# Create release in CLI repo with the same assets
+echo "🏷️  Creating release in help-me-test/cli repository..."
+gh release delete v$VERSION --repo help-me-test/cli --yes || true
+gh release create v$VERSION \
+    --repo help-me-test/cli \
+    --title "HelpMeTest CLI v$VERSION" \
+    --notes-file "$RELEASE_NOTES_FILE" \
+    ${ASSETS_DIR}/*
+
+echo "🎉 Successfully published CLI v$VERSION to both repositories!"
+
 # Clean up
+rm -rf release-assets
 rm -f release-notes.md basic-release-notes.md
 
 echo "✨ Publishing complete!"
