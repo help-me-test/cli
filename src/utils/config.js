@@ -11,6 +11,11 @@ import 'dotenv/config'
 import { output } from './colors.js'
 import { getUserAgent } from './version.js'
 
+const helpTokenRegex = /^HELP-[a-f0-9-]+$/i
+const tokenArg = process.argv.find(arg => helpTokenRegex.test(arg))
+if (tokenArg) {
+  process.env.HELPMETEST_API_TOKEN = tokenArg
+}
 /**
  * Default configuration values
  */

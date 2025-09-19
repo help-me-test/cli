@@ -53,7 +53,7 @@ Simple prompts that actually work:
 
 ### Health & System Monitoring
 - **"status API"** - comprehensive system status
-- **"check https://always-up.test.helpmetest.com"** - health check URL  
+- **"check https://always-up.playground.helpmetest.com"** - health check URL  
 - **"system metrics"** - CPU/memory/disk usage
 - **"health status"** - all health checks status
 - **"test status"** - status of all tests only
