@@ -7,9 +7,9 @@
  * functionality for the HelpMeTest platform.
  */
 
-// Load environment variables from .env file
-import 'dotenv/config'
+// Auto-detect API token from command line arguments
 
+// Load environment variables from .env file  
 import { Command } from 'commander'
 import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'
@@ -21,6 +21,7 @@ import deleteCommand, { deleteHealthCheckCommand, deleteTestCommand } from './co
 import undoCommand from './commands/undo.js'
 import versionCommand from './commands/version.js'
 import updateCommand from './commands/update.js'
+import installCommand, { getCliCommand } from './commands/install.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
 
@@ -285,6 +286,43 @@ ${colors.subtitle('Integration:')}
   ${colors.dim('}')}
 `)
   .action(mcpCommand)
+
+// Register the install command
+const installCommandGroup = program
+  .command('install')
+  .description('Install MCP integrations for supported editors')
+
+installCommandGroup
+  .command('mcp')
+  .description('Install MCP (Model Context Protocol) integration for Cursor, VSCode, and Claude')
+  .argument('[token]', 'HelpMeTest API token (optional, uses HELPMETEST_API_TOKEN env var if not provided)')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest install mcp')} ${colors.argument('HELP-abc123...')}           ${colors.dim('# Install with API token')}
+  ${colors.dim('$')} ${colors.highlight('HELPMETEST_API_TOKEN=HELP-abc123...')} ${colors.command('helpmetest install mcp')} ${colors.dim('# Install using env variable')}
+
+${colors.subtitle('Supported Editors:')}
+  ${colors.dim('•')} ${colors.key('Cursor')}     Creates MCP configuration and opens deeplink for auto-install
+  ${colors.dim('•')} ${colors.key('VSCode')}     Creates MCP configuration and opens install URL
+  ${colors.dim('•')} ${colors.key('Claude')}     Automatically runs 'claude mcp add' command
+
+${colors.subtitle('What it does:')}
+  ${colors.dim('•')} Checks which editors are installed (cursor, code, claude binaries)
+  ${colors.dim('•')} Generates appropriate MCP configurations for each editor
+  ${colors.dim('•')} Opens installation links or runs commands to complete setup
+  ${colors.dim('•')} Uses ${getCliCommand()} as the MCP server command
+
+${colors.subtitle('Manual Configuration:')}
+  ${colors.dim('If auto-install fails, add this to your editor\'s MCP settings:')}
+  ${colors.dim('{')}
+  ${colors.dim('  "helpmetest": {')}
+  ${colors.dim('    "type": "stdio",')}
+  ${colors.dim('    "command": "' + getCliCommand() + '",')}
+  ${colors.dim('    "args": ["mcp", "HELP-your-token-here"]')}
+  ${colors.dim('  }')}
+  ${colors.dim('}')}
+`)
+  .action(installCommand)
 
 // Register the test command (simplified to just run)
 program

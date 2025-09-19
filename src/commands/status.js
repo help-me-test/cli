@@ -266,7 +266,7 @@ async function statusCommand(subcommand, options) {
     const { userInfo, healthChecks, tests, testStatus } = statusData
 
     // Show formatted output matching the desired style
-    console.log(colors.title(userInfo.requestCompany?.name || userInfo.activeCompany))
+    console.log(colors.title(userInfo.requestCompany?.name || userInfo.companyName || userInfo.activeCompany))
     console.log()
 
     // Display sections based on subcommand
