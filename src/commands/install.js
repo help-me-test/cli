@@ -58,14 +58,15 @@ function getApiToken(token) {
  * @returns {string} - Path to the CLI executable
  */
 function getCliCommand() {
-  for (const arg of process.argv) {
-    if (arg.includes('helpmetest') || arg.includes('index.js')) {
-      return arg
-    }
+  // If execPath contains 'helpmetest', it's a compiled binary - use execPath
+  if (process.execPath.includes('helpmetest')) {
+    return process.execPath
   }
-
+  
+  // Otherwise it's development mode - use argv[1] (script path)
   return process.argv[1]
 }
+
 
 /**
  * Generate MCP configuration for VSCode/Cursor
