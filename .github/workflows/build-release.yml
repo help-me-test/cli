@@ -26,7 +26,6 @@ jobs:
         run: |
           rm -rf cli-build
           git clone --depth 1 "https://slavaGanzin:${GITHUB_TOKEN}@github.com/help-me-test/cli-code.git" cli-build
-          cd cli-build
       
       - name: Install dependencies and test
         run: |
@@ -42,7 +41,7 @@ jobs:
       - name: Publish CLI
         run: |
           cd cli-build
-          ./scripts/publish.sh
+          bun run publish
           
       - name: Restart installer deployment
         run: |
