@@ -2,7 +2,7 @@
 # Publish CLI to help-me-test/cli repository
 # Can be run locally for testing or in GitHub Actions
 
-set -e
+set -x
 
 echo "🚀 Publishing HelpMeTest CLI..."
 
@@ -107,6 +107,39 @@ gh release create v$VERSION \
     --notes-file release-notes.md \
     ${ASSETS_DIR}/*
 
+# Sync source code to help-me-test/cli repository
+echo "📁 Syncing source code to help-me-test/cli repository..."
+
+# Store current directory
+ORIGINAL_DIR=$(pwd)
+
+# Clone the target repository
+rm -rf cli-repo
+git clone https://github.com/help-me-test/cli.git cli-repo
+cd cli-repo
+
+# Copy updated source files
+echo "📝 Updating source files..."
+cp "$ORIGINAL_DIR/README.md" .
+cp "$ORIGINAL_DIR/package.json" .
+cp "$ORIGINAL_DIR/RELEASE_NOTES.md" .
+
+# Check if there are any changes
+if git diff --quiet && git diff --staged --quiet; then
+    echo "ℹ️ No source code changes to commit"
+else
+    echo "📝 Committing source code changes..."
+    git config user.name "actions-user"
+    git config user.email "actions@helpmetest.com"
+    git add -A
+    git commit -m "Update CLI to version ${VERSION}"
+    git push origin main
+    echo "✅ Source code synced successfully"
+fi
+#
+# Return to original directory
+cd "$ORIGINAL_DIR"
+
 # Create release in CLI repo with assets
 echo "🏷️  Creating release in help-me-test/cli repository..."
 
@@ -133,17 +166,6 @@ gh release create v$VERSION \
 if [ -f "basic-release-notes.md" ]; then
     rm -f basic-release-notes.md
 fi
-
-echo "🎉 Successfully published CLI v$VERSION to help-me-test/cli!"
-
-# Create release in CLI repo with the same assets
-echo "🏷️  Creating release in help-me-test/cli repository..."
-gh release delete v$VERSION --repo help-me-test/cli --yes || true
-gh release create v$VERSION \
-    --repo help-me-test/cli \
-    --title "HelpMeTest CLI v$VERSION" \
-    --notes-file "$RELEASE_NOTES_FILE" \
-    ${ASSETS_DIR}/*
 
 echo "🎉 Successfully published CLI v$VERSION to both repositories!"
 
