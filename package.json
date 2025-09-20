@@ -1,6 +1,6 @@
 {
   "name": "helpmetest-cli",
-  "version": "1.9.1",
+  "version": "1.10.4",
   "description": "HelpMeTest CLI tool for health check monitoring",
   "main": "src/index.js",
   "type": "module",
@@ -18,9 +18,6 @@
     "test:mcp:watch": "jest --testPathPattern=mcp --watch",
     "docs:generate": "bun test src/tests/mcp-real-ai-e2e.test.js",
     "docs:mcp": "scripts/generate-mcp-docs.sh",
-    "build": "bun build src/index.js --outfile=dist/helpmetest --target=node --minify",
-    "build:binary": "bun build src/index.js --compile --outfile=dist/helpmetest --minify",
-    "build:all": "bun run clean && bun run build && bun run build:binary",
     "build:linux-x64": "bun build src/index.js --compile --target=bun-linux-x64 --outfile=dist/helpmetest-linux-x64 --minify",
     "build:linux-arm64": "bun build src/index.js --compile --target=bun-linux-arm64 --outfile=dist/helpmetest-linux-arm64 --minify",
     "build:linux-x86": "echo 'Note: Using x64 binary for i386 compatibility' && bun build src/index.js --compile --target=bun-linux-x64 --outfile=dist/helpmetest-linux-x86 --minify",
@@ -30,11 +27,8 @@
     "build:windows-arm64": "echo 'Note: Using x64 binary for ARM64 compatibility' && bun build src/index.js --compile --target=bun-windows-x64 --outfile=dist/helpmetest-windows-arm64.exe --minify",
     "build:windows-x86": "echo 'Note: Using x64 binary for i386 compatibility' && bun build src/index.js --compile --target=bun-windows-x64 --outfile=dist/helpmetest-windows-x86.exe --minify",
     "clean": "rm -rf dist archives test-archives",
-    "package": "bun run build:binary && chmod +x dist/helpmetest",
-    "release:local": "bun run clean && bun run build:linux-x64 && bun run build:darwin-arm64",
-    "test:build": "scripts/test-build.sh",
-    "build:release": "scripts/build.sh",
-    "release": "scripts/release.sh"
+    "build:release": "./build.sh",
+    "publish": "./publish.sh"
   },
   "keywords": [
     "health-check",
@@ -52,6 +46,7 @@
     "commander": "^11.1.0",
     "dotenv": "^16.5.0",
     "fastmcp": "^3.4.0",
+    "inquirer": "^12.9.6",
     "open": "^10.1.2",
     "ramda": "^0.29.1",
     "timespan-parser": "^1.2.0",
