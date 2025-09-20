@@ -36,23 +36,6 @@ curl -fsSL https://raw.githubusercontent.com/help-me-test/cli/main/install.sh | 
    helpmetest --version
    ```
 
-### Package Managers
-
-**Homebrew (macOS/Linux):**
-```bash
-brew install help-me-test/tap/helpmetest
-```
-
-**Chocolatey (Windows):**
-```powershell
-choco install helpmetest
-```
-
-**Scoop (Windows):**
-```powershell
-scoop bucket add help-me-test https://github.com/help-me-test/scoop-bucket
-scoop install helpmetest
-```
 
 ## 🔐 Verification
 
@@ -71,13 +54,10 @@ Get-FileHash helpmetest-cli_*.zip -Algorithm SHA256
 
 ## 📚 Documentation
 
-- [Usage Guide](https://github.com/help-me-test/cli/blob/main/docs/usage.md)
-- [Health Checks](https://github.com/help-me-test/cli/blob/main/docs/health-checks.md)
-- [MCP Setup](https://github.com/help-me-test/cli/blob/main/docs/mcp-setup.md)
-- [Integrations](https://github.com/help-me-test/cli/blob/main/docs/integrations.md)
+For complete documentation, commands, and features, visit:
+
+**[📖 HelpMeTest CLI Documentation](https://helpmetest.helpmetest.com/docs#tags=features%3Acli)**
 
 ## 🆘 Support
 
 - [GitHub Issues](https://github.com/help-me-test/cli/issues)
-- [Documentation](https://github.com/help-me-test/cli/blob/main/README.md)
-- [Discord Community](https://discord.gg/helpmetest)
