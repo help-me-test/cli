@@ -1,5 +1,60 @@
 # Release Notes
 
+## v1.10.4 (2025-08-31)
+
+### Improvements
+
+- **Testing**: Fixed test execution and reliability issues in CI environments
+- **Documentation**: Removed outdated documentation to streamline project structure
+- **Build System**: Simplified build process for better maintainability and faster builds
+- **Scripts**: Refactored build and deployment scripts for improved organization
+
+## v1.10.3 (2025-08-30)
+
+### Improvements
+
+- **Documentation**: Removed outdated documentation files and simplified README for better clarity
+- **Release Process**: Enhanced version bumping process for more reliable releases
+
+## v1.10.2 (2025-08-29)
+
+### Bug Fixes
+
+- **Installation**: Fixed installation script issues for better reliability
+- **Release Process**: Simplified release workflow for more streamlined deployments
+
+## v1.10.1 (2025-08-28)
+
+### Bug Fixes
+
+- **MCP Integration**: Fixed MCP installation process and resolved publishing issues
+- **Release Process**: Corrected publishing workflow to ensure reliable deployments
+
+## v1.10.0 (2025-08-27)
+
+### New Features
+
+- **CLI Installation**: Added new install command for easier CLI setup and management
+- **Enhanced Help**: Improved CLI help system with better guidance and examples
+
+### Improvements
+
+- **API Token Handling**: Enhanced API token override functionality when presented in CLI
+- **MCP Server**: Refactored MCP server implementation for better performance and reliability
+- **Build System**: Fixed build issues for more stable releases
+
+## v1.9.1 (2025-07-22)
+
+### New Features
+
+- **Test Browser Integration**: Added test browser opening functionality, allowing users to open tests in browser by ID, name, or tag
+- **Passkey Support**: Added passkey keyword support for modern authentication testing
+
+### Improvements
+
+- **Test Generation**: Disabled automatic comment line stripping from generated test cases for better test readability
+- **Browser Workflow**: Integrated browser opening capabilities into test creation and modification workflows
+
 ## v1.9.0 (2025-07-21)
 
 ### New Features
