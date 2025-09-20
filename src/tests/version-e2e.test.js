@@ -101,9 +101,8 @@ describe('HelpMeTest CLI Version E2E Tests', () => {
 
   describe('Built CLI Version', () => {
     test('built CLI should report correct version', () => {
-      // Clean and build
-      execSync('bun run clean', { cwd: CLI_ROOT, timeout: 10000 })
-      execSync('bun run build', { cwd: CLI_ROOT, timeout: 30000 })
+      // Build basic CLI for testing
+      execSync('bun build src/index.js --outfile=dist/helpmetest --target=node --minify', { cwd: CLI_ROOT, timeout: 30000 })
       
       // Test built version
       const result = execSync('node dist/helpmetest --version', { 
@@ -116,8 +115,8 @@ describe('HelpMeTest CLI Version E2E Tests', () => {
     }, 45000)
 
     test('compiled binary should report correct version', () => {
-      // Build binary
-      execSync('bun run build:binary', { cwd: CLI_ROOT, timeout: 60000 })
+      // Build compiled binary for testing
+      execSync('bun build src/index.js --compile --outfile=dist/helpmetest --minify', { cwd: CLI_ROOT, timeout: 60000 })
       
       // Test compiled binary version
       const result = execSync('./dist/helpmetest --version', { 
