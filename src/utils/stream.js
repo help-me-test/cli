@@ -48,10 +48,12 @@ export const STREAM = (
     await ensureFetch()
     
     const controller = new AbortController()
+    let connectionTimeoutId
 
     // Handle process termination gracefully
     const cleanup = () => {
       debug(config, 'Aborting stream due to process termination')
+      if (connectionTimeoutId) clearTimeout(connectionTimeoutId)
       controller.abort('process_exit')
     }
 
@@ -62,7 +64,7 @@ export const STREAM = (
       // Construct full URL
       const baseUrl = config.apiBaseUrl || 'https://helpmetest.com'
       const fullUrl = uri.startsWith('http') ? uri : `${baseUrl}${uri}`
-      
+
       debug(config, `Starting stream to: ${fullUrl}`)
       debug(config, `Request headers: ${JSON.stringify({
         "Cache-Control": "no-cache",
@@ -71,6 +73,12 @@ export const STREAM = (
         "User-Agent": config.userAgent || 'HelpMeTest-CLI/1.0.0',
       })}`)
       debug(config, `Request body: ${JSON.stringify(data)}`)
+
+      // Add connection timeout (30s) but allow stream to run indefinitely once connected
+      connectionTimeoutId = setTimeout(() => {
+        debug(config, 'Connection timeout after 30s')
+        controller.abort('connection_timeout')
+      }, 30000)
 
       const response = await fetch(fullUrl, {
         signal: controller.signal,
@@ -83,6 +91,10 @@ export const STREAM = (
         },
         body: JSON.stringify(data),
       })
+
+      // Connected successfully, clear connection timeout
+      clearTimeout(connectionTimeoutId)
+      connectionTimeoutId = null
 
       if (!response.ok) {
         const errorText = await response.text()

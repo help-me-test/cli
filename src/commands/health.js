@@ -15,9 +15,10 @@ import { output } from '../utils/colors.js'
 import { config, configUtils, validateConfiguration } from '../utils/config.js'
 import { collectSystemMetrics } from '../utils/metrics.js'
 import { createApiClient } from '../utils/api.js'
-import { 
-  parseSystemdTimerFile, 
-  calculateGracePeriodFromTimer, 
+import { fetchWithTimeout } from '../utils/fetch-with-timeout.js'
+import {
+  parseSystemdTimerFile,
+  calculateGracePeriodFromTimer,
   validateGracePeriod,
   displayTimerConfiguration,
   displayGracePeriodInfo,
@@ -141,8 +142,17 @@ async function healthCommand(name, gracePeriod, command, options) {
     
     // Step 6: Send heartbeat (unless dry-run or config invalid)
     if (!options.dryRun && configValid) {
+      // Use a short timeout (3s) to prevent blocking K8s probes
+      // K8s probes typically timeout after 5-10s, so we need to fail fast
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('API heartbeat timeout (3s)')), 3000)
+      )
+
       try {
-        await sendHeartbeat(processedArgs, heartbeatData, options)
+        await Promise.race([
+          sendHeartbeat(processedArgs, heartbeatData, options),
+          timeoutPromise
+        ])
       } catch (apiError) {
         // CRITICAL: API failures should not affect the health check result
         // This ensures that if slava.helpmetest.com is down, it doesn't cause
@@ -416,26 +426,38 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
  */
 async function performHttpHealthCheck(url, method, startTime) {
   let finalUrl
-  
+
   // Handle URLs with hostname:port format
   if (url.match(/^[\w.-]+:\d+/)) {
     finalUrl = `http://${url}`
   } else {
     finalUrl = url.startsWith('http') ? url : `http://localhost${url.startsWith('/') ? '' : '/'}${url}`
   }
-  
-  const response = await fetch(finalUrl, { method })
-  const ok = response.status >= 200 && response.status < 300
-  
-  return {
-    success: ok,
-    exitCode: ok ? 0 : 1,
-    error: ok ? null : `HTTP ${response.status} ${response.statusText}`,
-    elapsedTime: Date.now() - startTime,
-    command: `${method} ${url}`,
-    url: finalUrl,
-    status: response.status,
-    statusText: response.statusText,
+
+  try {
+    // Use fetchWithTimeout for consistent timeout handling (5s)
+    const response = await fetchWithTimeout(finalUrl, { method }, 5000)
+    const ok = response.status >= 200 && response.status < 300
+
+    return {
+      success: ok,
+      exitCode: ok ? 0 : 1,
+      error: ok ? null : `HTTP ${response.status} ${response.statusText}`,
+      elapsedTime: Date.now() - startTime,
+      command: `${method} ${url}`,
+      url: finalUrl,
+      status: response.status,
+      statusText: response.statusText,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      exitCode: 1,
+      error: error.message,
+      elapsedTime: Date.now() - startTime,
+      command: `${method} ${url}`,
+      url: finalUrl,
+    }
   }
 }
 
