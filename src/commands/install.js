@@ -8,7 +8,7 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { output } from '../utils/colors.js'
-import { getUserInfo } from '../utils/api.js'
+import { getUserInfo, apiPost } from '../utils/api.js'
 import open from 'open'
 import inquirer from 'inquirer'
 
@@ -198,13 +198,20 @@ async function handleCursorInstall(apiToken, companyName) {
     command: getCliCommand(),
     args: ["mcp", apiToken]
   }
-  
+
   const configBase64 = Buffer.from(JSON.stringify(mcpConfig)).toString('base64')
   const deeplinkUrl = `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(serverName)}&config=${configBase64}`
-  
+
   try {
     await open(deeplinkUrl)
     output.success('Opened Cursor installation link')
+
+    // Notify server about MCP installation
+    try {
+      await apiPost('/api/achievements/mcp-installed', { editor: 'cursor' })
+    } catch (error) {
+      // Don't fail installation if notification fails
+    }
   } catch (error) {
     output.info('Could not open link automatically. Manual configuration:')
     const config = generateMcpConfig(apiToken, companyName)
@@ -222,14 +229,21 @@ async function handleVSCodeInstall(apiToken, companyName) {
   const serverName = `HelpMeTest for ${companyName}`
   const installUrl = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({
     name: serverName,
-    type: "stdio", 
+    type: "stdio",
     command: getCliCommand(),
     args: ["mcp", apiToken]
   }))}`
-  
+
   try {
     await open(installUrl)
     output.success('Opened VSCode installation link')
+
+    // Notify server about MCP installation
+    try {
+      await apiPost('/api/achievements/mcp-installed', { editor: 'vscode' })
+    } catch (error) {
+      // Don't fail installation if notification fails
+    }
   } catch (error) {
     output.info('Could not open link automatically. Manual configuration:')
     const config = generateMcpConfig(apiToken, companyName)
@@ -238,7 +252,7 @@ async function handleVSCodeInstall(apiToken, companyName) {
 }
 
 /**
- * Handle Claude installation  
+ * Handle Claude installation
  * @param {string} apiToken - API token
  * @param {string} companyName - Company name
  */
@@ -246,10 +260,13 @@ async function handleClaudeInstall(apiToken, companyName) {
   // Claude requires server names with only letters, numbers, hyphens, and underscores
   const safeServerName = `HelpMeTest-for-${companyName.replace(/[^a-zA-Z0-9-_]/g, '-')}`
   const addCommand = `claude mcp add "${safeServerName}" ${getCliCommand()} mcp ${apiToken}`
-  
+
+  let installed = false
+
   try {
     const result = await execAsync(addCommand)
     output.success('Successfully added to Claude MCP')
+    installed = true
   } catch (error) {
     if (error.message.includes('already exists')) {
       // Remove existing and re-add
@@ -258,6 +275,7 @@ async function handleClaudeInstall(apiToken, companyName) {
         await execAsync(removeCommand)
         await execAsync(addCommand)
         output.success('Successfully updated Claude MCP')
+        installed = true
       } catch (updateError) {
         output.info('Could not install automatically. Run this command:')
         console.log(addCommand)
@@ -269,7 +287,16 @@ async function handleClaudeInstall(apiToken, companyName) {
       return
     }
   }
-  
+
+  // Notify server about MCP installation
+  if (installed) {
+    try {
+      await apiPost('/api/achievements/mcp-installed', { editor: 'claude' })
+    } catch (error) {
+      // Don't fail installation if notification fails
+    }
+  }
+
   // Show the list after installation
   try {
     const listResult = await execAsync('claude mcp list')
