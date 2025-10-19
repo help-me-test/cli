@@ -232,7 +232,6 @@ const getRequestConfig = (config, subdomain = null) => {
     baseURL,
     timeout: config.timeout,
     headers: getApiHeaders(config),
-    validateStatus: (status) => status < 500, // Don't throw on 4xx errors
   }
 }
 

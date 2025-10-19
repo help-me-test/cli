@@ -10,6 +10,58 @@ import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
 
 /**
+ * Naming conventions for tests and tags
+ */
+const NAMING_CONVENTIONS = `
+**Test Names - Bad Examples:**
+❌ "Fixed Login Test"
+❌ "Updated Login Test"
+❌ "New Login Test"
+❌ "Login Test (Fixed)"
+❌ "Login - Updated"
+❌ "test_login_user"
+❌ "LoginTestCase"
+
+**Test Names - Good Examples:**
+✅ "Login Flow"
+✅ "User Registration"
+✅ "Add Item to Cart"
+✅ "Checkout Process"
+✅ "Password Reset"
+✅ "Search Products"
+
+**Tag Convention:**
+Tags MUST use format: {category}:{name}
+
+**Allowed Tag Categories:**
+- feature: Feature area (feature:login, feature:checkout, feature:search)
+- type: Test type (type:smoke, type:regression, type:e2e, type:integration)
+- priority: Test priority (priority:critical, priority:high, priority:medium, priority:low)
+- status: Test status (status:flaky, status:wip, status:stable)
+- platform: Platform specific (platform:web, platform:mobile, platform:api)
+- browser: Browser specific (browser:chrome, browser:firefox, browser:safari)
+
+**Tags - Bad Examples:**
+❌ "new"
+❌ "fixed"
+❌ "updated"
+❌ "test"
+❌ "login" (missing category)
+❌ "temp"
+❌ "asdf"
+
+**Tags - Good Examples:**
+✅ "feature:login"
+✅ "feature:checkout"
+✅ "type:smoke"
+✅ "type:regression"
+✅ "priority:critical"
+✅ "status:stable"
+✅ "platform:web"
+✅ "browser:chrome"
+`
+
+/**
  * Handle run test tool call
  * @param {Object} args - Tool arguments
  * @param {string} args.identifier - Test name, tag, or ID to run
@@ -296,7 +348,10 @@ ${tags ? `- Tags: ${tags.join(', ')}` : ''}
 **Next Steps:**
 1. Run the test: Use 'helpmetest_run_test' with identifier "${result.id || name}"
 2. View in browser: Use 'helpmetest_open_test' with identifier "${result.id || name}"
-3. Modify if needed: Use 'helpmetest_modify_test' with test ID "${result.id}"
+3. Update if needed:
+   - Fix test content: 'helpmetest_update_test'
+   - Rename test: 'helpmetest_update_test_name'
+   - Change tags: 'helpmetest_update_test_tags'
 
 **Raw Response:**
 \`\`\`json
@@ -394,6 +449,93 @@ ${JSON.stringify(result, null, 2)}
       }
     }
     
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
+ * Handle modify test tool call
+ * @param {Object} args - Tool arguments
+ * @param {string} args.id - Test ID to modify
+ * @param {string} [args.name] - New test name
+ * @param {string} [args.testData] - New test content
+ * @param {string} [args.description] - New description
+ * @param {Array<string>} [args.tags] - New tags
+ * @returns {Object} Modify test result
+ */
+async function handleModifyTest(args) {
+  const { id, name, testData, description, tags } = args
+
+  debug(config, `Modifying test with ID: ${id}`)
+
+  try {
+    // Build the update payload - only include fields that are provided
+    const updateData = { id }
+
+    if (name !== undefined) updateData.name = name
+    if (testData !== undefined) updateData.content = testData
+    if (description !== undefined) updateData.description = description
+    if (tags !== undefined) updateData.tags = tags
+
+    const result = await createTest(updateData)
+    debug(config, `Test modification result: ${JSON.stringify(result)}`)
+
+    // Determine what was changed
+    const changes = []
+    if (name !== undefined) changes.push('name')
+    if (testData !== undefined) changes.push('content')
+    if (description !== undefined) changes.push('description')
+    if (tags !== undefined) changes.push('tags')
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `✅ Test Updated Successfully
+
+**Changed:** ${changes.join(', ')}
+
+**Test Details:**
+- Name: ${result.name}
+- ID: ${result.id}
+${description ? `- Description: ${description}` : ''}
+${tags ? `- Tags: ${tags.join(', ')}` : ''}
+
+**Next Steps:**
+1. Run the test to verify changes: Use 'helpmetest_run_test' with identifier "${result.id}"
+2. View in browser: Use 'helpmetest_open_test' with identifier "${result.id}"
+
+**Raw Response:**
+\`\`\`json
+${JSON.stringify(result, null, 2)}
+\`\`\``,
+        },
+      ],
+    }
+  } catch (error) {
+    debug(config, `Error modifying test: ${error.message}`)
+
+    const errorResponse = {
+      error: true,
+      id,
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: new Date().toISOString(),
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null
+      }
+    }
+
     return {
       content: [
         {
@@ -569,12 +711,18 @@ You can create tests directly if you're confident in the Robot Framework syntax 
 
 Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).
 
-🚨 CRITICAL INSTRUCTION FOR AI: 
+🚨 CRITICAL INSTRUCTION FOR AI:
 1. ALWAYS explain what test you're creating and why
 2. If the test fails after creation, DO NOT celebrate - acknowledge the failure
 3. Be honest about test results - failing tests are problems, not successes
 4. Guide the user through debugging if the test fails
-5. Don't just say "Done" - analyze the actual results`,
+5. Don't just say "Done" - analyze the actual results
+6. To update an existing test, use:
+   - helpmetest_update_test (fix content)
+   - helpmetest_update_test_name (rename)
+   - helpmetest_update_test_tags (change tags)
+
+${NAMING_CONVENTIONS}`,
       inputSchema: {
         name: z.string().describe('Test name (required)'),
         testData: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
@@ -603,7 +751,64 @@ Test content should contain only Robot Framework keywords (no test case structur
     },
     async (args) => {
       debug(config, `Delete test tool called with args: ${JSON.stringify(args)}`)
-      return await handleDeleteTest(args)
+      return await handleDelete
+    }
+  )
+
+  // Register update_test tool (content only)
+  server.registerTool(
+    'helpmetest_update_test',
+    {
+      title: 'Help Me Test: Update Test Content',
+      description: `Update test content (Robot Framework keywords). Use this when fixing test logic or steps.
+
+🚨 INSTRUCTION FOR AI: This tool ONLY updates test content. It does NOT change name, tags, or description. Use this when user asks to "fix the test" or modify test steps.`,
+      inputSchema: {
+        id: z.string().describe('Test ID (required)'),
+        testData: z.string().describe('New test content - Robot Framework keywords (required)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Update test content tool called with args: ${JSON.stringify(args)}`)
+      return await handleModifyTest(args)
+    }
+  )
+
+  // Register update_test_name tool
+  server.registerTool(
+    'helpmetest_update_test_name',
+    {
+      title: 'Help Me Test: Update Test Name',
+      description: `Update test name only. Use this ONLY when user explicitly asks to rename a test.
+
+${NAMING_CONVENTIONS}`,
+      inputSchema: {
+        id: z.string().describe('Test ID (required)'),
+        name: z.string().describe('New test name (required)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Update test name tool called with args: ${JSON.stringify(args)}`)
+      return await handleModifyTest(args)
+    }
+  )
+
+  // Register update_test_tags tool
+  server.registerTool(
+    'helpmetest_update_test_tags',
+    {
+      title: 'Help Me Test: Update Test Tags',
+      description: `Update test tags only. Use this when user asks to add, remove, or change test tags.
+
+${NAMING_CONVENTIONS}`,
+      inputSchema: {
+        id: z.string().describe('Test ID (required)'),
+        tags: z.array(z.string()).describe('New test tags - must follow category:name format (required)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Update test tags tool called with args: ${JSON.stringify(args)}`)
+      return await handleModifyTest(args)
     }
   )
 

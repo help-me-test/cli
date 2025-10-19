@@ -1,11 +1,11 @@
 /**
  * Keywords Command
- * 
+ *
  * Search and explore available Robot Framework keywords and libraries
  */
 
 import { colors, output } from '../utils/colors.js'
-import { libraries } from '../keywords.js'
+import { apiGet } from '../utils/api.js'
 
 /**
  * Search keywords and libraries
@@ -17,17 +17,19 @@ import { libraries } from '../keywords.js'
  */
 export default async function keywordsCommand(searchTerm = '', options = {}) {
   const { type = 'all', verbose = false, json = false } = options
-  
+
   try {
-    const results = searchKeywords(searchTerm, type)
-    
+    const apiResponse = await apiGet('/api/keywords', { search: searchTerm, type })
+
     if (json) {
-      console.log(JSON.stringify(results, null, 2))
+      console.log(JSON.stringify(apiResponse, null, 2))
       return
     }
-    
+
+    // Transform API response to match expected format
+    const results = transformApiResponse(apiResponse)
     displayResults(results, searchTerm, type, verbose)
-    
+
   } catch (error) {
     output.error(`Failed to search keywords: ${error.message}`)
     process.exit(1)
@@ -35,76 +37,32 @@ export default async function keywordsCommand(searchTerm = '', options = {}) {
 }
 
 /**
- * Search through keywords and libraries
- * @param {string} searchTerm - Search term
- * @param {string} type - Search type
- * @returns {Object} Search results
+ * Transform API response to match expected display format
+ * @param {Object} apiResponse - API response
+ * @returns {Object} Transformed results
  */
-function searchKeywords(searchTerm, type) {
+function transformApiResponse(apiResponse) {
   const results = {
-    searchTerm,
-    type,
-    libraries: {},
+    searchTerm: apiResponse.search,
+    type: apiResponse.type,
+    libraries: apiResponse.results.libraries || {},
     keywords: {},
     summary: {
       totalLibraries: 0,
       totalKeywords: 0,
-      matchedLibraries: 0,
-      matchedKeywords: 0
+      matchedLibraries: apiResponse.summary.libraries,
+      matchedKeywords: apiResponse.summary.keywords
     }
   }
-  
-  // Count totals and extract all keywords from libraries
-  const allKeywords = {}
-  results.summary.totalLibraries = Object.keys(libraries).length
-  
-  for (const [libName, libData] of Object.entries(libraries)) {
-    if (libData.keywords) {
-      for (const keyword of libData.keywords) {
-        allKeywords[keyword.name] = {
-          ...keyword,
-          library: libName
-        }
-      }
-    }
-  }
-  
-  results.summary.totalKeywords = Object.keys(allKeywords).length
-  
-  // Search libraries
-  if (type === 'libraries' || type === 'all') {
-    for (const [libName, libData] of Object.entries(libraries)) {
-      if (!searchTerm || matchesSearch(libName, libData.doc || '', searchTerm)) {
-        results.libraries[libName] = libData
-        results.summary.matchedLibraries++
-      }
-    }
-  }
-  
-  // Search keywords
-  if (type === 'keywords' || type === 'all') {
-    for (const [keywordName, keywordData] of Object.entries(allKeywords)) {
-      if (!searchTerm || matchesSearch(keywordName, keywordData.doc || keywordData.shortdoc || '', searchTerm)) {
-        results.keywords[keywordName] = keywordData
-        results.summary.matchedKeywords++
-      }
-    }
-  }
-  
-  return results
-}
 
-/**
- * Check if text matches search term
- * @param {string} name - Name to search
- * @param {string} doc - Documentation to search
- * @param {string} searchTerm - Search term
- * @returns {boolean} True if matches
- */
-function matchesSearch(name, doc, searchTerm) {
-  const term = searchTerm.toLowerCase()
-  return name.toLowerCase().includes(term) || 
-         doc.toLowerCase().includes(term)
+  // Transform keywords array to object keyed by name
+  if (apiResponse.results.keywords) {
+    for (const keyword of apiResponse.results.keywords) {
+      results.keywords[keyword.name] = keyword
+    }
+  }
+
+  return results
 }
 
 /**
@@ -142,7 +100,7 @@ function displayResults(results, searchTerm, type, verbose) {
       }
       
       // Show keyword count
-      const keywordCount = libData.keywords ? libData.keywords.length : 0
+      const keywordCount = libData.keywordCount || 0
       console.log(colors.dim('  ' + keywordCount + ' keywords available'))
       
       console.log()

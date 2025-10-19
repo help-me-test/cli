@@ -97,21 +97,36 @@ function generateMcpConfig(apiToken, companyName) {
 export default async function installCommand(token, options) {
   try {
     const apiToken = getApiToken(token)
-    
+
     if (!apiToken) {
       output.error('API token is required. Provide it as an argument or set HELPMETEST_API_TOKEN environment variable.')
       output.info('Usage: helpmetest install mcp HELP-your-token-here')
       process.exit(1)
     }
 
-    const userInfo = await getUserInfo()
-    
-    if (!userInfo.companyName && !userInfo.requestCompany?.name) {
-      output.error('No user found for this API token. Check your token or contact support.')
-      process.exit(1)
+    // Test authentication first
+    try {
+      const { getAllTests } = await import('../utils/api.js')
+      await getAllTests()
+    } catch (error) {
+      if (error.status >= 400) {
+        output.error('Authentication failed: Invalid API token')
+        output.info('The provided API token is not valid or has been revoked.')
+        output.info('Please check your token at https://helpmetest.com/settings')
+        process.exit(1)
+      }
+      throw error
     }
-    
-    const companyName = userInfo.companyName
+
+    let userInfo
+    try {
+      userInfo = await getUserInfo()
+    } catch (error) {
+      // If getUserInfo fails but we passed auth test above, continue anyway
+      userInfo = {}
+    }
+
+    const companyName = userInfo.companyName || userInfo.requestCompany?.name || 'HelpMeTest'
 
     // Check for available binaries
     const editors = [

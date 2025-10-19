@@ -5,8 +5,7 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import { runInteractiveCommand } from '../utils/api.js'
-import { libraries } from '../keywords.js'
+import { runInteractiveCommand, apiGet } from '../utils/api.js'
 
 /**
  * Interactive session management
@@ -24,25 +23,24 @@ async function getInteractiveSessionId(providedSessionId) {
   }
   
   // Check if we have an existing interactive session
-  const existingSession = Array.from(interactiveSessions.keys()).find(id => 
-    id.includes('__interactive__')
+  const existingSession = Array.from(interactiveSessions.keys()).find(id =>
+    id === 'interactive'
   )
-  
+
   if (existingSession) {
     return existingSession
   }
-  
+
   // Create new interactive session ID
-  // Format: interactive__${timestamp} (server will add company ID automatically)
-  const timestamp = new Date().toISOString()
-  const sessionId = `interactive__${timestamp}`
-  
+  // Server will construct runId as: {company}__{test}__{timestamp}
+  const sessionId = 'interactive'
+
   // Store the session
   interactiveSessions.set(sessionId, {
     created: new Date(),
     lastUsed: new Date()
   })
-  
+
   return sessionId
 }
 
@@ -235,157 +233,23 @@ ${JSON.stringify(errorResponse, null, 2)}
  */
 async function handleKeywords(args) {
   const { search, type = 'all' } = args
-  
+
   debug(config, `Searching keywords with: search="${search}", type="${type}"`)
-  
+
   try {
-    // Filter libraries based on search term and type
-    let filteredLibraries = libraries
-    
-    if (search) {
-      const searchLower = search.toLowerCase()
-      filteredLibraries = libraries.filter(lib => {
-        // Search in library name, keywords, or descriptions
-        const nameMatch = lib.name.toLowerCase().includes(searchLower)
-        const keywordMatch = lib.keywords?.some(kw => 
-          kw.name.toLowerCase().includes(searchLower) ||
-          kw.doc?.toLowerCase().includes(searchLower)
-        )
-        return nameMatch || keywordMatch
-      })
-    }
-    
-    if (type === 'libraries') {
-      // Return only library information
-      const libraryInfo = filteredLibraries.map(lib => ({
-        name: lib.name,
-        description: lib.doc || 'No description available',
-        keywordCount: lib.keywords?.length || 0,
-        version: lib.version || 'Unknown'
-      }))
-      
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `📚 Robot Framework Libraries
+    const response = await apiGet('/api/keywords', { search, type })
 
-**Search:** ${search || 'All libraries'}
-**Results:** ${libraryInfo.length} libraries found
-
-**Libraries:**
-${libraryInfo.map((lib, index) => 
-  `${index + 1}. **${lib.name}** (${lib.keywordCount} keywords)
-   ${lib.description}
-   Version: ${lib.version}`
-).join('\n\n')}
-
-**Raw Data:**
-\`\`\`json
-${JSON.stringify(libraryInfo, null, 2)}
-\`\`\``,
-          },
-        ],
-      }
-    }
-    
-    if (type === 'keywords') {
-      // Return keyword information
-      const allKeywords = []
-      filteredLibraries.forEach(lib => {
-        if (lib.keywords) {
-          lib.keywords.forEach(kw => {
-            allKeywords.push({
-              library: lib.name,
-              name: kw.name,
-              doc: kw.doc || 'No documentation available',
-              args: kw.args || []
-            })
-          })
-        }
-      })
-      
-      // Limit results to prevent overwhelming output
-      const limitedKeywords = allKeywords.slice(0, 50)
-      
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `🔧 Robot Framework Keywords
-
-**Search:** ${search || 'All keywords'}
-**Results:** ${limitedKeywords.length} keywords shown (${allKeywords.length} total found)
-
-**Keywords:**
-${limitedKeywords.map((kw, index) => 
-  `${index + 1}. **${kw.name}** (${kw.library})
-   ${kw.doc}
-   ${kw.args.length > 0 ? `Arguments: ${kw.args.join(', ')}` : 'No arguments'}`
-).join('\n\n')}
-
-${allKeywords.length > 50 ? `\n**Note:** Showing first 50 of ${allKeywords.length} results. Use a more specific search term to narrow results.` : ''}
-
-**Raw Data:**
-\`\`\`json
-${JSON.stringify(limitedKeywords, null, 2)}
-\`\`\``,
-          },
-        ],
-      }
-    }
-    
-    // Default: return both libraries and keywords
-    const libraryInfo = filteredLibraries.map(lib => ({
-      name: lib.name,
-      description: lib.doc || 'No description available',
-      keywordCount: lib.keywords?.length || 0,
-      version: lib.version || 'Unknown',
-      keywords: lib.keywords?.slice(0, 10).map(kw => ({
-        name: kw.name,
-        doc: kw.doc || 'No documentation',
-        args: kw.args || []
-      })) || []
-    }))
-    
     return {
       content: [
         {
           type: 'text',
-          text: `📖 Robot Framework Documentation
-
-**Search:** ${search || 'All documentation'}
-**Type:** ${type}
-**Libraries Found:** ${libraryInfo.length}
-
-**Libraries and Keywords:**
-${libraryInfo.map((lib, index) => 
-  `${index + 1}. **${lib.name}** (${lib.keywordCount} keywords)
-   ${lib.description}
-   
-   **Sample Keywords:**
-   ${lib.keywords.map(kw => 
-     `   • **${kw.name}**: ${kw.doc}`
-   ).join('\n   ')}
-   ${lib.keywordCount > 10 ? `   ... and ${lib.keywordCount - 10} more keywords` : ''}`
-).join('\n\n')}
-
-**Raw Data:**
-\`\`\`json
-${JSON.stringify(libraryInfo, null, 2)}
-\`\`\`
-
-🚨 **INSTRUCTION FOR AI:**
-1. Use this documentation to understand available Robot Framework commands
-2. Look for keywords that match your testing needs
-3. Use the 'helpmetest_run_interactive_command' to test keywords before creating tests
-4. Combine keywords to build complete test workflows`,
+          text: JSON.stringify(response, null, 2),
         },
       ],
     }
   } catch (error) {
     debug(config, `Error searching keywords: ${error.message}`)
-    
+
     const errorResponse = {
       error: true,
       search,
@@ -393,7 +257,7 @@ ${JSON.stringify(libraryInfo, null, 2)}
       message: error.message,
       timestamp: new Date().toISOString()
     }
-    
+
     return {
       content: [
         {

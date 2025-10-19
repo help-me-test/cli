@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.12.0 (2025-10-19)
+
+### New Features
+
+- **Test Management**: Added separate tools for updating test content, name, and tags independently, providing more granular control over test modifications
+- **Naming Standards**: Implemented comprehensive naming conventions for tests and tags with clear guidelines and examples to improve test organization
+- **Authentication Validation**: Added upfront authentication testing when installing MCP or starting the server, providing immediate feedback on invalid tokens
+
+### Improvements
+
+- **Keywords System**: Refactored keywords command to fetch data directly from API, ensuring users always have access to the latest keyword documentation
+- **Error Messages**: Enhanced authentication error messages with clear guidance on how to resolve token issues
+- **Code Quality**: Simplified interactive session management and API interaction patterns for better maintainability
+- **API Consistency**: Standardized parameter handling in interactive command execution using object destructuring
+
 ## v1.10.4 (2025-08-31)
 
 ### Improvements

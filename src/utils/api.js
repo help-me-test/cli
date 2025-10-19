@@ -480,22 +480,22 @@ const undoUpdate = async (updateId) => {
 
 /**
  * Run an interactive Robot Framework command
- * @param {string} command - Robot Framework command to execute
- * @param {number} line - Line number for debugging context
- * @param {string} sessionId - Session ID to maintain state
- * @param {string} timestamp - Timestamp for the command execution
+ * @param {Object} params - Command parameters
+ * @param {string} params.command - Robot Framework command to execute
+ * @param {number} params.line - Line number for debugging context
+ * @param {string} params.sessionId - Session ID to maintain state
  * @returns {Promise<Object>} Result of the interactive command execution
  */
-const runInteractiveCommand = async (command, line = 0, sessionId = 'interactive', timestamp = new Date().toISOString()) => {
+const runInteractiveCommand = async ({ command, line = 0, sessionId = 'interactive' }) => {
   const requestData = {
     command,
     line,
     test: sessionId,
-    timestamp
+    timestamp: new Date().toISOString()
   }
-  
+
   debug(config, `Running interactive command: ${command} (session: ${sessionId})`)
-  
+
   try {
     // Use streaming post to handle the real-time response from the robot service
     const response = await apiStreamPost(
@@ -503,7 +503,7 @@ const runInteractiveCommand = async (command, line = 0, sessionId = 'interactive
       requestData,
       `Running interactive command: ${command}`
     )
-    
+
     return response
   } catch (error) {
     debug(config, `Error running interactive command: ${error.message}`)
