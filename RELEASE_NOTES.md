@@ -1,5 +1,13 @@
 # Release Notes
 
+## v1.14.2 (2025-10-21)
+
+### Bug Fixes
+
+- **Authentication**: Fixed MCP command authentication to properly detect and use correct API URL (helpmetest.com or slava.helpmetest.com), resolving "Invalid API token" errors for valid tokens
+- **Centralized Auth**: Moved authentication logic to global entry point, eliminating redundant API calls and ensuring consistent URL detection across all commands
+- **Health Command**: Health command now continues gracefully on authentication failures instead of exiting, allowing basic functionality without valid credentials
+
 ## v1.14.1 (2025-10-21)
 
 ### Bug Fixes

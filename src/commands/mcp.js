@@ -9,7 +9,6 @@ import { output } from '../utils/colors.js'
 import { config, debug, isDebugMode } from '../utils/config.js'
 import { createMcpServer, startStdioServer, startHttpServer } from '../mcp.js'
 import { getMcpServerInfo } from '../utils/version.js'
-import { getAllTests } from '../utils/api.js'
 
 /**
  * Handle MCP command execution
@@ -52,25 +51,8 @@ export default async function mcpCommand(token, options) {
     debug(config, `  Token: ${config.apiToken ? config.apiToken.substring(0, 10) + '...' : 'none'}`)
     debug(config, `  Debug Mode: ${config.debug}`)
 
-    // Test authentication before starting server
-    debug(config, 'Testing API connection and authentication...')
-
-    try {
-      const tests = await getAllTests({}, verbose)
-      debug(config, `Authentication successful, got ${Array.isArray(tests) ? tests.length : 'unknown'} tests`)
-    } catch (error) {
-      debug(config, `Authentication error: status=${error.status}, message=${error.message}`)
-
-      if (error.status >= 400) {
-        output.error('Authentication failed: Invalid API token')
-        output.info('The provided API token is not valid or has been revoked.')
-        output.info('Please check your token at https://helpmetest.com/settings')
-        process.exit(1)
-      }
-
-      output.error(`Failed to connect to HelpMeTest API: ${error.message}`)
-      process.exit(1)
-    }
+    // Authentication is handled globally in index.js
+    debug(config, 'Starting MCP server (authentication already verified)')
 
     debug(config, `Starting MCP server with ${sse ? 'SSE' : 'stdio'} transport`)
 

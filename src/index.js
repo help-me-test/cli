@@ -547,6 +547,34 @@ program.on('command:*', function (operands) {
   process.exit(1)
 })
 
+// Detect which command is being run
+const args = process.argv.slice(2)
+const command = args[0]
+
+// Commands that don't need authentication
+const noAuthCommands = ['version', 'update', 'install', 'metrics', '--version', '-V', '--help', '-h']
+const needsAuth = command && !noAuthCommands.includes(command)
+
+// Authenticate once before executing any command that needs it
+if (needsAuth) {
+  const { detectApiAndAuth } = await import('./utils/api.js')
+  try {
+    await detectApiAndAuth()
+  } catch (error) {
+    // For health command, don't exit - let the command handle the error
+    if (command === 'health') {
+      // Continue to command execution - health command will handle this gracefully
+    } else {
+      output.error(`Authentication failed: ${error.message}`)
+      if (error.status === 401) {
+        output.info('Please check your HELPMETEST_API_TOKEN environment variable')
+        output.info('Get your token at https://helpmetest.com/settings')
+      }
+      process.exit(1)
+    }
+  }
+}
+
 // Parse command line arguments
 program.parse()
 

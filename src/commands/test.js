@@ -470,7 +470,7 @@ export const runTestCommand = async (identifier, options = {}) => {
   
   try {
     debug(config, `Running test with identifier: ${identifier}`)
-    
+
     // Fetch all tests to create ID-to-name mapping
     const allTests = await getAllTests()
     const testNames = new Map()
@@ -591,7 +591,7 @@ export const runTestCommand = async (identifier, options = {}) => {
 export const listTestsCommand = async (options = {}) => {
   try {
     debug(config, 'Fetching all tests')
-    
+
     const tests = await getAllTests()
     
     if (!tests || tests.length === 0) {
