@@ -5,7 +5,7 @@
  * Used by both CLI status command and MCP server
  */
 
-import { getAllHealthChecks, getAllTests, getTestStatus, getUserInfo } from './api.js'
+import { getAllHealthChecks, getAllTests, getTestStatus } from './api.js'
 import { debug, config } from './config.js'
 import * as R from 'ramda'
 
