@@ -8,7 +8,7 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { output } from '../utils/colors.js'
-import { getUserInfo, apiPost } from '../utils/api.js'
+import { apiPost } from '../utils/api.js'
 import open from 'open'
 import inquirer from 'inquirer'
 import os from 'os'
@@ -120,25 +120,19 @@ export default async function installCommand(token, options) {
       process.exit(1)
     }
 
-    // Test authentication first
-    try {
-      const { getAllTests } = await import('../utils/api.js')
-      await getAllTests()
-    } catch (error) {
-      if (error.status >= 400) {
-        output.error('Authentication failed: Invalid API token')
-        output.info('The provided API token is not valid or has been revoked.')
-        output.info('Please check your token at https://helpmetest.com/settings')
-        process.exit(1)
-      }
-      throw error
-    }
-
+    // Detect correct API URL and authenticate
     let userInfo
     try {
-      userInfo = await getUserInfo()
+      const { detectApiAndAuth } = await import('../utils/api.js')
+      userInfo = await detectApiAndAuth()
     } catch (error) {
-      // If getUserInfo fails but we passed auth test above, continue anyway
+      if (error.status === 401) {
+        output.error('Authentication failed: Invalid API token')
+        output.info('The provided API token is not valid or has been revoked.')
+        output.info('Please check your token at https://helpmetest.com/settings or https://slava.helpmetest.com/settings')
+        process.exit(1)
+      }
+      // If getUserInfo fails for other reasons, continue anyway
       userInfo = {}
     }
 

@@ -55,21 +55,17 @@ const getIpAddress = () => {
  */
 const getCpuUsage = async () => {
   try {
-    // Get CPU info at two points in time to calculate usage
-    const startMeasure = getCpuInfo()
-    
-    // Wait 100ms for measurement
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
-    const endMeasure = getCpuInfo()
-    
-    // Calculate usage percentage
-    const idleDifference = endMeasure.idle - startMeasure.idle
-    const totalDifference = endMeasure.total - startMeasure.total
-    
-    const usage = 100 - (100 * idleDifference / totalDifference)
-    
-    return Math.round(usage * 100) / 100 // Round to 2 decimal places
+    // Use load average as CPU indicator on Unix systems (instant, no wait needed)
+    const loadAvg = getLoadAverage()
+    if (loadAvg && loadAvg.length > 0) {
+      const cpus = os.cpus().length
+      // Convert 1-min load average to percentage (capped at 100%)
+      const usage = Math.min(100, (loadAvg[0] / cpus) * 100)
+      return Math.round(usage * 100) / 100
+    }
+
+    // Fallback: return 0 instead of waiting 100ms
+    return 0
   } catch (error) {
     debug(config, `Error getting CPU usage: ${error.message}`)
     return 0

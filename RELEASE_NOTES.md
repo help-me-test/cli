@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.13.0 (2025-10-21)
+
+### New Features
+
+- **Smart API Detection**: Added automatic API URL detection that intelligently switches between production and development environments on authentication failure, improving developer experience
+
+### Improvements
+
+- **MCP Installation Tracking**: Enhanced MCP installation notifications to include hostname information for better analytics and debugging
+- **Authentication Flow**: Refactored authentication logic to provide clearer error messages and automatic environment detection
+- **CPU Metrics**: Optimized CPU usage calculation to use load average instead of time-based sampling, eliminating startup delays and improving responsiveness
+
 ## v1.12.0 (2025-10-19)
 
 ### New Features

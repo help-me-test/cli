@@ -402,6 +402,51 @@ const getUserInfo = async (enableDebug = false) => {
   return apiGet('/api/user', {}, 'Getting user information', enableDebug)
 }
 
+/**
+ * Detect correct API URL and authenticate
+ * Tries helpmetest.com first, then slava.helpmetest.com on 401
+ * Updates config.apiBaseUrl if fallback succeeds
+ * @param {boolean} enableDebug - Whether to enable debug logging
+ * @returns {Promise<Object>} User data including company information
+ */
+const detectApiAndAuth = async (enableDebug = false) => {
+  const { config } = await import('./config.js')
+
+  // Try with default URL first
+  try {
+    if (enableDebug) {
+      debug(config, 'Trying authentication with default API URL')
+    }
+    return await getUserInfo(enableDebug)
+  } catch (error) {
+    // If 401 and using default URL, try slava subdomain
+    if (error.status === 401 && config.apiBaseUrl === 'https://helpmetest.com') {
+      if (enableDebug) {
+        debug(config, 'Authentication failed with default URL, trying slava.helpmetest.com')
+      }
+
+      try {
+        // Update config to use slava subdomain
+        config.apiBaseUrl = 'https://slava.helpmetest.com'
+        const userInfo = await getUserInfo(enableDebug)
+
+        if (enableDebug) {
+          debug(config, 'Authentication successful with slava.helpmetest.com')
+        }
+
+        return userInfo
+      } catch (slavaError) {
+        // Restore original URL and throw the original error
+        config.apiBaseUrl = 'https://helpmetest.com'
+        throw error
+      }
+    }
+
+    // For other errors or if already using custom URL, throw as-is
+    throw error
+  }
+}
+
 
 
 /**
@@ -627,6 +672,7 @@ export {
   getTestStatus,
   getTestRuns,
   getUserInfo,
+  detectApiAndAuth,
   createTest,
   deleteTest,
   deleteHealthCheck,
@@ -656,6 +702,7 @@ export default {
   getTestStatus,
   getTestRuns,
   getUserInfo,
+  detectApiAndAuth,
   createTest,
   deleteTest,
   deleteHealthCheck,
