@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.14.0 (2025-10-21)
+
+### New Features
+
+- **API Caching**: Added user info caching to reduce redundant API calls and improve performance across commands
+- **Cached User Info Access**: New `getCachedUserInfo()` function allows retrieving authenticated user data without additional API requests
+
+### Improvements
+
+- **API Detection**: Enhanced API URL detection to always try production first and validate company information before falling back to development environment
+- **Installation Feedback**: Improved MCP installation notifications with success messages and detailed error information
+- **Authentication Reliability**: Installation command now properly configures API token before authentication, reducing authentication failures
+- **Status Collection**: Optimized status data collection to use centralized authentication flow, eliminating duplicate API calls
+
 ## v1.13.0 (2025-10-21)
 
 ### New Features

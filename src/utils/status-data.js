@@ -135,11 +135,14 @@ export const formatTest = formatApiResponse(
  */
 export async function collectStatusData(options = {}) {
   const { verbose = false } = options
-  
+
   try {
+    // Detect correct API URL and authenticate first
+    const { detectApiAndAuth } = await import('./api.js')
+    const userInfo = await detectApiAndAuth(verbose)
+
     // Get all data in parallel, passing verbose flag to enable debug logging
-    const [userInfo, healthChecks, tests, testStatus] = await Promise.all([
-      getUserInfo(verbose).catch(() => ({ activeCompany: 'Unknown Company', requestCompany: { name: 'Unknown Company' } })),
+    const [healthChecks, tests, testStatus] = await Promise.all([
       getAllHealthChecks({}, verbose).catch(() => []),
       getAllTests({}, verbose).catch(() => []),
       getTestStatus(verbose).catch(() => [])

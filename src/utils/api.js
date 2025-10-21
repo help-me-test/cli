@@ -402,48 +402,84 @@ const getUserInfo = async (enableDebug = false) => {
   return apiGet('/api/user', {}, 'Getting user information', enableDebug)
 }
 
+// Cache for user info and auth status
+let cachedUserInfo = null
+let authInitialized = false
+
 /**
  * Detect correct API URL and authenticate
  * Tries helpmetest.com first, then slava.helpmetest.com on 401
  * Updates config.apiBaseUrl if fallback succeeds
+ * Caches result for subsequent calls
  * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} User data including company information
  */
 const detectApiAndAuth = async (enableDebug = false) => {
+  // Return cached user info if already authenticated
+  if (authInitialized && cachedUserInfo) {
+    return cachedUserInfo
+  }
+
   const { config } = await import('./config.js')
 
-  // Try with default URL first
+  // Always try helpmetest.com first
+  config.apiBaseUrl = 'https://helpmetest.com'
   try {
     if (enableDebug) {
-      debug(config, 'Trying authentication with default API URL')
+      debug(config, 'Trying authentication with helpmetest.com')
     }
-    return await getUserInfo(enableDebug)
+    const userInfo = await getUserInfo(enableDebug)
+
+    // Check if we got company info
+    if (userInfo.activeCompany || userInfo.companyName) {
+      cachedUserInfo = userInfo
+      authInitialized = true
+      return userInfo
+    }
+
+    // No company info, try slava subdomain
+    if (enableDebug) {
+      debug(config, 'No company info from helpmetest.com, trying slava.helpmetest.com')
+    }
   } catch (error) {
-    // If 401 and using default URL, try slava subdomain
-    if (error.status === 401 && config.apiBaseUrl === 'https://helpmetest.com') {
+    // If 401, try slava subdomain
+    if (error.status === 401) {
       if (enableDebug) {
-        debug(config, 'Authentication failed with default URL, trying slava.helpmetest.com')
+        debug(config, 'Authentication failed with helpmetest.com, trying slava.helpmetest.com')
       }
+    } else {
+      // For other errors, throw as-is
+      authInitialized = true
+      throw error
+    }
+  }
 
-      try {
-        // Update config to use slava subdomain
-        config.apiBaseUrl = 'https://slava.helpmetest.com'
-        const userInfo = await getUserInfo(enableDebug)
+  // Try slava subdomain
+  try {
+    config.apiBaseUrl = 'https://slava.helpmetest.com'
+    const userInfo = await getUserInfo(enableDebug)
 
-        if (enableDebug) {
-          debug(config, 'Authentication successful with slava.helpmetest.com')
-        }
-
-        return userInfo
-      } catch (slavaError) {
-        // Restore original URL and throw the original error
-        config.apiBaseUrl = 'https://helpmetest.com'
-        throw error
-      }
+    if (enableDebug) {
+      debug(config, 'Authentication successful with slava.helpmetest.com')
     }
 
-    // For other errors or if already using custom URL, throw as-is
-    throw error
+    // If still no company info, token is invalid or not associated with a company
+    if (!userInfo.activeCompany && !userInfo.companyName) {
+      throw new ApiError(
+        'Invalid API token',
+        401,
+        { details: 'The provided API token is not valid or has been revoked.' }
+      )
+    }
+
+    cachedUserInfo = userInfo
+    authInitialized = true
+    return userInfo
+  } catch (slavaError) {
+    // Restore to helpmetest.com and throw the error
+    config.apiBaseUrl = 'https://helpmetest.com'
+    authInitialized = true
+    throw slavaError
   }
 }
 
@@ -657,6 +693,15 @@ const getApiConfig = () => {
   }
 }
 
+/**
+ * Get cached user info without making an API call
+ * Returns null if not yet authenticated
+ * @returns {Object|null} Cached user info or null
+ */
+const getCachedUserInfo = () => {
+  return cachedUserInfo
+}
+
 // Export API functions
 export {
   ApiError,
@@ -673,6 +718,7 @@ export {
   getTestRuns,
   getUserInfo,
   detectApiAndAuth,
+  getCachedUserInfo,
   createTest,
   deleteTest,
   deleteHealthCheck,
@@ -703,6 +749,7 @@ export default {
   getTestRuns,
   getUserInfo,
   detectApiAndAuth,
+  getCachedUserInfo,
   createTest,
   deleteTest,
   deleteHealthCheck,

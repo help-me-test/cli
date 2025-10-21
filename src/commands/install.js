@@ -25,8 +25,12 @@ async function notifyMcpInstalled(editor) {
       editor,
       hostname: os.hostname()
     })
+    output.success(`MCP installation recorded`)
   } catch (error) {
-    // Don't fail installation if notification fails
+    output.error(`Failed to record MCP installation: ${error.message}`)
+    if (error.response?.details) {
+      output.info(error.response.details)
+    }
   }
 }
 
@@ -119,6 +123,10 @@ export default async function installCommand(token, options) {
       output.info('Usage: helpmetest install mcp HELP-your-token-here')
       process.exit(1)
     }
+
+    // Update config with the provided token
+    const { config } = await import('../utils/config.js')
+    config.apiToken = apiToken
 
     // Detect correct API URL and authenticate
     let userInfo
