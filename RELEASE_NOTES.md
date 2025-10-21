@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.14.1 (2025-10-21)
+
+### Bug Fixes
+
+- **MCP Delete Test Tool**: Fixed runtime error where delete test tool was calling undefined `handleDelete` function instead of `handleDeleteTest`, preventing test deletion via MCP
+
 ## v1.14.0 (2025-10-21)
 
 ### New Features

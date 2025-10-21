@@ -751,7 +751,7 @@ ${NAMING_CONVENTIONS}`,
     },
     async (args) => {
       debug(config, `Delete test tool called with args: ${JSON.stringify(args)}`)
-      return await handleDelete
+      return await handleDeleteTest(args)
     }
   )
 
