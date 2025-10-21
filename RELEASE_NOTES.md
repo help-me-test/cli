@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.14.3 (2025-10-21)
+
+### Bug Fixes
+
+- **MCP URL Detection**: Fixed critical bug where `--url` option default value was overriding detected API URL, causing MCP server to always use production instead of detected environment (slava.helpmetest.com)
+- **Debug Logging**: Added debug output to trace API URL detection during global authentication
+
 ## v1.14.2 (2025-10-21)
 
 ### Bug Fixes

@@ -14,22 +14,18 @@ import { getMcpServerInfo } from '../utils/version.js'
  * Handle MCP command execution
  * @param {string} token - API token (positional argument)
  * @param {Object} options - Command options
- * @param {string} options.url - API base URL
  * @param {boolean} options.sse - Use SSE transport instead of stdio
  * @param {number} options.port - Port for SSE transport
  * @param {boolean} options.verbose - Enable verbose logging
  */
 export default async function mcpCommand(token, options) {
   try {
-    const { url, sse = false, port = 31337, verbose = false } = options
+    const { sse = false, port = 31337, verbose = false } = options
     const transport = sse ? 'http' : 'stdio'
 
     // Override config with command line parameters if provided
     if (token) {
       config.apiToken = token
-    }
-    if (url) {
-      config.apiBaseUrl = url
     }
 
     // Validate that we have required configuration

@@ -245,7 +245,6 @@ program
   .command('mcp')
   .description('Start MCP (Model Context Protocol) server for AI integration')
   .argument('[token]', 'HelpMeTest API token (required)')
-  .option('-u, --url <url>', 'HelpMeTest API base URL (optional)', 'https://helpmetest.com')
   .option('--sse', 'Use HTTP Server-Sent Events transport instead of stdio')
   .option('-p, --port <number>', 'Port for SSE transport', '31337')
   .option('-v, --verbose', 'Enable verbose logging')
@@ -253,14 +252,12 @@ program
 ${colors.subtitle('Examples:')}
   ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')}                    ${colors.dim('# Start with stdio transport')}
   ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('--sse')}             ${colors.dim('# Use SSE transport')}
-  ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('-u https://slava.helpmetest.com')} ${colors.dim('# Custom API URL')}
   ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('--verbose')}         ${colors.dim('# Enable verbose logging')}
   ${colors.dim('$')} ${colors.command('helpmetest mcp')} ${colors.argument('HELP-abc123...')} ${colors.option('--sse --port 8080')} ${colors.dim('# SSE on custom port')}
 
 ${colors.subtitle('Environment Variables (Alternative):')}
   ${colors.dim('You can also use environment variables instead of command line arguments:')}
   ${colors.dim('$')} ${colors.highlight('HELPMETEST_API_TOKEN=HELP-abc123...')} ${colors.command('helpmetest mcp')}
-  ${colors.dim('$')} ${colors.highlight('HELPMETEST_API_TOKEN=HELP-abc123... HELPMETEST_API_URL=https://slava.helpmetest.com')} ${colors.command('helpmetest mcp')}
 
 ${colors.subtitle('Transport Types:')}
   ${colors.key('stdio')}    Standard input/output (for AI clients like Claude Desktop) - Default
@@ -558,8 +555,12 @@ const needsAuth = command && !noAuthCommands.includes(command)
 // Authenticate once before executing any command that needs it
 if (needsAuth) {
   const { detectApiAndAuth } = await import('./utils/api.js')
+  const { config } = await import('./utils/config.js')
   try {
     await detectApiAndAuth()
+    if (process.env.HELPMETEST_DEBUG) {
+      console.error(`[DEBUG] Global auth completed - API URL is now: ${config.apiBaseUrl}`)
+    }
   } catch (error) {
     // For health command, don't exit - let the command handle the error
     if (command === 'health') {
