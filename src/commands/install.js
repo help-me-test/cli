@@ -11,8 +11,24 @@ import { output } from '../utils/colors.js'
 import { getUserInfo, apiPost } from '../utils/api.js'
 import open from 'open'
 import inquirer from 'inquirer'
+import os from 'os'
 
 const execAsync = promisify(exec)
+
+/**
+ * Notify server about MCP installation
+ * @param {string} editor - Editor name (cursor, code, claude, vscode)
+ */
+async function notifyMcpInstalled(editor) {
+  try {
+    await apiPost('/api/achievements/mcp-installed', {
+      editor,
+      hostname: os.hostname()
+    })
+  } catch (error) {
+    // Don't fail installation if notification fails
+  }
+}
 
 /**
  * Check if an editor is installed by checking both PATH and Applications folder
@@ -220,13 +236,7 @@ async function handleCursorInstall(apiToken, companyName) {
   try {
     await open(deeplinkUrl)
     output.success('Opened Cursor installation link')
-
-    // Notify server about MCP installation
-    try {
-      await apiPost('/api/achievements/mcp-installed', { editor: 'cursor' })
-    } catch (error) {
-      // Don't fail installation if notification fails
-    }
+    await notifyMcpInstalled('cursor')
   } catch (error) {
     output.info('Could not open link automatically. Manual configuration:')
     const config = generateMcpConfig(apiToken, companyName)
@@ -252,13 +262,7 @@ async function handleVSCodeInstall(apiToken, companyName) {
   try {
     await open(installUrl)
     output.success('Opened VSCode installation link')
-
-    // Notify server about MCP installation
-    try {
-      await apiPost('/api/achievements/mcp-installed', { editor: 'vscode' })
-    } catch (error) {
-      // Don't fail installation if notification fails
-    }
+    await notifyMcpInstalled('vscode')
   } catch (error) {
     output.info('Could not open link automatically. Manual configuration:')
     const config = generateMcpConfig(apiToken, companyName)
@@ -305,11 +309,7 @@ async function handleClaudeInstall(apiToken, companyName) {
 
   // Notify server about MCP installation
   if (installed) {
-    try {
-      await apiPost('/api/achievements/mcp-installed', { editor: 'claude' })
-    } catch (error) {
-      // Don't fail installation if notification fails
-    }
+    await notifyMcpInstalled('claude')
   }
 
   // Show the list after installation
