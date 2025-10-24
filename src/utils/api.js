@@ -417,7 +417,14 @@ let authInitialized = false
 const detectApiAndAuth = async (enableDebug = false) => {
   // Return cached user info if already authenticated
   if (authInitialized && cachedUserInfo) {
+    if (enableDebug) {
+      console.error('[DEBUG] Using cached user info, skipping /api/user call')
+    }
     return cachedUserInfo
+  }
+
+  if (enableDebug) {
+    console.error('[DEBUG] No cache, making /api/user call')
   }
 
   const { config } = await import('./config.js')
@@ -557,6 +564,29 @@ const deleteHealthCheck = async (name) => {
  */
 const undoUpdate = async (updateId) => {
   return apiPost(`/api/updates/undo/${updateId}`, {}, `Undoing update: ${updateId}`)
+}
+
+/**
+ * Get updates by tags
+ * @param {Array<string>} tags - Array of tags to filter by
+ * @param {Date} timestamp - Timestamp to fetch updates from (default: now)
+ * @param {number} limit - Maximum number of updates to return (default: 100)
+ * @returns {Promise<Array>} Array of updates matching the tags
+ */
+const getUpdatesByTags = async (tags, timestamp = new Date(), limit = 100) => {
+  const tagsString = tags.join(',')
+  const timestampString = timestamp.toISOString()
+  return apiGet(`/api/company-updates/tags/${tagsString}/${timestampString}/${limit}`, {}, `Getting updates by tags: ${tagsString}`)
+}
+
+/**
+ * Get deployments (updates with type:deployment tag)
+ * @param {Date} timestamp - Timestamp to fetch deployments from (default: now)
+ * @param {number} limit - Maximum number of deployments to return (default: 1000)
+ * @returns {Promise<Array>} Array of deployment updates
+ */
+const getDeployments = async (timestamp = new Date(), limit = 1000) => {
+  return getUpdatesByTags(['type:deployment'], timestamp, limit)
 }
 
 /**
@@ -723,6 +753,8 @@ export {
   deleteTest,
   deleteHealthCheck,
   undoUpdate,
+  getUpdatesByTags,
+  getDeployments,
   runInteractiveCommand,
   testConnection,
   displayApiError,

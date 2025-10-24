@@ -5,7 +5,7 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import { getTestRuns } from '../utils/api.js'
+import { getTestRuns, getDeployments } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
 
 /**
@@ -227,6 +227,159 @@ The raw data contains detailed information about each test run - use it to provi
 }
 
 /**
+ * Handle deployments tool call
+ * @param {Object} args - Tool arguments
+ * @param {string} [args.startDate] - Start date for filtering (ISO format)
+ * @param {number} [args.limit] - Maximum number of results to return
+ * @returns {Object} Deployments result
+ */
+async function handleDeployments(args) {
+  const { startDate, limit = 1000 } = args
+
+  debug(config, `Getting deployments with filters: ${JSON.stringify(args)}`)
+
+  try {
+    const timestamp = startDate ? new Date(startDate) : new Date()
+    const deployments = await getDeployments(timestamp, limit)
+
+    debug(config, `Retrieved ${deployments?.length || 0} deployments`)
+
+    if (!deployments?.length) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              total: 0,
+              deployments: [],
+              message: 'No deployments found',
+              filters: { startDate, limit },
+              debug: {
+                apiUrl: config.apiBaseUrl,
+                hasToken: !!config.apiToken
+              }
+            }),
+          },
+        ],
+      }
+    }
+
+    // Format deployments for analysis
+    const formattedDeployments = deployments.map(deployment => ({
+      id: deployment.id,
+      timestamp: deployment.timestamp,
+      app: deployment.data?.app,
+      environment: deployment.data?.environment,
+      description: deployment.data?.description,
+      tags: deployment.tags || []
+    }))
+
+    // Group by app and environment
+    const byAppEnv = formattedDeployments.reduce((acc, dep) => {
+      const key = `${dep.app}/${dep.environment}`
+      if (!acc[key]) {
+        acc[key] = []
+      }
+      acc[key].push(dep)
+      return acc
+    }, {})
+
+    const summary = {
+      total: formattedDeployments.length,
+      byAppEnvironment: Object.entries(byAppEnv).map(([key, deps]) => ({
+        appEnvironment: key,
+        count: deps.length,
+        latest: deps[0]
+      })),
+      filters: { startDate, limit },
+      timestamp: new Date().toISOString()
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `🚀 Deployments Analysis
+
+**Summary:**
+- Total deployments: ${summary.total}
+- App/Environment breakdown:
+${summary.byAppEnvironment.map(({ appEnvironment, count, latest }) =>
+  `  - ${appEnvironment}: ${count} deployments (latest: ${latest.timestamp})`
+).join('\n')}
+
+**Applied Filters:**
+${startDate ? `- Start Date: ${startDate}` : ''}
+- Limit: ${limit}
+
+**Raw Deployments Data:**
+\`\`\`json
+${JSON.stringify({ summary, deployments: formattedDeployments }, null, 2)}
+\`\`\`
+
+🚨 CRITICAL AI INSTRUCTION - USE THIS TOOL AS FIRST LINE OF DEBUGGING:
+
+**When to use this tool:**
+1. **ALWAYS check deployments FIRST when debugging errors**
+2. **Before assuming code issues, check if error started after a deployment**
+3. **Correlate error timestamps with deployment timestamps**
+4. **If error started after a deployment, that deployment is the likely cause**
+
+**Analysis Requirements:**
+1. **Timeline Analysis**: Compare deployment times with when errors started occurring
+2. **App/Environment Matching**: Match deployments to the services/environments experiencing issues
+3. **Recent Changes**: Identify what changed in deployments that could cause current issues
+4. **Root Cause**: If error timestamp is AFTER deployment timestamp, investigate that deployment
+5. **Deployment Description**: Read deployment descriptions for clues about changes made
+
+**Key Questions to Answer:**
+- Did any deployments happen right before the error started?
+- Which app/environment was deployed?
+- What changes were mentioned in the deployment description?
+- Are there multiple deployments in quick succession that could cause issues?
+- Is the error isolated to one environment or affecting all?
+
+**Debugging Workflow:**
+1. Get error timestamp from logs/test failures
+2. Call this tool to get recent deployments
+3. Find deployments that happened just before the error
+4. Check deployment description for relevant changes
+5. Correlate deployment app/environment with affected service
+6. Report: "Error started at X, deployment to Y happened at Z (just before), likely cause is the deployment"
+
+The deployment timeline is crucial for debugging - don't skip this step!`,
+        },
+      ],
+    }
+  } catch (error) {
+    debug(config, `Error getting deployments: ${error.message}`)
+
+    const errorResponse = {
+      error: true,
+      message: error.message,
+      type: error.name || 'Error',
+      timestamp: new Date().toISOString(),
+      filters: { startDate, limit },
+      debug: {
+        apiUrl: config.apiBaseUrl,
+        hasToken: !!config.apiToken,
+        status: error.status || null
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(errorResponse),
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
  * Register status-related MCP tools
  * @param {Object} server - MCP server instance
  */
@@ -266,6 +419,45 @@ export function registerStatusTools(server) {
     async (args) => {
       debug(config, `Test runs tool called with args: ${JSON.stringify(args)}`)
       return await handleTestRuns(args)
+    }
+  )
+
+  // Register deployments tool
+  server.registerTool(
+    'helpmetest_get_deployments',
+    {
+      title: 'Help Me Test: Get Deployments Tool',
+      description: `Get all deployments from the system.
+
+🚨 CRITICAL AI INSTRUCTION - USE THIS TOOL AS FIRST LINE OF DEBUGGING:
+
+**ALWAYS use this tool FIRST when debugging errors or investigating issues.**
+
+This tool helps correlate test failures and errors with deployments. If an error started occurring after a deployment, that deployment is the likely cause of the issue.
+
+**When to use:**
+1. When investigating test failures - check if they started after a deployment
+2. When debugging errors - compare error timestamps with deployment times
+3. When analyzing system issues - see what was deployed recently
+4. Before assuming code bugs - verify if error correlates with deployment
+
+**Debugging workflow:**
+1. Get error/failure timestamp
+2. Call this tool to get recent deployments
+3. Find deployments that happened just before the error
+4. Check deployment description and app/environment
+5. Correlate with the affected service
+6. Report the likely cause based on deployment timeline
+
+The tool returns deployment data with timestamps, app names, environments, and descriptions. Use this to build a timeline and identify which deployment likely caused the current issue.`,
+      inputSchema: {
+        startDate: z.string().optional().describe('Start date for filtering deployments (ISO format, optional). If not provided, returns all recent deployments'),
+        limit: z.number().optional().default(1000).describe('Maximum number of deployments to return (default: 1000)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Deployments tool called with args: ${JSON.stringify(args)}`)
+      return await handleDeployments(args)
     }
   )
 }
