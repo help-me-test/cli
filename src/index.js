@@ -595,6 +595,12 @@ const command = args[0]
 const noAuthCommands = ['version', 'update', 'install', 'metrics', '--version', '-V', '--help', '-h']
 const needsAuth = command && !noAuthCommands.includes(command)
 
+// For MCP command, token is passed as argument - set it before auth check
+if (command === 'mcp' && args[1] && args[1].startsWith('HELP-')) {
+  const { config } = await import('./utils/config.js')
+  config.apiToken = args[1]
+}
+
 // Authenticate once before executing any command that needs it
 if (needsAuth) {
   const { detectApiAndAuth } = await import('./utils/api.js')
