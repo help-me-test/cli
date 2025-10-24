@@ -7,7 +7,7 @@
 
 ```bash
 # Download and install the latest version
-curl -fsSL https://raw.githubusercontent.com/help-me-test/cli/main/install.sh | bash
+curl -fsSL https://helpmetest.com/install | bash
 ```
 
 ### Manual Installation
