@@ -19,6 +19,7 @@ import keywordsCommand from './commands/keywords.js'
 import { runTestCommand } from './commands/test.js'
 import deleteCommand, { deleteHealthCheckCommand, deleteTestCommand } from './commands/delete.js'
 import undoCommand from './commands/undo.js'
+import deployCommand from './commands/deploy.js'
 import versionCommand from './commands/version.js'
 import updateCommand from './commands/update.js'
 import installCommand, { getCliCommand } from './commands/install.js'
@@ -452,6 +453,48 @@ ${colors.subtitle('Important Notes:')}
 `)
   .action(async (updateId, options) => {
     await undoCommand(updateId, options)
+  })
+
+// Register the deploy command
+program
+  .command('deploy')
+  .description('Create a deployment update to track deployments')
+  .argument('<app>', 'App name (e.g., robot, robot-interactive, app)')
+  .option('--env <environment>', 'Environment name (uses $ENV if not specified)')
+  .option('--description <description>', 'Deployment description (uses git commit if not specified)')
+  .option('--dry-run', 'Show what would be created without actually creating')
+  .option('--verbose', 'Show detailed output')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest deploy')} ${colors.argument('robot')}                              ${colors.dim('# Deploy robot with $ENV and git commit')}
+  ${colors.dim('$')} ${colors.command('helpmetest deploy')} ${colors.argument('robot-interactive')} ${colors.option('--env production')}    ${colors.dim('# Deploy to production')}
+  ${colors.dim('$')} ${colors.command('helpmetest deploy')} ${colors.argument('app')} ${colors.option('--env staging')} ${colors.option('--description "v1.2.3"')} ${colors.dim('# Custom description')}
+  ${colors.dim('$')} ${colors.command('helpmetest deploy')} ${colors.argument('robot')} ${colors.option('--dry-run')}                     ${colors.dim('# Preview without creating')}
+
+${colors.subtitle('Environment Detection:')}
+  ${colors.dim('•')} Uses ${colors.option('--env')} flag if provided
+  ${colors.dim('•')} Falls back to ${colors.highlight('$ENV')} environment variable
+  ${colors.dim('•')} Defaults to ${colors.highlight('dev')} if neither is set
+
+${colors.subtitle('Description Detection:')}
+  ${colors.dim('•')} Uses ${colors.option('--description')} flag if provided
+  ${colors.dim('•')} Falls back to git commit: ${colors.highlight('branch@hash: commit message')}
+  ${colors.dim('•')} Requires git repository if description not provided
+
+${colors.subtitle('What it does:')}
+  ${colors.dim('•')} Creates a deployment update in the updates feed
+  ${colors.dim('•')} Tags with ${colors.highlight('type:deployment')}, ${colors.highlight('app:<app>')}, and ${colors.highlight('env:<environment>')}
+  ${colors.dim('•')} Links test failures to deployments by timestamp
+  ${colors.dim('•')} Helps identify which deployment caused failures
+
+${colors.subtitle('Use Cases:')}
+  ${colors.dim('•')} Track deployments in CI/CD pipelines
+  ${colors.dim('•')} Correlate test failures with deployments
+  ${colors.dim('•')} Monitor deployment history per app and environment
+  ${colors.dim('•')} Debug production issues by linking to specific deploys
+`)
+  .action(async (app, options) => {
+    await deployCommand(app, options)
   })
 
 // Register the version command
