@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.15.0 (2025-10-24)
+
+### New Features
+
+- **Deployment Tracking**: Added new `deploy` command to track deployments and correlate them with test failures. Create deployment updates with automatic git commit info, environment detection, and full integration with the dashboard timeline visualization.
+- **Environment Auto-Detection**: Deploy command automatically detects environment from `--env` flag or `$ENV` variable, defaulting to 'dev' for seamless integration into CI/CD pipelines.
+- **Git Integration**: Automatically extracts deployment description from git commit history (`branch@hash: message`) when description not provided.
+- **Dry Run Mode**: Test deployment updates with `--dry-run` flag before creating them, perfect for validating CI/CD integration.
+
+### Improvements
+
+- **Deployment Correlation**: Link test failures to specific deployments by timestamp to quickly identify which release caused issues.
+
 ## v1.14.3 (2025-10-21)
 
 ### Bug Fixes
