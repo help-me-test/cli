@@ -23,11 +23,7 @@ export default async function mcpCommand(token, options) {
     const { sse = false, port = 31337, verbose = false } = options
     const transport = sse ? 'http' : 'stdio'
 
-    // Override config with command line parameters if provided
-    if (token) {
-      config.apiToken = token
-    }
-
+    // Token is already set in index.js before auth check
     // Validate that we have required configuration
     if (!config.apiToken) {
       output.error('API token is required. Provide it as an argument or set HELPMETEST_API_TOKEN environment variable.')
