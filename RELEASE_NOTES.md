@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.16.0 (2025-10-24)
+
+### New Features
+
+- **AI Debugging Assistant**: Added deployment timeline tool for AI assistants to help identify root causes of failures. When errors occur, AI can now automatically check if they started after a deployment and correlate them with specific releases, dramatically reducing debugging time.
+
+### Bug Fixes
+
+- **MCP Authentication**: Fixed authentication issue where MCP command would fail with "Invalid API token" error even when using a valid token. The token is now properly set before authentication check.
+- **Installation URL**: Corrected installation script URL to use helpmetest.com instead of incorrect domain reference.
+
+### Improvements
+
+- **Code Quality**: Removed duplicate token configuration logic for cleaner, more maintainable codebase.
+
 ## v1.15.0 (2025-10-24)
 
 ### New Features
