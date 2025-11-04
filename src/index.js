@@ -2,14 +2,14 @@
 
 /**
  * HelpMeTest CLI - Main entry point
- * 
+ *
  * This is the main CLI application that provides health check monitoring
  * functionality for the HelpMeTest platform.
  */
 
 // Auto-detect API token from command line arguments
 
-// Load environment variables from .env file  
+// Load environment variables from .env file
 import { Command } from 'commander'
 import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'
@@ -43,6 +43,8 @@ program
   .option('--from-timer <timer>', 'Parse grace period from systemd timer file')
   .option('--dry-run', 'Show what would be sent without actually sending')
   .option('--verbose', 'Show detailed output')
+  .option('--skip-metrics', 'Skip system metrics collection for faster execution')
+  .option('--no-api', 'Skip API heartbeat reporting (for local health checks only)')
   .addHelpText('after', `
 ${colors.subtitle('Detailed Examples:')}
 
@@ -595,6 +597,10 @@ const command = args[0]
 const noAuthCommands = ['version', 'update', 'install', 'metrics', '--version', '-V', '--help', '-h']
 const needsAuth = command && !noAuthCommands.includes(command)
 
+if (process.env.HELPMETEST_DEBUG) {
+  console.error(`[DEBUG] Command: ${command}, needsAuth: ${needsAuth}`)
+}
+
 // For MCP command, token is passed as argument - set it before auth check
 if (command === 'mcp' && args[1] && args[1].startsWith('HELP-')) {
   const { config } = await import('./utils/config.js')
@@ -606,7 +612,8 @@ if (needsAuth) {
   const { detectApiAndAuth } = await import('./utils/api.js')
   const { config } = await import('./utils/config.js')
   try {
-    await detectApiAndAuth()
+    // Use fast-fail mode for CLI commands (3s timeout, no retries)
+    await detectApiAndAuth(false, true)
     if (process.env.HELPMETEST_DEBUG) {
       console.error(`[DEBUG] Global auth completed - API URL is now: ${config.apiBaseUrl}`)
     }

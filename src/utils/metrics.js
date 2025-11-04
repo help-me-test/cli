@@ -133,23 +133,23 @@ const getDiskUsage = () => {
   try {
     let command
     let parseOutput
-    
+
     if (process.platform === 'win32') {
       // Windows: Use wmic to get disk space
       const drive = process.cwd().charAt(0)
       command = `wmic logicaldisk where caption="${drive}:" get size,freespace /value`
       parseOutput = parseWindowsDiskOutput
     } else {
-      // Unix-like systems: Use df command
+      // Unix-like systems: Use df command (fast timeout)
       command = `df -k "${process.cwd()}"`
       parseOutput = parseUnixDiskOutput
     }
-    
-    const output = execSync(command, { encoding: 'utf8', timeout: 5000 })
+
+    const output = execSync(command, { encoding: 'utf8', timeout: 1000 })
     const usage = parseOutput(output)
-    
+
     debug(config, `Disk usage: ${usage.percentage}% (${formatBytes(usage.used)}/${formatBytes(usage.total)})`)
-    
+
     return usage
   } catch (error) {
     debug(config, `Error getting disk usage: ${error.message}`)

@@ -398,7 +398,21 @@ const getTestRuns = async (filters = {}, enableDebug = false) => {
  * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} User data including company information
  */
-const getUserInfo = async (enableDebug = false) => {
+const getUserInfo = async (enableDebug = false, fastFail = false) => {
+  if (fastFail) {
+    // For fast-fail mode (health checks, CLI startup), use minimal retries
+    const { config: currentConfig } = await import('./config.js')
+    const originalRetries = currentConfig.retries
+    const originalTimeout = currentConfig.timeout
+    currentConfig.retries = 0  // No retries
+    currentConfig.timeout = 3000  // 3 second timeout
+    try {
+      return await apiGet('/api/user', {}, 'Getting user information', enableDebug)
+    } finally {
+      currentConfig.retries = originalRetries
+      currentConfig.timeout = originalTimeout
+    }
+  }
   return apiGet('/api/user', {}, 'Getting user information', enableDebug)
 }
 
@@ -414,7 +428,7 @@ let authInitialized = false
  * @param {boolean} enableDebug - Whether to enable debug logging
  * @returns {Promise<Object>} User data including company information
  */
-const detectApiAndAuth = async (enableDebug = false) => {
+const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
   // Return cached user info if already authenticated
   if (authInitialized && cachedUserInfo) {
     if (enableDebug) {
@@ -429,13 +443,25 @@ const detectApiAndAuth = async (enableDebug = false) => {
 
   const { config } = await import('./config.js')
 
-  // Always try helpmetest.com first
+  // If HELPMETEST_API_URL is set, use it directly without fallback
+  if (process.env.HELPMETEST_API_URL) {
+    config.apiBaseUrl = process.env.HELPMETEST_API_URL
+    if (enableDebug || process.env.HELPMETEST_DEBUG) {
+      console.error(`[DEBUG] Using HELPMETEST_API_URL: ${config.apiBaseUrl}`)
+    }
+    const userInfo = await getUserInfo(enableDebug, fastFail)
+    cachedUserInfo = userInfo
+    authInitialized = true
+    return userInfo
+  }
+
+  // Try helpmetest.com first for production
   config.apiBaseUrl = 'https://helpmetest.com'
   try {
     if (enableDebug) {
       debug(config, 'Trying authentication with helpmetest.com')
     }
-    const userInfo = await getUserInfo(enableDebug)
+    const userInfo = await getUserInfo(enableDebug, fastFail)
 
     // Check if we got company info
     if (userInfo.activeCompany || userInfo.companyName) {
@@ -461,10 +487,10 @@ const detectApiAndAuth = async (enableDebug = false) => {
     }
   }
 
-  // Try slava subdomain
+  // Try slava subdomain as fallback
   try {
     config.apiBaseUrl = 'https://slava.helpmetest.com'
-    const userInfo = await getUserInfo(enableDebug)
+    const userInfo = await getUserInfo(enableDebug, fastFail)
 
     if (enableDebug) {
       debug(config, 'Authentication successful with slava.helpmetest.com')

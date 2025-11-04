@@ -11,6 +11,7 @@
  * state, not on the availability of the HelpMeTest API.
  */
 
+import os from 'os'
 import { output } from '../utils/colors.js'
 import { config, configUtils, validateConfiguration } from '../utils/config.js'
 import { collectSystemMetrics } from '../utils/metrics.js'
@@ -36,7 +37,7 @@ import {
  */
 async function healthCommand(name, gracePeriod, command, options) {
   configUtils.debug('Starting health check command')
-  
+
   const startTime = Date.now()
   
   // Execute commands if provided
@@ -125,10 +126,16 @@ async function healthCommand(name, gracePeriod, command, options) {
   try {
     // Step 1: Validate and process arguments
     const processedArgs = await validateAndProcessArguments(name, gracePeriod, options)
-    
-    // Step 2: Collect system metrics
-    const metrics = await collectSystemMetrics()
-    
+
+    // Step 2: Collect system metrics (skip if --skip-metrics flag is set for faster health checks)
+    const metrics = options.skipMetrics ? {
+      hostname: os.hostname(),
+      ip_address: '127.0.0.1',
+      cpu_usage: 0,
+      memory_usage: 0,
+      disk_usage: 0,
+    } : await collectSystemMetrics()
+
     // Step 3: Calculate elapsed time for the health check operation
     const elapsedTime = Date.now() - startTime
     
@@ -140,8 +147,13 @@ async function healthCommand(name, gracePeriod, command, options) {
       displayHealthCheckInfo(processedArgs, heartbeatData, options)
     }
     
-    // Step 6: Send heartbeat (unless dry-run or config invalid)
-    if (!options.dryRun && configValid) {
+    // Step 6: Send heartbeat (unless dry-run, no-api, or config invalid)
+    if (options.api === false) {
+      // Skip API call entirely for fast local health checks
+      if (options.verbose) {
+        output.warning('⚠ Skipping API heartbeat (--no-api flag)')
+      }
+    } else if (!options.dryRun && configValid) {
       // Use a short timeout (3s) to prevent blocking K8s probes
       // K8s probes typically timeout after 5-10s, so we need to fail fast
       const timeoutPromise = new Promise((_, reject) =>
@@ -175,16 +187,19 @@ async function healthCommand(name, gracePeriod, command, options) {
     if (failedCommand) {
       process.exit(failedCommand.exitCode)
     }
-    
+
+    // Success - exit immediately
+    process.exit(0)
+
   } catch (error) {
     // Only fail for non-API errors (validation, system errors, etc.)
     output.error(`⨯ Health check failed: ${error.message}`)
-    
+
     if (options.verbose) {
       output.section('Error Details:')
       console.error(error)
     }
-    
+
     process.exit(1)
   }
 }
