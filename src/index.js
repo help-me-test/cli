@@ -294,7 +294,7 @@ const installCommandGroup = program
 
 installCommandGroup
   .command('mcp')
-  .description('Install MCP (Model Context Protocol) integration for Cursor, VSCode, and Claude')
+  .description('Install MCP (Model Context Protocol) integration for Claude Desktop, Cursor, VSCode, and Claude Code')
   .argument('[token]', 'HelpMeTest API token (optional, uses HELPMETEST_API_TOKEN env var if not provided)')
   .addHelpText('after', `
 ${colors.subtitle('Examples:')}
@@ -302,9 +302,11 @@ ${colors.subtitle('Examples:')}
   ${colors.dim('$')} ${colors.highlight('HELPMETEST_API_TOKEN=HELP-abc123...')} ${colors.command('helpmetest install mcp')} ${colors.dim('# Install using env variable')}
 
 ${colors.subtitle('Supported Editors:')}
+  ${colors.dim('•')} ${colors.key('Claude Desktop')} Creates .mcpb extension file for one-click installation
+  ${colors.dim('•')} ${colors.key('AI Tool')} Creates/updates .mcp.json file in current directory for auto-discovery
   ${colors.dim('•')} ${colors.key('Cursor')}     Creates MCP configuration and opens deeplink for auto-install
   ${colors.dim('•')} ${colors.key('VSCode')}     Creates MCP configuration and opens install URL
-  ${colors.dim('•')} ${colors.key('Claude')}     Automatically runs 'claude mcp add' command
+  ${colors.dim('•')} ${colors.key('Claude Code')}     Automatically runs 'claude mcp add' command
 
 ${colors.subtitle('What it does:')}
   ${colors.dim('•')} Checks which editors are installed (cursor, code, claude binaries)

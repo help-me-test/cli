@@ -1,5 +1,23 @@
 # Release Notes
 
+## v1.17.0 (2025-11-04)
+
+### New Features
+
+- **Claude Desktop Integration**: Added seamless integration with Claude Desktop through .mcpb extension files. Use `helpmetest install mcp` and select "Claude Desktop" to create a one-click installation package that adds HelpMeTest MCP server directly to Claude Desktop.
+- **Universal MCP Config**: New "Other (.mcp.json config)" option creates standard MCP configuration files that AI tools can automatically discover when placed in project folders. Perfect for any AI assistant that supports MCP auto-discovery.
+- **Cross-Platform Claude Detection**: Improved Claude Desktop detection works reliably across macOS, Windows, and Linux using proper Node.js file system APIs instead of shell commands.
+
+### Improvements
+
+- **Enhanced MCP Manifest**: .mcpb files now include comprehensive metadata with proper tool descriptions, keywords, compatibility info, and detailed feature documentation for better discoverability in Claude Desktop's extension marketplace.
+- **Dynamic Version Management**: MCP extension manifests automatically use the correct CLI version from `helpmetest --version`, ensuring consistency between development and compiled binary releases.
+- **Better Installation UX**: Reorganized MCP installation options with Claude Desktop first, followed by Claude Code, VSCode, Cursor, and "Other" for .mcp.json config files.
+
+### Bug Fixes
+
+- **Fast-Fail Health Checks**: Reduced API timeout from 30s to 3s for faster health check responses and better user experience.
+
 ## v1.16.0 (2025-10-24)
 
 ### New Features
