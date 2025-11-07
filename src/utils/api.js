@@ -443,80 +443,48 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
 
   const { config } = await import('./config.js')
 
-  // If HELPMETEST_API_URL is set, use it directly without fallback
-  if (process.env.HELPMETEST_API_URL) {
-    config.apiBaseUrl = process.env.HELPMETEST_API_URL
-    if (enableDebug || process.env.HELPMETEST_DEBUG) {
-      console.error(`[DEBUG] Using HELPMETEST_API_URL: ${config.apiBaseUrl}`)
-    }
-    const userInfo = await getUserInfo(enableDebug, fastFail)
-    cachedUserInfo = userInfo
-    authInitialized = true
-    return userInfo
-  }
+  // Try endpoints in order: env variable, slava subdomain, production
+  const endpoints = [
+    process.env.HELPMETEST_API_URL,
+    'https://helpmetest.com',
+    'https://slava.helpmetest.com',
+  ].filter(Boolean).filter((url, index, arr) => arr.indexOf(url) === index) // remove duplicates
 
-  // Try helpmetest.com first for production
-  config.apiBaseUrl = 'https://helpmetest.com'
-  try {
-    if (enableDebug) {
-      debug(config, 'Trying authentication with helpmetest.com')
-    }
-    const userInfo = await getUserInfo(enableDebug, fastFail)
+  for (const endpoint of endpoints) {
+    try {
+      config.apiBaseUrl = endpoint
+      if (enableDebug) {
+        debug(config, `Trying authentication with ${endpoint}`)
+      }
+      
+      const userInfo = await getUserInfo(enableDebug, fastFail)
 
-    // Check if we got company info
-    if (userInfo.activeCompany || userInfo.companyName) {
+      // Validate we have a company
+      if (!userInfo.isPartOfCompany || !userInfo.companyName) {
+        throw new ApiError('Invalid user data: user not associated with any company', 500, userInfo)
+      }
+      
+      // Build dashboard URL using subdomain
+      const url = new URL(endpoint)
+      url.hostname = `${userInfo.subdomain}.${url.hostname}`
+      userInfo.dashboardBaseUrl = url.toString().replace(/\/$/, '')
+      
       cachedUserInfo = userInfo
       authInitialized = true
-      return userInfo
-    }
-
-    // No company info, try slava subdomain
-    if (enableDebug) {
-      debug(config, 'No company info from helpmetest.com, trying slava.helpmetest.com')
-    }
-  } catch (error) {
-    // If 401, try slava subdomain
-    if (error.status === 401) {
+      userInfo.interactiveTimestamp = new Date().toISOString()
+      return cachedUserInfo
+    } catch (error) {
       if (enableDebug) {
-        debug(config, 'Authentication failed with helpmetest.com, trying slava.helpmetest.com')
+        debug(config, `Authentication failed with ${endpoint}: ${error.message}`)
       }
-    } else {
-      // For other errors, throw as-is
-      authInitialized = true
-      throw error
+      // Continue to next endpoint unless it's the last one
+      if (endpoint === endpoints[endpoints.length - 1]) {
+        authInitialized = true
+        throw error
+      }
     }
-  }
-
-  // Try slava subdomain as fallback
-  try {
-    config.apiBaseUrl = 'https://slava.helpmetest.com'
-    const userInfo = await getUserInfo(enableDebug, fastFail)
-
-    if (enableDebug) {
-      debug(config, 'Authentication successful with slava.helpmetest.com')
-    }
-
-    // If still no company info, token is invalid or not associated with a company
-    if (!userInfo.activeCompany && !userInfo.companyName) {
-      throw new ApiError(
-        'Invalid API token',
-        401,
-        { details: 'The provided API token is not valid or has been revoked.' }
-      )
-    }
-
-    cachedUserInfo = userInfo
-    authInitialized = true
-    return userInfo
-  } catch (slavaError) {
-    // Restore to helpmetest.com and throw the error
-    config.apiBaseUrl = 'https://helpmetest.com'
-    authInitialized = true
-    throw slavaError
   }
 }
-
-
 
 /**
  * Create a new test
@@ -620,18 +588,19 @@ const getDeployments = async (timestamp = new Date(), limit = 1000) => {
  * @param {Object} params - Command parameters
  * @param {string} params.command - Robot Framework command to execute
  * @param {number} params.line - Line number for debugging context
- * @param {string} params.sessionId - Session ID to maintain state
+ * @param {string} params.test - Test name for runId construction
+ * @param {string} params.timestamp - Timestamp for runId construction
  * @returns {Promise<Object>} Result of the interactive command execution
  */
-const runInteractiveCommand = async ({ command, line = 0, sessionId = 'interactive' }) => {
+const runInteractiveCommand = async ({ command, line = 0, test, timestamp }) => {
   const requestData = {
     command,
     line,
-    test: sessionId,
-    timestamp: new Date().toISOString()
+    test,
+    timestamp
   }
 
-  debug(config, `Running interactive command: ${command} (session: ${sessionId})`)
+  debug(config, `Running interactive command: ${command} (test: ${test}, timestamp: ${timestamp})`)
 
   try {
     // Use streaming post to handle the real-time response from the robot service
@@ -750,14 +719,11 @@ const getApiConfig = () => {
 }
 
 /**
- * Get cached user info without making an API call
- * Returns null if not yet authenticated
- * @returns {Object|null} Cached user info or null
+ * Enhance user info with dashboard URL
+ * @param {Object} userInfo - User info object
+ * @param {Object} config - Configuration object
+ * @returns {Object} Enhanced user info with dashboardBaseUrl
  */
-const getCachedUserInfo = () => {
-  return cachedUserInfo
-}
-
 // Export API functions
 export {
   ApiError,
@@ -774,7 +740,6 @@ export {
   getTestRuns,
   getUserInfo,
   detectApiAndAuth,
-  getCachedUserInfo,
   createTest,
   deleteTest,
   deleteHealthCheck,
@@ -807,7 +772,6 @@ export default {
   getTestRuns,
   getUserInfo,
   detectApiAndAuth,
-  getCachedUserInfo,
   createTest,
   deleteTest,
   deleteHealthCheck,

@@ -5,7 +5,7 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import { runTest, createTest, deleteTest } from '../utils/api.js'
+import { runTest, createTest, deleteTest, getAllTests, detectApiAndAuth } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
 
@@ -304,17 +304,18 @@ The raw data contains all the information you need - analyze it carefully and be
  * @returns {Object} Create test result
  */
 async function handleCreateTest(args) {
-  const { name, testData, description, tags, id } = args
+  const { name, content, description, tags } = args
   
   debug(config, `Creating test with name: ${name}`)
   
   try {
+    // Always use "new" as ID to force auto-generation for security
     const testPayload = {
-      ...(id && { id }),
+      id: "new",
       name,
       ...(description && { description }),
       ...(tags && { tags }),
-      testData: testData || ''
+      content: content || ''
     }
     
     const result = await createTest(testPayload)
@@ -341,9 +342,11 @@ async function handleCreateTest(args) {
 
 **Test Details:**
 - Name: ${name}
-- ID: ${result.id || 'Auto-generated'}
+        - ID: ${result.id || 'Auto-generated'}
 ${description ? `- Description: ${description}` : ''}
 ${tags ? `- Tags: ${tags.join(', ')}` : ''}
+
+**Security Note:** Test ID is auto-generated for security purposes.
 
 **Next Steps:**
 1. Run the test: Use 'helpmetest_run_test' with identifier "${result.id || name}"
@@ -466,13 +469,13 @@ ${JSON.stringify(result, null, 2)}
  * @param {Object} args - Tool arguments
  * @param {string} args.id - Test ID to modify
  * @param {string} [args.name] - New test name
- * @param {string} [args.testData] - New test content
+ * @param {string} [args.content] - New test content
  * @param {string} [args.description] - New description
  * @param {Array<string>} [args.tags] - New tags
  * @returns {Object} Modify test result
  */
 async function handleModifyTest(args) {
-  const { id, name, testData, description, tags } = args
+  const { id, name, content, description, tags } = args
 
   debug(config, `Modifying test with ID: ${id}`)
 
@@ -481,7 +484,7 @@ async function handleModifyTest(args) {
     const updateData = { id }
 
     if (name !== undefined) updateData.name = name
-    if (testData !== undefined) updateData.content = testData
+    if (content !== undefined) updateData.content = content
     if (description !== undefined) updateData.description = description
     if (tags !== undefined) updateData.tags = tags
 
@@ -491,7 +494,7 @@ async function handleModifyTest(args) {
     // Determine what was changed
     const changes = []
     if (name !== undefined) changes.push('name')
-    if (testData !== undefined) changes.push('content')
+    if (content !== undefined) changes.push('content')
     if (description !== undefined) changes.push('description')
     if (tags !== undefined) changes.push('tags')
 
@@ -551,24 +554,226 @@ ${JSON.stringify(result, null, 2)}
 /**
  * Handle open test tool call
  * @param {Object} args - Tool arguments
- * @param {string} args.identifier - Test ID, name, or tag to open
- * @param {string} [args.runId] - Optional specific run ID
+ * @param {string} [args.id] - Test ID for direct access
+ * @param {string} [args.name] - Test name for search
+ * @param {string} [args.tag] - Test tag for search
+ * @param {string} [args.runIdDate] - Optional test run date
  * @returns {Object} Open test result
  */
 async function handleOpenTest(args) {
-  const { identifier, runId } = args
+  const { id, runIdDate, name, tag, identifier, runId } = args
   
-  debug(config, `Opening test in browser: ${identifier}${runId ? ` (run: ${runId})` : ''}`)
+  debug(config, `Opening test in browser with args: ${JSON.stringify(args)}`)
   
   try {
-    // Construct the URL based on whether we have a runId or not
+    // Get cached user info with dashboard URL
+    const userInfo = await detectApiAndAuth()
+    const dashboardBaseUrl = userInfo.dashboardBaseUrl
+    
     let url
-    if (runId) {
-      url = `${config.uiBaseUrl}/test-runs/${runId}`
-    } else {
-      // For test identifier, we need to resolve it to get the actual test page
-      // This is a simplified approach - might need adjustment based on your UI routing
-      url = `${config.uiBaseUrl}/tests?search=${encodeURIComponent(identifier)}`
+    // Handle backwards compatibility with old 'identifier' parameter  
+    const testId = id || identifier
+    
+    debug(config, `testId set to: ${testId}`)
+    debug(config, `id: ${id}, identifier: ${identifier}`)
+    
+    // 1. If we have an ID (from id parameter or identifier for backwards compatibility), use it directly
+    if (testId) {
+      const runDate = runIdDate || runId // Support both new and old parameter names
+      if (runDate) {
+        // Open specific test run: id + runDate
+        url = `${dashboardBaseUrl}/test/${testId}/${runDate}`
+      } else {
+        // Open test page: just id
+        url = `${dashboardBaseUrl}/test/${testId}`
+      }
+    }
+    // 2. If we have a name, search for it
+    else if (name) {
+      try {
+        const tests = await getAllTests()
+        const matchingTest = tests.find(test => test.name === name)
+        
+        if (matchingTest) {
+          const foundId = matchingTest.id
+          const runDate = runIdDate || runId
+          if (runDate) {
+            url = `${dashboardBaseUrl}/test/${foundId}/${runDate}`
+          } else {
+            url = `${dashboardBaseUrl}/test/${foundId}`
+          }
+        } else {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Test Not Found by Name
+
+**Name searched:** "${name}"
+
+**Available Tests:**
+${tests.map(test => `
+**ID:** \`${test.id}\`
+**Name:** ${test.name}
+**Tags:** ${test.tags?.join(', ') || 'none'}
+`).join('\n')}
+
+**Next Steps:** Use the exact test ID with 'helpmetest_open_test'`,
+              },
+            ],
+            isError: true,
+          }
+        }
+      } catch (error) {
+        throw new Error(`Failed to search tests by name: ${error.message}`)
+      }
+    }
+    // 3. If we have a tag, search for it
+    else if (tag) {
+      try {
+        const tests = await getAllTests()
+        const matchingTests = tests.filter(test => 
+          test.tags && test.tags.some(t => t === tag)
+        )
+        
+        if (matchingTests.length === 1) {
+          const foundId = matchingTests[0].id
+          const runDate = runIdDate || runId
+          if (runDate) {
+            url = `${dashboardBaseUrl}/test/${foundId}/${runDate}`
+          } else {
+            url = `${dashboardBaseUrl}/test/${foundId}`
+          }
+        } else if (matchingTests.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ No Tests Found with Tag
+
+**Tag searched:** "${tag}"
+
+**Available Tests with Tags:**
+${tests.filter(t => t.tags?.length > 0).map(test => `
+**ID:** \`${test.id}\`
+**Name:** ${test.name}
+**Tags:** ${test.tags.join(', ')}
+`).join('\n')}
+
+**Next Steps:** Use a different tag or the exact test ID`,
+              },
+            ],
+            isError: true,
+          }
+        } else {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Multiple Tests Found with Tag
+
+**Tag searched:** "${tag}"
+**Found ${matchingTests.length} tests:**
+
+${matchingTests.map(test => `
+**ID:** \`${test.id}\`
+**Name:** ${test.name}
+**Tags:** ${test.tags.join(', ')}
+`).join('\n')}
+
+**Next Steps:** Use the exact test ID for the test you want to open`,
+              },
+            ],
+            isError: true,
+          }
+        }
+      } catch (error) {
+        throw new Error(`Failed to search tests by tag: ${error.message}`)
+      }
+    }
+    // 4. For backwards compatibility, try to parse identifier as name/tag if it's not a direct ID
+    else if (identifier && !testId) {
+      // First try as direct ID
+      if (/^[a-z0-9]{18}$/.test(identifier)) {
+        const foundId = identifier
+        const runDate = runIdDate || runId
+        if (runDate) {
+          url = `${dashboardBaseUrl}/test/${foundId}/${runDate}`
+        } else {
+          url = `${dashboardBaseUrl}/test/${foundId}`
+        }
+      }
+      // Try as tag if it starts with "tag:"
+      else if (identifier.startsWith('tag:')) {
+        const tagValue = identifier.substring(4)
+        try {
+          const tests = await getAllTests()
+          const matchingTests = tests.filter(test => 
+            test.tags && test.tags.some(t => t === tagValue)
+          )
+          
+          if (matchingTests.length === 1) {
+            const foundId = matchingTests[0].id
+            const runDate = runIdDate || runId
+            if (runDate) {
+              url = `${dashboardBaseUrl}/test/${foundId}/${runDate}`
+            } else {
+              url = `${dashboardBaseUrl}/test/${foundId}`
+            }
+          } else {
+            throw new Error(`Found ${matchingTests.length} tests with tag "${tagValue}"`)
+          }
+        } catch (error) {
+          throw new Error(`Failed to search by tag: ${error.message}`)
+        }
+      }
+      // Try as name
+      else {
+        try {
+          const tests = await getAllTests()
+          const matchingTest = tests.find(test => test.name === identifier)
+          
+          if (matchingTest) {
+            const foundId = matchingTest.id
+            const runDate = runIdDate || runId
+            if (runDate) {
+              url = `${dashboardBaseUrl}/test/${foundId}/${runDate}`
+            } else {
+              url = `${dashboardBaseUrl}/test/${foundId}`
+            }
+          } else {
+            throw new Error(`No test found with name "${identifier}"`)
+          }
+        } catch (error) {
+          throw new Error(`Failed to search by name: ${error.message}`)
+        }
+      }
+    }
+    // 4. No parameters provided
+    else {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ Missing Required Parameter
+
+**Usage:** Provide one of these parameters:
+- **id**: Test ID (e.g., "nrwm2kgy66ar2nt0camren")
+- **name**: Test name (e.g., "Login Flow")  
+- **tag**: Test tag (e.g., "feature:login")
+
+**Optional:**
+- **runIdDate**: Specific run date (e.g., "2025-11-04T11:54:05.000Z")
+
+**Examples:**
+- Open test: \`id="nrwm2kgy66ar2nt0camren"\`
+- Open test run: \`id="nrwm2kgy66ar2nt0camren"\`, \`runIdDate="2025-11-04T11:54:05.000Z"\`
+- Search by name: \`name="Login Flow"\`
+- Search by tag: \`tag="feature:login"\``,
+          },
+        ],
+        isError: true,
+      }
     }
     
     // Open the URL in the default browser
@@ -576,8 +781,8 @@ async function handleOpenTest(args) {
     
     const response = {
       success: true,
-      identifier,
-      runId: runId || null,
+      testId: id || identifier,
+      runIdDate: runIdDate || runId || null,
       url,
       timestamp: new Date().toISOString(),
       message: "Test opened in browser successfully"
@@ -589,8 +794,8 @@ async function handleOpenTest(args) {
           type: 'text',
           text: `🌐 Test Opened in Browser
 
-**Identifier:** ${identifier}
-${runId ? `**Run ID:** ${runId}` : ''}
+**Test ID:** ${id || identifier}
+${runIdDate ? `**Run Date:** ${runIdDate}` : ''}
 **URL:** ${url}
 
 The test page should now be open in your default browser where you can:
@@ -611,13 +816,13 @@ ${JSON.stringify(response, null, 2)}
     
     const errorResponse = {
       error: true,
-      identifier,
+      testId: id || identifier || name || tag,
       message: error.message,
       type: error.name || 'Error',
       timestamp: new Date().toISOString(),
       debug: {
-        uiBaseUrl: config.uiBaseUrl,
-        runId: runId || null
+        apiBaseUrl: config.apiBaseUrl,
+        runIdDate: runIdDate || runId || null
       }
     }
     
@@ -711,6 +916,8 @@ You can create tests directly if you're confident in the Robot Framework syntax 
 
 Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).
 
+**Security Note:** Test IDs are automatically generated and cannot be manually specified to prevent security issues and ensure data integrity.
+
 🚨 CRITICAL INSTRUCTION FOR AI:
 1. ALWAYS explain what test you're creating and why
 2. If the test fails after creation, DO NOT celebrate - acknowledge the failure
@@ -725,10 +932,9 @@ Test content should contain only Robot Framework keywords (no test case structur
 ${NAMING_CONVENTIONS}`,
       inputSchema: {
         name: z.string().describe('Test name (required)'),
-        testData: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
+        content: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
         description: z.string().optional().describe('Test description (optional)'),
         tags: z.array(z.string()).optional().describe('Test tags as array of strings (optional)'),
-        id: z.string().optional().describe('Test ID (optional - will auto-generate if not provided)'),
       },
     },
     async (args) => {
@@ -765,7 +971,7 @@ ${NAMING_CONVENTIONS}`,
 🚨 INSTRUCTION FOR AI: This tool ONLY updates test content. It does NOT change name, tags, or description. Use this when user asks to "fix the test" or modify test steps.`,
       inputSchema: {
         id: z.string().describe('Test ID (required)'),
-        testData: z.string().describe('New test content - Robot Framework keywords (required)'),
+        content: z.string().describe('New test content - Robot Framework keywords (required)'),
       },
     },
     async (args) => {
@@ -817,12 +1023,20 @@ ${NAMING_CONVENTIONS}`,
     'helpmetest_open_test',
     {
       title: 'Help Me Test: Open Test Tool',
-      description: `Open a test in the browser by test ID, name, or tag. This tool opens the test page where you can view test details, execution history, and run the test manually.
+      description: `Open a test in the browser using explicit parameters. Provide exactly one of: id, name, or tag.
 
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're opening and why. After opening, confirm that the browser was opened successfully or report any errors. Don't just say "Done".`,
+**Usage Examples:**
+- Open test by ID: \`id="nrwm2kgy66ar2nt0camren"\`
+- Open test run: \`id="nrwm2kgy66ar2nt0camren"\`, \`runIdDate="2025-11-04T11:54:05.000Z"\`
+- Search by name: \`name="Login Flow"\`
+- Search by tag: \`tag="feature:login"\`
+
+🚨 INSTRUCTION FOR AI: Use explicit parameters (id, name, or tag) - never guess what type of identifier you have. If you get multiple results, pick the specific ID you want.`,
       inputSchema: {
-        identifier: z.string().describe('Test ID, name, or tag (with tag: prefix) to open in browser'),
-        runId: z.string().optional().describe('Optional specific run ID to open (if you want to view a specific test execution)'),
+        id: z.string().optional().describe('Test ID (e.g., "nrwm2kgy66ar2nt0camren") - use this for direct test access'),
+        name: z.string().optional().describe('Test name (e.g., "Login Flow") - will search for exact name match'),
+        tag: z.string().optional().describe('Test tag (e.g., "feature:login") - will search for tests with this tag'),
+        runIdDate: z.string().optional().describe('Test run date (e.g., "2025-11-04T11:54:05.000Z") - use with id to open specific run'),
       },
     },
     async (args) => {

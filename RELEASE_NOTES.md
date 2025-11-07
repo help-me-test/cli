@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.18.0 (2025-11-07)
+
+### New Features
+
+- **Enhanced Interactive Debugging**: Interactive sessions now persist across commands using timestamps, allowing you to debug complex flows step-by-step without losing context. Robot Framework streaming results are analyzed in real-time to provide immediate success/failure feedback.
+- **Security-First Test Creation**: Test IDs are now automatically generated and cannot be manually specified, preventing security issues and ensuring data integrity across all test operations.
+
+### Improvements
+
+- **Intelligent API Authentication**: Multi-endpoint authentication automatically tries production first, then falls back to development environments, ensuring reliable connections without manual configuration.
+- **Explicit Test Opening**: Opening tests now supports explicit parameters (id, name, tag) with clear error messages when multiple matches are found, eliminating ambiguity and improving user experience.
+- **Better Error Analysis**: Interactive commands now extract useful content from Robot Framework results including page content, browser info, and errors, providing richer debugging information.
+- **Dashboard URL Generation**: Test URLs are automatically constructed using the correct subdomain for your company, ensuring links always work regardless of environment.
+
 ## v1.17.0 (2025-11-04)
 
 ### New Features

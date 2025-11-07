@@ -5,43 +5,89 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import { runInteractiveCommand, apiGet } from '../utils/api.js'
+import { runInteractiveCommand, apiGet, detectApiAndAuth } from '../utils/api.js'
 
 /**
- * Interactive session management
+ * Analyze Robot Framework streaming result to determine success/failure
+ * @param {Array} result - Array of Robot Framework execution events
+ * @returns {boolean} True if the command succeeded
  */
-const interactiveSessions = new Map()
-
-/**
- * Get or create an interactive session ID
- * @param {string} providedSessionId - Optional session ID provided by user
- * @returns {Promise<string>} The session ID to use
- */
-async function getInteractiveSessionId(providedSessionId) {
-  if (providedSessionId && providedSessionId !== 'interactive') {
-    return providedSessionId
+function analyzeRobotFrameworkResult(result) {
+  if (!Array.isArray(result) || result.length === 0) {
+    return false
   }
   
-  // Check if we have an existing interactive session
-  const existingSession = Array.from(interactiveSessions.keys()).find(id =>
-    id === 'interactive'
-  )
-
-  if (existingSession) {
-    return existingSession
+  // Look for keyword execution events - we want the final status
+  let finalStatus = null
+  let hasKeywordEvents = false
+  
+  for (const event of result) {
+    if (event.type === 'keyword' && event.keyword && event.status) {
+      hasKeywordEvents = true
+      finalStatus = event.status
+      
+      // If we find a FAIL status, immediately return false
+      if (event.status === 'FAIL') {
+        return false
+      }
+    }
   }
+  
+  // If we found keyword events, check the final status
+  if (hasKeywordEvents) {
+    return finalStatus === 'PASS' || finalStatus === 'NOT SET'
+  }
+  
+  // If no keyword events found, assume success (for informational commands)
+  return true
+}
 
-  // Create new interactive session ID
-  // Server will construct runId as: {company}__{test}__{timestamp}
-  const sessionId = 'interactive'
-
-  // Store the session
-  interactiveSessions.set(sessionId, {
-    created: new Date(),
-    lastUsed: new Date()
-  })
-
-  return sessionId
+/**
+ * Extract useful content from Robot Framework streaming result
+ * @param {Array} result - Array of Robot Framework execution events
+ * @returns {Object} Extracted content including output, errors, page content, etc.
+ */
+function extractContentFromResult(result) {
+  if (!Array.isArray(result)) {
+    return {}
+  }
+  
+  const extracted = {
+    output: null,
+    error: null,
+    pageContent: null,
+    browserInfo: null,
+    elapsedTime: null
+  }
+  
+  for (const event of result) {
+    // Extract page content
+    if (event.type === 'ExtractReadableContent' && event.content) {
+      extracted.pageContent = event.content
+    }
+    
+    // Extract browser information
+    if (event.type === 'GetAllTabsInfo' && event.browser_catalog) {
+      const activePage = event.browser_catalog[0]?.contexts?.[0]?.pages?.find(p => 
+        p.type === 'page'
+      )
+      if (activePage) {
+        extracted.browserInfo = `${activePage.title} (${activePage.url})`
+      }
+    }
+    
+    // Extract elapsed time
+    if (event.elapsed_time || event.elapsedtime) {
+      extracted.elapsedTime = event.elapsed_time || event.elapsedtime
+    }
+    
+    // Look for any error information
+    if (event.error || event.message) {
+      extracted.error = event.error || event.message
+    }
+  }
+  
+  return extracted
 }
 
 /**
@@ -57,17 +103,13 @@ async function handleRunInteractiveCommand(args) {
   debug(config, `Running interactive command: ${command}`)
   
   try {
-    // Get or create session ID
-    const sessionId = await getInteractiveSessionId('interactive')
+    // Get user info (memoized - will call detectApiAndAuth if not cached)
+    const userInfo = await detectApiAndAuth()
     
-    // Update session last used time
-    if (interactiveSessions.has(sessionId)) {
-      interactiveSessions.get(sessionId).lastUsed = new Date()
-    }
-    
-    // Execute the command
+    // Execute the command with the same timestamp for session persistence
     const result = await runInteractiveCommand({
-      sessionId,
+      test: 'interactive',
+      timestamp: userInfo.interactiveTimestamp,
       command,
       line
     })
@@ -76,16 +118,13 @@ async function handleRunInteractiveCommand(args) {
     
     // Check if this is an Exit command
     if (command.toLowerCase().trim() === 'exit') {
-      // Clean up the session
-      interactiveSessions.delete(sessionId)
-      
       return {
         content: [
           {
             type: 'text',
             text: `🏁 Interactive Session Ended
 
-**Session:** ${sessionId}
+**Run ID:** ${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}
 **Status:** Successfully terminated
 
 The interactive debugging session has been closed. All browser state and session data have been cleared.
@@ -105,7 +144,7 @@ ${JSON.stringify(result, null, 2)}
     
     // Format the response for better readability
     const response = {
-      sessionId,
+      runId: `${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}`,
       command,
       line,
       result,
@@ -113,35 +152,45 @@ ${JSON.stringify(result, null, 2)}
       sessionActive: true
     }
     
+    // Analyze the streaming result to determine success/failure
+    // The result is an array of Robot Framework execution events
+    const isSuccess = analyzeRobotFrameworkResult(result)
+    const extractedContent = extractContentFromResult(result)
+    
     // Create user-friendly explanation
     let explanation = `🤖 Interactive Command Executed
 
-**Session:** ${sessionId}
+**Run ID:** ${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}
 **Command:** \`${command}\`
 ${line > 0 ? `**Line:** ${line}` : ''}
 
 **Result:**`
     
-    if (result.success) {
+    if (isSuccess) {
       explanation += `
 ✅ **SUCCESS** - Command executed successfully`
       
-      if (result.output) {
+      if (extractedContent.output) {
         explanation += `
-**Output:** ${result.output}`
+**Output:** ${extractedContent.output}`
       }
       
-      if (result.screenshot) {
+      if (extractedContent.pageContent) {
         explanation += `
-📸 **Screenshot:** Available (${result.screenshot})`
+� **Page Content:** Successfully extracted (${extractedContent.pageContent.length} chars)`
+      }
+      
+      if (extractedContent.browserInfo) {
+        explanation += `
+🌐 **Browser:** ${extractedContent.browserInfo}`
       }
     } else {
       explanation += `
 ❌ **FAILED** - Command execution failed`
       
-      if (result.error) {
+      if (extractedContent.error) {
         explanation += `
-**Error:** ${result.error}`
+**Error:** ${extractedContent.error}`
       }
       
       explanation += `
@@ -178,7 +227,7 @@ ${JSON.stringify(response, null, 2)}
           text: explanation,
         },
       ],
-      isError: !result.success,
+      isError: !isSuccess,
     }
     
   } catch (error) {
