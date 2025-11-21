@@ -206,7 +206,6 @@ ${line > 0 ? `**Line:** ${line}` : ''}
     explanation += `
 
 **Session Status:** Active - you can continue testing more commands
-**Exit Session:** Use command 'Exit' when you're done
 
 **Raw Response:**
 \`\`\`json
@@ -218,7 +217,7 @@ ${JSON.stringify(response, null, 2)}
 2. **DEBUG FAILURES** - If the command failed, help identify why and suggest fixes
 3. **CONTINUE TESTING** - This is interactive development - keep testing more steps
 4. **BUILD COMPLETE SEQUENCES** - Test your full workflow step by step
-5. **ONLY EXIT** when you have a complete working sequence ready for test creation`
+5. **SESSION STAYS ACTIVE** - The session remains active for continued testing`
     
     return {
       content: [
@@ -342,8 +341,7 @@ This tool is ABSOLUTELY REQUIRED before creating or modifying any tests. Execute
 4. If ANY step fails, debug it until it works
 5. Build up the complete sequence step by step
 6. Continue testing until you have a COMPLETE WORKING sequence
-7. Use "Exit" command ONLY when completely finished debugging (session will be lost)
-8. ONLY THEN create or modify tests
+7. ONLY THEN create or modify tests
 
 🚨 MANDATORY VERIFICATION PROCESS:
 - Test navigation works
@@ -352,15 +350,16 @@ This tool is ABSOLUTELY REQUIRED before creating or modifying any tests. Execute
 - Test the complete flow from start to finish
 - Fix any failures before proceeding
 
-IMPORTANT: Interactive sessions maintain browser state between commands. You can continue adding commands to test more steps. Only use "Exit" when you are completely done debugging and ready to create/modify the test.
+IMPORTANT: Interactive sessions maintain browser state between commands. You can continue adding commands to test more steps until you have a complete working sequence ready for test creation.
 
-🚨 CRITICAL INSTRUCTION FOR AI: 
+🚨 CRITICAL INSTRUCTION FOR AI:
 1. ALWAYS explain what command you are executing and why BEFORE calling this tool
 2. ALWAYS analyze the response carefully - look for actual errors or failures
 3. DO NOT proceed to next step if current step failed
 4. DO NOT create tests until you have verified the complete working sequence
 5. BE METHODICAL - test one thing at a time
 6. If something fails, debug it before moving forward
+7. Sessions remain active - continue testing until you have a complete working flow
 
 Example:
 "Now I'll test clicking the login button to see if it navigates to the dashboard:"

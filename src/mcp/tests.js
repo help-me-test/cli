@@ -908,7 +908,7 @@ You MUST use interactive development before creating tests. This is not optional
    - Verify results: \`Get Text h1\`, \`Should Contain text\`
    - Build up your complete flow step by step
    - VERIFY each step works before moving to next
-   - Use \`Exit\` when you have a COMPLETE WORKING sequence
+   - Continue testing until you have a COMPLETE WORKING sequence
 4. \`helpmetest_create_test\` - Create the test with your PROVEN sequence
 
 **Direct Usage (NOT RECOMMENDED):**
