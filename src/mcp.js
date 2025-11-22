@@ -24,6 +24,8 @@ import { registerTestTools } from './mcp/tests.js'
 import { registerStatusTools } from './mcp/status.js'
 import { registerInteractiveTools } from './mcp/interactive.js'
 import { registerManagementTools } from './mcp/management.js'
+import { registerExploratoryTools } from './mcp/exploratory.js'
+import { registerArtifactTools } from './mcp/artifacts.js'
 
 /**
  * Log MCP messages to file for debugging
@@ -111,6 +113,12 @@ export function createMcpServer(options = {}) {
   
   debug(config, 'Registering Management tools...')
   registerManagementTools(server)
+
+  debug(config, 'Registering Exploratory tools...')
+  registerExploratoryTools(server)
+
+  debug(config, 'Registering Artifact tools...')
+  registerArtifactTools(server)
 
   debug(config, 'All MCP tools registered successfully')
   
