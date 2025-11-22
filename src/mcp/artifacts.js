@@ -26,7 +26,7 @@ const ARTIFACT_TYPES = [
 /**
  * List artifacts with optional filters
  */
-async function listArtifacts(args) {
+export async function listArtifacts(args) {
   const { type, tags, search, matchAll } = args
 
   await detectApiAndAuth()
@@ -67,7 +67,7 @@ ${JSON.stringify(data, null, 2)}
 /**
  * Get a specific artifact by ID
  */
-async function getArtifact(args) {
+export async function getArtifact(args) {
   const { id, includeLinked } = args
 
   await detectApiAndAuth()
@@ -99,7 +99,7 @@ ${JSON.stringify(data, null, 2)}
 /**
  * Create or update an artifact
  */
-async function upsertArtifact(args) {
+export async function upsertArtifact(args) {
   const { id, name, type, content, tags } = args
 
   await detectApiAndAuth()
