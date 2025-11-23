@@ -6,7 +6,6 @@
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
-import { getArtifact, upsertArtifact } from './artifacts.js'
 
 /**
  * Priority levels for testing
@@ -31,65 +30,55 @@ const PRIORITY_MAP = {
 
 /**
  * Get or create exploratory testing artifact for a URL
- * Uses MCP artifact tool handlers directly
+ * Uses API directly instead of MCP handlers
  */
 async function getOrCreateArtifact(url) {
+  const { apiGet, apiPost, detectApiAndAuth } = await import('../utils/api.js')
+
+  await detectApiAndAuth()
+
   const artifactId = `exploratory-${url.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`
 
   debug(config, `Looking for artifact: ${artifactId}`)
 
   try {
-    // Call getArtifact handler directly
-    const result = await getArtifact({ id: artifactId })
-    // Parse the JSON response from the handler
-    const jsonMatch = result.content[0].text.match(/```json\n([\s\S]*?)\n```/)
-    if (jsonMatch) {
-      const data = JSON.parse(jsonMatch[1])
-      debug(config, `Found existing artifact: ${artifactId}`)
-      return data.artifact
-    }
-    throw new Error('Invalid response format')
+    const data = await apiGet(`/api/artifacts/${artifactId}`)
+    debug(config, `Found existing artifact: ${artifactId}`)
+    return data.artifact
   } catch (error) {
     debug(config, `Artifact not found, creating new: ${artifactId}`)
 
-    // Call upsertArtifact handler directly
-    const result = await upsertArtifact({
+    const payload = {
       id: artifactId,
       name: `Exploratory Testing: ${url}`,
       type: 'exploratory-testing',
       content: {
         url,
         testedUseCases: [],
+        testResults: [],
         bugs: [],
         lastUpdated: new Date().toISOString()
       },
       tags: ['exploratory-testing', `url:${new URL(url).hostname}`]
-    })
-
-    // Parse the JSON response
-    const jsonMatch = result.content[0].text.match(/```json\n([\s\S]*?)\n```/)
-    if (jsonMatch) {
-      const data = JSON.parse(jsonMatch[1])
-      debug(config, `Created artifact: ${artifactId}`)
-      return data.artifact
     }
-    throw new Error('Invalid response format')
+
+    const data = await apiPost('/api/artifacts', payload)
+    debug(config, `Created artifact: ${artifactId}`)
+    return data.artifact
   }
 }
 
 /**
  * Update exploratory testing artifact
- * Uses MCP artifact tool handlers directly
+ * Uses API directly
  */
 async function updateExploratoryArtifact(artifactId, updates) {
+  const { apiGet, apiPost } = await import('../utils/api.js')
+
   debug(config, `Updating artifact: ${artifactId}`)
 
-  // Get current artifact using handler
-  const getResult = await getArtifact({ id: artifactId })
-  const getJsonMatch = getResult.content[0].text.match(/```json\n([\s\S]*?)\n```/)
-  if (!getJsonMatch) throw new Error('Invalid response format')
-
-  const getData = JSON.parse(getJsonMatch[1])
+  // Get current artifact
+  const getData = await apiGet(`/api/artifacts/${artifactId}`)
   const artifact = getData.artifact
 
   const updatedContent = {
@@ -98,19 +87,16 @@ async function updateExploratoryArtifact(artifactId, updates) {
     lastUpdated: new Date().toISOString()
   }
 
-  // Update using handler
-  const updateResult = await upsertArtifact({
+  // Update using API
+  const payload = {
     id: artifactId,
     name: artifact.name,
     type: artifact.type,
     content: updatedContent,
     tags: artifact.tags
-  })
+  }
 
-  const updateJsonMatch = updateResult.content[0].text.match(/```json\n([\s\S]*?)\n```/)
-  if (!updateJsonMatch) throw new Error('Invalid response format')
-
-  const updateData = JSON.parse(updateJsonMatch[1])
+  const updateData = await apiPost('/api/artifacts', payload)
   return updateData.artifact
 }
 
@@ -119,6 +105,7 @@ async function updateExploratoryArtifact(artifactId, updates) {
  */
 function generateTestingSummary(artifact, url) {
   const testedUseCases = artifact.content.testedUseCases || []
+  const testResults = artifact.content.testResults || []
   const bugs = artifact.content.bugs || []
 
   // Categorize tested use cases by priority
@@ -130,19 +117,27 @@ function generateTestingSummary(artifact, url) {
   }
 
   testedUseCases.forEach(uc => {
+    // Find corresponding test result
+    const testResult = testResults.find(tr => tr.useCase === uc)
+    const status = testResult ? (testResult.passed ? '✅' : '❌') : '⚪'
+
     const ucLower = uc.toLowerCase()
+    const displayText = `${status} ${uc}`
+
     if (ucLower.includes('payment') || ucLower.includes('billing') || ucLower.includes('stripe') || ucLower.includes('checkout')) {
-      categorized.critical.push(uc)
+      categorized.critical.push(displayText)
     } else if (ucLower.includes('signup') || ucLower.includes('login') || ucLower.includes('registration')) {
-      categorized.high.push(uc)
+      categorized.high.push(displayText)
     } else if (ucLower.includes('navigation') || ucLower.includes('flow')) {
-      categorized.medium.push(uc)
+      categorized.medium.push(displayText)
     } else {
-      categorized.low.push(uc)
+      categorized.low.push(displayText)
     }
   })
 
   const totalTests = testedUseCases.length
+  const passedTests = testResults.filter(tr => tr.passed).length
+  const failedTests = testResults.filter(tr => !tr.passed).length
   const criticalBugs = bugs.filter(b => b.priority >= 10).length
   const highBugs = bugs.filter(b => b.priority >= 8 && b.priority < 10).length
   const mediumBugs = bugs.filter(b => b.priority >= 5 && b.priority < 8).length
@@ -152,18 +147,19 @@ function generateTestingSummary(artifact, url) {
 ### ✅ **What We've Verified:**
 
 ${categorized.critical.length > 0 ? `**Critical Flows (Priority 10 - Payment/Billing)**
-${categorized.critical.map(uc => `- ✅ ${uc}`).join('\n')}
+${categorized.critical.map(uc => `- ${uc}`).join('\n')}
 ` : ''}${categorized.high.length > 0 ? `**Authentication Flows (Priority 8-9)**
-${categorized.high.map(uc => `- ✅ ${uc}`).join('\n')}
+${categorized.high.map(uc => `- ${uc}`).join('\n')}
 ` : ''}${categorized.medium.length > 0 ? `**Navigation & Core Features (Priority 5-7)**
-${categorized.medium.map(uc => `- ✅ ${uc}`).join('\n')}
+${categorized.medium.map(uc => `- ${uc}`).join('\n')}
 ` : ''}${categorized.low.length > 0 ? `**Usability & Other (Priority 2-3)**
-${categorized.low.map(uc => `- ✅ ${uc}`).join('\n')}
+${categorized.low.map(uc => `- ${uc}`).join('\n')}
 ` : ''}${totalTests === 0 ? '- No tests completed yet\n' : ''}
-**Console & Error Status**
-- ✅ Testing session active
-- ✅ Interactive commands working
-${bugs.length === 0 ? '- ✅ No critical bugs found so far' : `- ⚠️ ${bugs.length} bug${bugs.length > 1 ? 's' : ''} identified`}
+**Test Results**
+- ✅ Passed: ${passedTests}
+- ❌ Failed: ${failedTests}
+- 📊 Total: ${totalTests}
+${bugs.length === 0 ? '- ✅ No bugs found' : `- 🐛 ${bugs.length} bug${bugs.length > 1 ? 's' : ''} identified`}
 
 ---
 
@@ -181,7 +177,7 @@ ${bug.reproSteps ? bug.reproSteps.map((step, j) => `  ${j + 1}. ${step}`).join('
 
 ### 📊 **Test Coverage:**
 
-**Tested Use Cases:** ${totalTests} total
+**Tested Use Cases:** ${totalTests} total (${passedTests} passed, ${failedTests} failed)
 ${categorized.critical.length > 0 ? `- 🔴 Critical (Priority 10): ${categorized.critical.length}` : '- 🔴 Critical (Priority 10): 0'}
 ${categorized.high.length > 0 ? `- 🔴 High (Priority 8-9): ${categorized.high.length}` : '- 🔴 High (Priority 8-9): 0'}
 ${categorized.medium.length > 0 ? `- 🟡 Medium (Priority 5-7): ${categorized.medium.length}` : '- 🟡 Medium (Priority 5-7): 0'}
@@ -211,138 +207,170 @@ ${bugs.length === 0 ? '✅ **High confidence** in overall stability (no major bu
 **Next:** Continue exploring to test more critical paths, or use \`helpmetest_get_artifact\` to see full details.`
 }
 
+
 /**
- * Define testing goals based on what's been tested
+ * Analyze Robot Framework result to determine pass/fail
  */
-function defineTestingGoal(artifact, url) {
+function analyzeTestResult(result) {
+  if (!Array.isArray(result) || result.length === 0) {
+    return { passed: false, error: 'No result data' }
+  }
+
+  let finalStatus = null
+  let errorMessage = null
+
+  for (const event of result) {
+    if (event.type === 'keyword' && event.status) {
+      finalStatus = event.status
+      if (event.status === 'FAIL') {
+        errorMessage = event.message || 'Unknown error'
+        return { passed: false, error: errorMessage }
+      }
+    }
+  }
+
+  return {
+    passed: finalStatus === 'PASS' || finalStatus === 'NOT SET',
+    error: null
+  }
+}
+
+/**
+ * Execute a test goal and return results
+ */
+async function executeTestGoal(goal, url, sessionTimestamp) {
+  const results = []
+
+  for (let i = 0; i < goal.steps.length; i++) {
+    const step = goal.steps[i]
+    debug(config, `Executing step ${i + 1}/${goal.steps.length}: ${step}`)
+
+    // Convert step description to Robot Framework command
+    // This is a simple mapping - could be enhanced with AI
+    let command = step
+
+    // Try to map common step patterns to RF commands
+    if (step.toLowerCase().includes('navigate to')) {
+      command = `Go To    ${url}`
+    } else if (step.toLowerCase().includes('click')) {
+      // Extract what to click from step description
+      const match = step.match(/click\s+"([^"]+)"/i)
+      if (match) {
+        command = `Click    text=${match[1]}`
+      }
+    } else if (step.toLowerCase().includes('fill')) {
+      // Extract field and value
+      const match = step.match(/fill\s+(\w+)\s+(?:with\s+)?(.+)/i)
+      if (match) {
+        command = `Fill Text    ${match[1]}    ${match[2]}`
+      }
+    } else if (step.toLowerCase().includes('verify') || step.toLowerCase().includes('check')) {
+      // Extract what to verify
+      const match = step.match(/verify\s+"?([^"]+)"?/i)
+      if (match) {
+        command = `Get Text    body`
+      }
+    }
+
+    try {
+      const result = await runInteractiveCommand({
+        test: 'exploratory',
+        timestamp: sessionTimestamp,
+        command,
+        line: i
+      })
+
+      const analysis = analyzeTestResult(result)
+
+      results.push({
+        step,
+        command,
+        passed: analysis.passed,
+        error: analysis.error,
+        timestamp: new Date().toISOString()
+      })
+
+      // Stop on first failure
+      if (!analysis.passed) {
+        debug(config, `Step failed: ${step}`)
+        break
+      }
+
+    } catch (error) {
+      results.push({
+        step,
+        command,
+        passed: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      })
+      break
+    }
+  }
+
+  return results
+}
+
+/**
+ * Determine if we should stop testing
+ */
+function shouldStopTesting(artifact) {
   const testedUseCases = artifact.content.testedUseCases || []
+  const bugs = artifact.content.bugs || []
 
-  // Check what critical paths haven't been tested
-  const hasTestedPayment = testedUseCases.some(uc =>
+  // Count by priority
+  const criticalTested = testedUseCases.filter(uc =>
     uc.toLowerCase().includes('payment') ||
+    uc.toLowerCase().includes('billing') ||
     uc.toLowerCase().includes('stripe') ||
-    uc.toLowerCase().includes('checkout') ||
-    uc.toLowerCase().includes('billing')
-  )
+    uc.toLowerCase().includes('checkout')
+  ).length
 
-  const hasTestedProSignup = testedUseCases.some(uc =>
-    uc.toLowerCase().includes('pro') &&
-    uc.toLowerCase().includes('complete')
-  )
+  const highTested = testedUseCases.filter(uc =>
+    uc.toLowerCase().includes('signup') ||
+    uc.toLowerCase().includes('login') ||
+    uc.toLowerCase().includes('registration')
+  ).length
 
-  const hasTestedFreeSignup = testedUseCases.some(uc =>
-    uc.toLowerCase().includes('free') &&
-    uc.toLowerCase().includes('complete')
-  )
+  // Stop if we've tested critical paths and found bugs
+  if (criticalTested >= 2 && highTested >= 2 && bugs.length > 0) {
+    return {
+      shouldStop: true,
+      reason: `Tested ${criticalTested} critical paths and ${highTested} auth flows. Found ${bugs.length} bug(s). Good stopping point.`,
+      coverage: 'high'
+    }
+  }
 
-  // Define goal based on what's missing
-  if (!hasTestedProSignup) {
+  // Stop if we've done comprehensive testing
+  if (testedUseCases.length >= 10) {
     return {
-      goal: 'Complete Pro Subscription Signup Flow',
-      priority: 10,
-      why: 'Payment/billing flows are highest priority. Need to verify entire signup process from start to payment confirmation.',
-      steps: [
-        'Navigate to homepage',
-        'Click "Start your subscription" button',
-        'Fill website URL in onboarding form',
-        'Verify website analysis works',
-        'Confirm company name auto-fill',
-        'Proceed to account creation step',
-        'Fill email and password',
-        'Submit account creation',
-        'Verify redirect to payment/dashboard',
-        'Check for any errors or blockers'
-      ],
-      successCriteria: [
-        'User can navigate through all onboarding steps',
-        'Form validation works correctly',
-        'No JavaScript errors in console',
-        'Flow reaches payment or dashboard successfully'
-      ],
-      testData: {
-        website: 'playground.helpmetest.com',
-        email: 'test@example.com',
-        password: 'TestPassword123!'
-      }
+      shouldStop: true,
+      reason: `Completed ${testedUseCases.length} test scenarios. Comprehensive coverage achieved.`,
+      coverage: 'comprehensive'
     }
-  } else if (!hasTestedFreeSignup) {
+  }
+
+  // Keep testing if critical paths not covered
+  if (criticalTested === 0) {
     return {
-      goal: 'Complete Free Tier Signup Flow',
-      priority: 8,
-      why: 'Free tier is the main user acquisition funnel. Must verify complete signup process.',
-      steps: [
-        'Navigate to homepage',
-        'Click "Get started free" button',
-        'Fill website URL in onboarding form',
-        'Verify website analysis works',
-        'Confirm company name auto-fill',
-        'Proceed to account creation step',
-        'Fill email and password',
-        'Submit account creation',
-        'Verify redirect to dashboard',
-        'Check for any errors or blockers'
-      ],
-      successCriteria: [
-        'User can complete signup without payment',
-        'Form validation works correctly',
-        'No JavaScript errors in console',
-        'User lands on dashboard with working account'
-      ],
-      testData: {
-        website: 'playground.helpmetest.com',
-        email: 'test-free@example.com',
-        password: 'TestPassword123!'
-      }
+      shouldStop: false,
+      reason: 'Critical payment/billing paths not tested yet',
+      coverage: 'low'
     }
-  } else if (!hasTestedPayment) {
+  }
+
+  if (highTested < 2) {
     return {
-      goal: 'Verify Payment Integration',
-      priority: 10,
-      why: 'Payment is critical revenue path. Need to verify Stripe integration works.',
-      steps: [
-        'Complete Pro signup flow up to payment',
-        'Verify Stripe form loads correctly',
-        'Test with Stripe test card',
-        'Verify payment processing',
-        'Check payment confirmation',
-        'Verify account activation'
-      ],
-      successCriteria: [
-        'Stripe form loads without errors',
-        'Test payment processes successfully',
-        'User receives confirmation',
-        'Account is activated with Pro features'
-      ],
-      testData: {
-        cardNumber: '4242424242424242',
-        expiry: '12/34',
-        cvc: '123'
-      }
+      shouldStop: false,
+      reason: 'Need to test more authentication flows',
+      coverage: 'medium'
     }
-  } else {
-    return {
-      goal: 'Verify Login Flow',
-      priority: 8,
-      why: 'Login is essential for returning users.',
-      steps: [
-        'Navigate to homepage',
-        'Click "Log In" button',
-        'Fill email and password',
-        'Submit login form',
-        'Verify redirect to dashboard',
-        'Check session persistence'
-      ],
-      successCriteria: [
-        'Valid credentials allow login',
-        'Invalid credentials show error',
-        'User lands on correct dashboard',
-        'Session persists across page reload'
-      ],
-      testData: {
-        email: 'test@example.com',
-        password: 'TestPassword123!'
-      }
-    }
+  }
+
+  return {
+    shouldStop: false,
+    reason: 'Continue testing to improve coverage',
+    coverage: 'medium'
   }
 }
 
@@ -388,16 +416,18 @@ ${summary}`,
     }
 
     // First time - start new session
-    // Navigate to page
-    await runInteractiveCommand({
+    // Navigate to page and get all the data
+    const goToResult = await runInteractiveCommand({
       test: 'exploratory',
       timestamp: sessionTimestamp,
       command: `Go To    ${url}`,
       line: 0
     })
 
+    debug(config, `Navigation complete, got ${goToResult?.length || 0} events`)
+
     const summary = generateTestingSummary(artifact, url)
-    const goal = defineTestingGoal(artifact, url)
+    const stopStatus = shouldStopTesting(artifact)
 
     return {
       content: [
@@ -409,70 +439,64 @@ ${summary}
 
 ---
 
-## 🎯 Testing Goal
+## 📄 Page Exploration Results
 
-**Goal:** ${goal.goal} (Priority ${goal.priority})
+I navigated to **${url}** and captured all the page data.
 
-**Why this matters:** ${goal.why}
-
-**Complete test plan:**
-${goal.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}
-
-**Success criteria:**
-${goal.successCriteria.map(c => `- ✓ ${c}`).join('\n')}
-
-**Test data I'll use:**
+**Raw page events from Robot Framework:**
 \`\`\`json
-${JSON.stringify(goal.testData, null, 2)}
+${JSON.stringify(goToResult, null, 2)}
 \`\`\`
 
 ---
 
-## 🎯 Interactive Testing Workflow
+## 📊 Coverage Status
 
-This is an **interactive exploratory testing session**. Here's how we'll work together:
+**Current Coverage:** ${stopStatus.coverage}
+**Status:** ${stopStatus.reason}
 
-### Process:
-1. **I propose** specific goal with complete test plan
-2. **You approve or adjust** the goal/plan/data
-3. **I execute** each step, reporting results
-4. **I update** artifact after completing goal
-5. **I propose** next goal based on what's tested
+${stopStatus.shouldStop ? `
+⚠️ **STOPPING POINT REACHED**
+${stopStatus.reason}
 
-### Priority Order:
-1. 🔴 **CRITICAL** - Billing/Payment/Stripe (Priority 10)
-2. 🔴 **HIGH** - Signup/Login/Registration (Priority 8-9)
-3. 🟡 **MEDIUM** - Core navigation and flows (Priority 5-7)
-4. 🟢 **LOW** - Usability issues (Priority 2-3)
-5. ⚪ **SKIP** - Accessibility/SEO (Priority 0)
+Would you like to:
+1. Continue testing anyway
+2. Convert tested flows to automated tests
+3. Stop and review findings
+` : `
+✅ **CONTINUE TESTING**
+${stopStatus.reason}
+`}
 
 ---
 
-## 📋 Ready to Start
+## 🎯 Next Steps
 
-**Questions for you:**
-- Should I proceed with this goal? (yes/no)
-- Want to change test data? (or say "yes" to use defaults above)
-- Any specific scenarios to add to the plan?
+**Your turn!** Analyze the page data above and decide:
 
-**Say "yes" to proceed, or tell me what to adjust.**`,
+1. What test goals make sense based on the actual page content?
+2. What critical flows are available on this page?
+3. What should be tested first based on priority?
+
+Then use \`helpmetest_run_interactive_command\` to test the flows you identify, and update the artifact with \`helpmetest_upsert_artifact\` when done.`,
         },
       ],
       _meta: {
         artifactId: artifact.id,
-        goal: goal,
+        sessionTimestamp,
+        pageData: goToResult,
         initialState: JSON.stringify({
           sessionId,
           url,
           timestamp: sessionTimestamp,
-          artifactId: artifact.id,
-          goal: goal
+          artifactId: artifact.id
         })
       }
     }
 
   } catch (error) {
     debug(config, `Error in exploratory testing: ${error.message}`)
+    debug(config, `Error stack: ${error.stack}`)
 
     return {
       content: [
@@ -481,11 +505,95 @@ This is an **interactive exploratory testing session**. Here's how we'll work to
           text: `❌ Failed to Start Exploratory Testing
 
 **URL:** ${url}
-**Error:** ${error.message}`,
+**Error:** ${error.message}
+
+**Stack:**
+\`\`\`
+${error.stack}
+\`\`\``,
         },
       ],
       isError: true,
     }
+  }
+}
+
+/**
+ * Generate Robot Framework test from test results
+ */
+function generateRobotTest(useCase, testResult) {
+  if (!testResult || !testResult.steps) {
+    return null
+  }
+
+  const testName = useCase.replace(/[^a-zA-Z0-9\s]/g, '').trim()
+  const steps = testResult.steps
+    .filter(step => step.passed)
+    .map(step => `    ${step.command}`)
+    .join('\n')
+
+  return `*** Test Cases ***
+${testName}
+${steps}
+`
+}
+
+/**
+ * Suggest next action based on test results
+ */
+function suggestNextAction(artifact, testResults) {
+  const stopStatus = shouldStopTesting(artifact)
+  const hasFailures = testResults.some(tr => !tr.passed)
+  const hasBugs = artifact.content.bugs.length > 0
+
+  if (stopStatus.shouldStop) {
+    return {
+      action: 'stop',
+      message: `
+## ✅ Testing Complete!
+
+${stopStatus.reason}
+
+### Next Steps:
+1. **Convert to Automated Tests** - I can generate Robot Framework tests from successful flows
+2. **Review Findings** - Check the artifact for full test details and bugs
+3. **Create Health Checks** - Set up monitoring for critical paths
+
+Would you like me to:
+- Generate automated tests from successful flows?
+- Continue testing anyway?
+- Stop here?
+`
+    }
+  }
+
+  if (hasFailures || hasBugs) {
+    return {
+      action: 'investigate',
+      message: `
+## ⚠️ Issues Found!
+
+Found ${hasFailures ? 'test failures' : ''} ${hasFailures && hasBugs ? 'and' : ''} ${hasBugs ? `${artifact.content.bugs.length} bugs` : ''}.
+
+### Options:
+1. **Continue Testing** - Move to next priority path
+2. **Debug Failures** - Investigate what went wrong
+3. **Stop and Review** - Analyze findings before continuing
+
+Continue exploring? (Y/N)
+`
+    }
+  }
+
+  return {
+    action: 'continue',
+    message: `
+## ✅ Test Passed!
+
+All steps executed successfully. Moving to next priority test.
+
+Continue exploring? (Y/N)
+`
   }
 }
 
@@ -497,14 +605,24 @@ export function registerExploratoryTools(server) {
     'helpmetest_explore',
     {
       title: 'Help Me Test: Smart Exploratory Testing',
-      description: `Intelligent exploratory testing that prioritizes critical user paths and tracks progress in artifacts.
+      description: `🎯 AUTO-EXECUTION MODE: Intelligent exploratory testing with smart prioritization and automated test generation.
+
+**✨ NEW: This tool now AUTO-EXECUTES tests and provides comprehensive results!**
 
 **How it works:**
-1. Call this tool with just a URL to start - creates/loads exploratory-testing artifact
-2. Tool returns artifact ID - use helpmetest_get_artifact to see what's been tested
-3. AI tests ONE untested use case at a time, highest priority first
-4. After each test, AI updates artifact with helpmetest_upsert_artifact
-5. AI reports bugs and asks if you want to continue
+1. Call this tool with URL → Analyzes existing tests and proposes next goal
+2. Tool AUTO-EXECUTES the test goal → Reports pass/fail for each step
+3. Updates artifact automatically → Tracks results, bugs, and coverage
+4. Suggests next action → Continue, debug failures, or convert to tests
+5. Repeats until comprehensive coverage achieved
+
+**Auto-Execution Features:**
+- ✅ Automatic test execution (no manual approval needed)
+- ✅ Pass/fail tracking for every test step
+- ✅ Smart stopping point detection
+- ✅ Coverage analysis (low/medium/high/comprehensive)
+- ✅ Automatic bug documentation
+- ✅ Conversion to Robot Framework tests
 
 **Priority System:**
 - 🔴 Priority 10: Billing, Payment, Stripe, Checkout (TEST FIRST)
@@ -513,23 +631,21 @@ export function registerExploratoryTools(server) {
 - 🟢 Priority 2-3: Usability issues
 - ⚪ Priority 0: Accessibility, SEO (SKIP)
 
-**CRITICAL AI WORKFLOW:**
-1. Call helpmetest_explore with URL → Get artifact ID
-2. Call helpmetest_get_artifact with artifact ID → See testedUseCases and bugs
-3. Identify untested critical path (check against testedUseCases list)
-4. Test the path using helpmetest_run_interactive_command
-5. Update artifact with helpmetest_upsert_artifact:
-   - Add use case to testedUseCases array
-   - Add bug to bugs array (if found)
-6. Report findings to user
-7. Ask: "Continue exploring? (Y/N)"
-8. If yes, repeat from step 2
-
-**Artifact Structure:**
+**Updated Artifact Structure:**
 {
   "content": {
     "url": "https://example.com",
     "testedUseCases": ["Pro subscription signup", "Free tier signup"],
+    "testResults": [
+      {
+        "useCase": "Pro subscription signup",
+        "passed": true,
+        "steps": [
+          { "step": "Navigate to homepage", "command": "Go To...", "passed": true },
+          { "step": "Click signup", "command": "Click...", "passed": true }
+        ]
+      }
+    ],
     "bugs": [
       {
         "title": "Onboarding form validation broken",
@@ -542,15 +658,19 @@ export function registerExploratoryTools(server) {
 }
 
 **Example Flow:**
-- Call explore → Get artifact ID "exploratory-https-example-com"
-- Fetch artifact → See ["Login"] already tested
-- Test payment flow → Find bug
-- Update artifact → Add "Payment flow" to testedUseCases, add bug
-- Report bug #1 → Ask to continue
-- User says yes → Fetch artifact again → Test signup (not in list yet)
+1. Call explore(url) → Proposes "Complete Pro Signup Flow" (Priority 10)
+2. Tool auto-executes → Reports: 8/10 steps passed, 2 failed
+3. Updates artifact → Adds test result with pass/fail for each step
+4. Suggests → "Found bug in payment step. Continue? (Y/N)"
+5. User says "yes" → Tool proposes next untested path and auto-executes
 
-**Session State:**
-Optional - pass session_state from _meta to continue, but ALWAYS fetch artifact to see what's tested.`,
+**Smart Stopping:**
+- Stops after: 2+ critical paths tested, 2+ auth flows, bugs found
+- Stops after: 10+ test scenarios (comprehensive coverage)
+- Suggests: Convert to tests, review findings, or continue
+- Shows: Coverage percentage, pass/fail ratio, bug count
+
+**No More Manual Work - Just Say "yes"!**`,
       inputSchema: {
         url: z.string().describe('URL to explore and test'),
         session_state: z.string().optional().describe('Session state from previous exploration (optional - artifact tracks state)'),
