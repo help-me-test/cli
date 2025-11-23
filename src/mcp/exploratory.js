@@ -428,11 +428,11 @@ ${summary}`,
 
     debug(config, `Navigation complete, got ${goToResult?.length || 0} events`)
 
-    // Truncate goToResult to avoid token limits
-    const truncateEventData = (events, maxEvents = 20, maxStringLength = 200) => {
+    // Truncate large content fields to avoid token limits
+    const truncateEventData = (events, maxStringLength = 200) => {
       if (!Array.isArray(events)) return events
 
-      const truncated = events.slice(0, maxEvents).map(event => {
+      return events.map(event => {
         if (!event || typeof event !== 'object') return event
 
         const truncatedEvent = { ...event }
@@ -450,15 +450,24 @@ ${summary}`,
           truncatedEvent.content = truncatedEvent.content.substring(0, maxStringLength) + '...[Truncated]'
         }
 
+        // Truncate logs arrays if they're huge
+        if (truncatedEvent.logs && Array.isArray(truncatedEvent.logs) && truncatedEvent.logs.length > 0) {
+          const logsStr = JSON.stringify(truncatedEvent.logs)
+          if (logsStr.length > maxStringLength * 2) {
+            truncatedEvent.logs = `[${truncatedEvent.logs.length} logs - truncated]`
+          }
+        }
+
+        // Truncate errors arrays if they're huge
+        if (truncatedEvent.errors && Array.isArray(truncatedEvent.errors) && truncatedEvent.errors.length > 0) {
+          const errorsStr = JSON.stringify(truncatedEvent.errors)
+          if (errorsStr.length > maxStringLength * 2) {
+            truncatedEvent.errors = `[${truncatedEvent.errors.length} errors - truncated]`
+          }
+        }
+
         return truncatedEvent
       })
-
-      const skipped = events.length - maxEvents
-      if (skipped > 0) {
-        truncated.push({ _truncated: `[${skipped} additional events truncated]` })
-      }
-
-      return truncated
     }
 
     const truncatedResult = truncateEventData(goToResult)
@@ -480,9 +489,9 @@ ${summary}
 
 I navigated to **${url}** and captured page data.
 
-**Event Summary:** ${goToResult?.length || 0} total events (showing first 20 with truncated data)
+**Event Summary:** ${goToResult?.length || 0} total events (large content fields truncated)
 
-**Truncated page events from Robot Framework:**
+**Page events from Robot Framework:**
 \`\`\`json
 ${JSON.stringify(truncatedResult, null, 2)}
 \`\`\`
