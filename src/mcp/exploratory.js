@@ -428,6 +428,41 @@ ${summary}`,
 
     debug(config, `Navigation complete, got ${goToResult?.length || 0} events`)
 
+    // Truncate goToResult to avoid token limits
+    const truncateEventData = (events, maxEvents = 20, maxStringLength = 200) => {
+      if (!Array.isArray(events)) return events
+
+      const truncated = events.slice(0, maxEvents).map(event => {
+        if (!event || typeof event !== 'object') return event
+
+        const truncatedEvent = { ...event }
+
+        // Truncate specific large fields
+        if (truncatedEvent.events && Array.isArray(truncatedEvent.events)) {
+          truncatedEvent.events = `[${truncatedEvent.events.length} events - truncated]`
+        }
+
+        if (truncatedEvent.html && typeof truncatedEvent.html === 'string' && truncatedEvent.html.length > maxStringLength) {
+          truncatedEvent.html = truncatedEvent.html.substring(0, maxStringLength) + '...[Truncated]'
+        }
+
+        if (truncatedEvent.content && typeof truncatedEvent.content === 'string' && truncatedEvent.content.length > maxStringLength) {
+          truncatedEvent.content = truncatedEvent.content.substring(0, maxStringLength) + '...[Truncated]'
+        }
+
+        return truncatedEvent
+      })
+
+      const skipped = events.length - maxEvents
+      if (skipped > 0) {
+        truncated.push({ _truncated: `[${skipped} additional events truncated]` })
+      }
+
+      return truncated
+    }
+
+    const truncatedResult = truncateEventData(goToResult)
+
     const summary = generateTestingSummary(artifact, url)
     const stopStatus = shouldStopTesting(artifact)
 
@@ -443,11 +478,13 @@ ${summary}
 
 ## 📄 Page Exploration Results
 
-I navigated to **${url}** and captured all the page data.
+I navigated to **${url}** and captured page data.
 
-**Raw page events from Robot Framework:**
+**Event Summary:** ${goToResult?.length || 0} total events (showing first 20 with truncated data)
+
+**Truncated page events from Robot Framework:**
 \`\`\`json
-${JSON.stringify(goToResult, null, 2)}
+${JSON.stringify(truncatedResult, null, 2)}
 \`\`\`
 
 ---
