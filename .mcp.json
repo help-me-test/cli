@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "helpmetest-helpmetest": {
+      "type": "stdio",
+      "command": "helpmetest",
+      "args": [
+        "mcp",
+        "HELP-a3e7542d-ca1c-4e1e-ba19-fbfe7bae4b57"
+      ]
+    }
+  }
+}
