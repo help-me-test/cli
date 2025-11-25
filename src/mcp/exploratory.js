@@ -520,21 +520,234 @@ ${stopStatus.reason}
 
 ## 🎯 Next Steps
 
-**🔐 HIGHEST PRIORITY: FIND AND TEST AUTHENTICATION FLOWS FIRST!**
+**⚡ HIGHEST PRIORITY: DOMAIN HEALTH CHECKS FIRST!**
 
-**Step 1: Look for Login/Signup Forms**
+**Step 0: Base-Level Domain Monitoring (PRIORITY 10 - MUST DO FIRST)**
+Before testing ANY features or authentication, you MUST set up fundamental domain health monitoring:
+
+1. **Uptime Monitoring Proposition:**
+   - Create a Robot Framework test that navigates to the domain
+   - Extract the domain from the URL being tested
+   - Test should verify the page loads (status code 200)
+   - This ensures the site is reachable before we waste time on feature testing
+   - **Why this matters**: If the domain goes down, ALL tests will fail. This is the foundational check.
+
+   Example test content:
+   \`\`\`robot
+   Go To    https://example.com
+   \`\`\`
+
+2. **SSL Certificate Monitoring Proposition:**
+   - Use DomainChecker library SSL keywords to check certificate health
+   - Create test proposition to monitor:
+     - SSL Is Valid (must be true)
+     - SSL Days Remaining (must be >= 30 days)
+     - SSL Issuer Organization (for tracking cert changes)
+   - **Why this matters**: Expired SSL certificates break HTTPS, causing immediate site failures. This catches issues before users do.
+
+   Example test content:
+   \`\`\`robot
+   SSL Is Valid    example.com    ==    ${True}
+   SSL Days Remaining    example.com    >=    30
+   SSL Issuer Organization    example.com    # Log issuer for tracking
+   \`\`\`
+
+3. **Save propositions to artifact:**
+   \`\`\`javascript
+   helpmetest_partial_update_artifact({
+     id: artifactId,
+     updates: {
+       "availableAreas.uptimeTests.-1": {
+         "name": `Domain Uptime - ${extractedDomain}`,
+         "url": extractedDomain,
+         "description": "Fundamental uptime monitoring to ensure domain accessibility. This is the foundation - all other tests depend on this.",
+         "requiresSetup": true,
+         "testIdeas": [
+           "Create Robot Framework test that navigates to domain",
+           "Test content: Go To [URL]",
+           "Verifies site is reachable and page loads successfully",
+           "Tag with priority:critical and type:smoke"
+         ]
+       },
+       "availableAreas.sslTests.-1": {
+         "name": `SSL Check - ${extractedDomain}`,
+         "url": extractedDomain,
+         "description": "Essential security checks that every production domain MUST pass. Prevents SSL failures, man-in-the-middle attacks, and security warnings.",
+         "requiresSetup": true,
+         "testIdeas": [
+           "CRITICAL: SSL Is Valid ==  True (certificate must be valid)",
+           "CRITICAL: SSL Days Remaining >= 30 (prevent expiration)",
+           "CRITICAL: TLS Version matches TLSv1\\.[23] (TLS 1.2+ only)",
+           "CRITICAL: TLS Weak Ciphers Detected ==  False (no RC4, DES, 3DES, MD5)",
+           "CRITICAL: TLS Perfect Forward Secrecy ==  True (PFS required)",
+           "CRITICAL: SSL Certificate Key Strength >= 256 (RSA 2048+ or ECC 256+)",
+           "CRITICAL: SSL Certificate Chain Valid ==  True (valid chain to root CA)",
+           "IMPORTANT: HTTP X Content Type Options == nosniff (prevent MIME sniffing)",
+           "RECOMMENDED: HTTP X Frame Options is not empty (prevent clickjacking)"
+         ]
+       }
+     }
+   })
+   \`\`\`
+
+4. **When executing and recording test results**, use the proposition name and add URL tag:
+   \`\`\`javascript
+   helpmetest_partial_update_artifact({
+     id: artifactId,
+     updates: {
+       "testResults.-1": {
+         "useCase": "Domain Uptime - calculator.playground.helpmetest.com",  // Use the proposition name from availableAreas
+         "passed": true,
+         "timestamp": new Date().toISOString(),
+         "steps": [
+           { "step": "Navigate to domain", "command": "Go To  https://calculator.playground.helpmetest.com", "passed": true }
+         ]
+       },
+       "testedUseCases.-1": "Domain Uptime - calculator.playground.helpmetest.com"
+     }
+   })
+   \`\`\`
+
+   Then create the actual test with tags including the URL:
+   \`\`\`javascript
+   helpmetest_create_test({
+     name: "Domain Uptime - calculator.playground.helpmetest.com",
+     content: "Go To  https://calculator.playground.helpmetest.com",
+     tags: ["priority:critical", "type:smoke", "url:calculator.playground.helpmetest.com"]
+   })
+   \`\`\`
+
+**IMPORTANT**: These checks are MORE IMPORTANT than authentication flows because:
+- Without domain uptime, nothing works
+- Without valid SSL, HTTPS fails completely
+- These are prerequisites for ALL other testing
+- They catch infrastructure issues that break everything at once
+
+**Step 1: Look for Login/Signup Forms (After Step 0 is complete)**
 1. **Analyze the page data** - search for login, signup, sign-in, register, authentication forms
 2. **If login/signup form is found:**
    - Use \`helpmetest_run_interactive_command\` to test the form interactively
    - **ASK USER FOR CREDENTIALS** using the user question tool
-   - Test login with provided credentials
-   - **SAVE AS AUTHENTICATED USER** - Create a test with the role name (e.g., "Login as Admin", "Login as Regular User")
-   - This is the MOST IMPORTANT outcome - authenticated users enable testing protected features
+   - Test login with provided credentials step by step
+   - **AFTER SUCCESSFUL LOGIN - MANDATORY WORKFLOW:**
+
+     a. **Save browser state with role name:**
+        \`\`\`robot
+        Save As  Admin
+        \`\`\`
+        (Use simple role: Admin, User, Guest, Editor - NOT "Login as Admin")
+
+     b. **Save credentials to artifact:**
+        \`\`\`javascript
+        helpmetest_partial_update_artifact({
+          id: artifactId,
+          updates: {
+            "testCredentials.-1": {
+              "username": "user@example.com",
+              "password": "password123",
+              "role": "Admin",  // MUST match the name used in Save As
+              "validated": false,  // Will be set to true after validation
+              "notes": "Admin user with full permissions"
+            }
+          }
+        })
+        \`\`\`
+
+     c. **Validate that saved state works identically to manual login:**
+        - Close current session: \`helpmetest_run_interactive_command({ command: "Exit" })\`
+        - Start fresh browser: \`New Browser  chromium  headless=True\`
+        - Load saved state: \`As  Admin\` (use the role name from step a)
+        - Navigate to authenticated page: \`Go To  [URL]\`
+        - Verify you're authenticated (check for user menu, logout button, no login prompts)
+        - If validation PASSES:
+          \`\`\`javascript
+          // Update the credential to mark as validated
+          // First get current credentials, find the one with matching role, update it
+          helpmetest_partial_update_artifact({
+            id: artifactId,
+            updates: {
+              "testCredentials": [...existing credentials with validated:true for this role...]
+            }
+          })
+          \`\`\`
+        - If validation FAILS: Don't mark as validated, note the issue
+
+     d. **Save the complete login test case:**
+        \`\`\`javascript
+        helpmetest_partial_update_artifact({
+          id: artifactId,
+          updates: {
+            "testResults.-1": {
+              "useCase": "Login as Admin",
+              "passed": true,
+              "timestamp": new Date().toISOString(),
+              "steps": [
+                { "step": "Navigate to login", "command": "Go To  https://app.example.com/login", "passed": true },
+                { "step": "Fill email", "command": "Fill Text  input.email  user@example.com", "passed": true },
+                { "step": "Fill password", "command": "Fill Text  input[type=password]  password123", "passed": true },
+                { "step": "Click login", "command": "Click  button[type=submit]", "passed": true },
+                { "step": "Save state", "command": "Save As  Admin", "passed": true }
+              ]
+            },
+            "testedUseCases.-1": "Login as Admin"
+          }
+        })
+        \`\`\`
+
+   - This is the MOST IMPORTANT outcome - validated authenticated states enable testing protected features WITHOUT repeating login
+
+     e. **🔄 AUTO-REFRESH PATTERN - Keeping Authentication Fresh:**
+        **WHY THIS MATTERS**: Refresh tokens expire (typically 5-7 days). When automated runners execute tests using \`As [Role]\`, they'll fail if the saved state is expired. The solution is to save the login test case itself, so runners can automatically refresh authentication.
+
+        **IMPLEMENTATION:**
+        1. After validating saved state works (step c above), the login test case should be saved as a regular test using \`helpmetest_create_test\`
+        2. Name it: "Refresh Authentication for [Role]" (e.g., "Refresh Authentication for User")
+        3. Add tags: ["feature:auth", "type:smoke", "priority:critical", "role:[role-name]"]
+        4. Content should be the complete login flow WITHOUT the \`Save As\` command
+        5. Automated test runners can execute these tests every 5 minutes to keep saved states fresh
+
+        **Example:**
+        \`\`\`javascript
+        // After successful login test and validation, create an auth refresh test
+        helpmetest_create_test({
+          name: "Refresh Authentication for User",
+          tags: ["feature:auth", "type:smoke", "priority:critical", "role:user"],
+          content: \`Go To  https://dev.0docs.ai/login
+Fill Text  input#input-0  tes@purelymail.com
+Click  button.btn-primary
+Sleep  2s
+Fill Text  input#input-2  Erlangr15b$
+Click  button.btn-primary
+Sleep  5s
+Save As  User\`,
+          description: "Automatically refreshes the 'User' authentication state to prevent token expiration. Run this every 5 minutes."
+        })
+        \`\`\`
+
+        **RUNNER BEHAVIOR:**
+        - Test runners will detect tests tagged with "role:[name]"
+        - Execute them every 5 minutes in background
+        - This keeps \`As [Role]\` states fresh without manual intervention
+        - Tests that use \`As User\` will never fail due to expired tokens
+
 3. **If NO login/signup form on this page:**
    - Look for links to login/signup pages in navigation
    - Navigate to those pages first before testing other features
 
-**Step 2: Create detailed availableAreas**
+**Step 2: Check for existing validated authentication states**
+Before testing ANY feature that might require authentication:
+- Check artifact.content.testCredentials for entries where validated === true
+- If validated states exist, USE THEM:
+  \`\`\`robot
+  New Browser  chromium  headless=True
+  As  Admin  # Use the role name from testCredentials
+  Go To  [URL you want to test]
+  # Now you're authenticated - proceed with testing
+  \`\`\`
+- NEVER manually login again if a validated state exists
+- If validated state fails during testing, mark it as validated:false and re-test login flow
+
+**Step 3: Create detailed availableAreas**
 After handling authentication, analyze the raw page data for other areas to test:
    - **name**: Descriptive name based on what you see (e.g., "User Registration Form", "Shopping Cart API")
    - **url**: Full URL extracted from the page (use actual URLs from page content)
@@ -800,11 +1013,19 @@ export function registerExploratoryTools(server) {
 - ✅ Conversion to Robot Framework tests
 
 **Priority System:**
-- 🔴 Priority 10: Billing, Payment, Stripe, Checkout (TEST FIRST)
+- ⚡ Priority 10: Domain Uptime & SSL Monitoring (FOUNDATIONAL - TEST FIRST!)
+- 🔴 Priority 10: Billing, Payment, Stripe, Checkout
 - 🔴 Priority 8-9: Signup, Registration, Login
 - 🟡 Priority 5-7: Core navigation and critical flows
 - 🟢 Priority 2-3: Usability issues
 - ⚪ Priority 0: Accessibility, SEO (SKIP)
+
+**Why Domain Health is Priority #1:**
+Domain uptime and SSL monitoring are BASE-LEVEL checks that must come before everything else. Without a reachable domain with valid SSL, ALL other tests fail. These checks:
+- Catch infrastructure failures that break everything
+- Prevent wasted time testing features on unreachable sites
+- Alert on SSL expiration before users see security warnings
+- Use the DomainChecker library for comprehensive certificate monitoring
 
 **Updated Artifact Structure:**
 {
@@ -835,6 +1056,34 @@ export function registerExploratoryTools(server) {
       }
     ],
     "availableAreas": {
+      "uptimeTests": [
+        {
+          "name": "Domain Uptime - example.com",
+          "url": "https://example.com",
+          "description": "Fundamental uptime monitoring - ensures domain is reachable",
+          "requiresSetup": true,
+          "testIdeas": [
+            "Create Robot Framework test: Go To [URL]",
+            "Verifies site is reachable and page loads successfully",
+            "Tag with priority:critical type:smoke"
+          ]
+        }
+      ],
+      "sslTests": [
+        {
+          "name": "SSL Check - example.com",
+          "url": "https://example.com",
+          "description": "Critical SSL/TLS certificate monitoring using DomainChecker",
+          "requiresSetup": true,
+          "testIdeas": [
+            "SSL Is Valid ==  True",
+            "SSL Days Remaining >= 30 (30-day warning)",
+            "Monitor SSL Issuer Organization",
+            "Verify SSL Algorithm is modern",
+            "Check SSL SANs coverage"
+          ]
+        }
+      ],
       "apiTests": [
         {
           "name": "PetStore API",
