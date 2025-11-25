@@ -278,7 +278,7 @@ const getAllTests = async (filters = {}, enableDebug = false) => {
  */
 const apiPost = async (endpoint, data = {}, debugMessage = '', enableDebug = false) => {
   const client = createApiClient(enableDebug)
-  
+
   const requestInfo = {
     endpoint,
     data,
@@ -291,6 +291,40 @@ const apiPost = async (endpoint, data = {}, debugMessage = '', enableDebug = fal
   try {
     const response = await retryWithBackoff(async () => {
       return await client.post(endpoint, data)
+    })
+
+    if (enableDebug) {
+      debug(config, `Request successful: ${response.status}`)
+    }
+    return response.data
+  } catch (error) {
+    throw handleApiError(error, requestInfo)
+  }
+}
+
+/**
+ * Generic PUT request
+ * @param {string} endpoint - API endpoint
+ * @param {Object} data - Request body data
+ * @param {string} debugMessage - Debug message for logging
+ * @param {boolean} enableDebug - Whether to enable debug logging
+ * @returns {Promise<Object>} Response data
+ */
+const apiPut = async (endpoint, data = {}, debugMessage = '', enableDebug = false) => {
+  const client = createApiClient(enableDebug)
+
+  const requestInfo = {
+    endpoint,
+    data,
+  }
+
+  if (enableDebug) {
+    debug(config, debugMessage || `Making PUT request to ${endpoint}`)
+  }
+
+  try {
+    const response = await retryWithBackoff(async () => {
+      return await client.put(endpoint, data)
     })
 
     if (enableDebug) {
@@ -729,6 +763,7 @@ export {
   ApiError,
   apiGet,
   apiPost,
+  apiPut,
   apiDelete,
   apiStreamPost,
   sendHealthCheckHeartbeat,
@@ -761,6 +796,7 @@ export {
 export default {
   apiGet,
   apiPost,
+  apiPut,
   apiDelete,
   apiStreamPost,
   sendHealthCheckHeartbeat,

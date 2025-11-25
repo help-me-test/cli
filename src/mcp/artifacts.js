@@ -131,6 +131,63 @@ ${JSON.stringify(data, null, 2)}
 }
 
 /**
+ * Partially update artifact content (incremental updates)
+ */
+async function partialUpdateArtifact(args) {
+  const { id, updates } = args
+
+  await detectApiAndAuth()
+
+  debug(config, `Partially updating artifact: ${id}`)
+
+  // Import apiPut dynamically
+  const { apiPut } = await import('../utils/api.js')
+
+  const data = await apiPut(`/api/artifacts/${id}/content`, updates)
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `✅ Artifact ${id} updated (partial)
+
+**Updated fields:** ${Object.keys(updates).join(', ')}
+
+\`\`\`json
+${JSON.stringify(data, null, 2)}
+\`\`\``
+      }
+    ]
+  }
+}
+
+/**
+ * Get artifact schema (to know what fields can be updated)
+ */
+async function getArtifactSchema(args) {
+  const { type } = args
+
+  await detectApiAndAuth()
+
+  debug(config, `Getting schema for artifact type: ${type}`)
+
+  const data = await apiGet(`/api/artifacts/schemas/${type}`)
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `📋 Schema for ${type}
+
+\`\`\`json
+${JSON.stringify(data, null, 2)}
+\`\`\``
+      }
+    ]
+  }
+}
+
+/**
  * Delete an artifact
  */
 async function deleteArtifact(args) {
@@ -337,6 +394,27 @@ export function registerArtifactTools(server) {
     'Get all available tags used across artifacts.',
     {},
     getArtifactTags
+  )
+
+  // Get artifact schema - CALL THIS FIRST before making updates
+  server.tool(
+    'helpmetest_get_artifact_schema',
+    'Get the schema for an artifact type to know what fields exist and their validation rules. ALWAYS call this BEFORE making updates to understand the structure and use correct field names.',
+    {
+      type: z.enum(ARTIFACT_TYPES).describe('Artifact type (e.g., exploratory-testing)')
+    },
+    getArtifactSchema
+  )
+
+  // Partial update artifact - USE THIS for exploratory testing
+  server.tool(
+    'helpmetest_partial_update_artifact',
+    'Incrementally update artifact content without regenerating entire artifact. Use this to append test results, bugs, notes, or update specific fields. ALWAYS use this instead of helpmetest_upsert_artifact during exploratory testing. Supports dot notation for nested updates and -1 for array append.',
+    {
+      id: z.string().describe('Artifact ID'),
+      updates: z.record(z.any()).describe('Fields to update using dot notation. Examples: {"coverage": "high"}, {"testResults.-1": {...new result...}}, {"bugs.-1": {...new bug...}}, {"notes.-1": "observation text"}')
+    },
+    partialUpdateArtifact
   )
 
   // Generate artifact
