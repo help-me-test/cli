@@ -10,6 +10,177 @@ import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
 
 /**
+ * Tag system configuration - SINGLE SOURCE OF TRUTH
+ */
+const TAG_SYSTEM = {
+  feature: {
+    description: 'Feature area',
+    examples: ['feature:login', 'feature:auth', 'feature:checkout'],
+    required: false
+  },
+  type: {
+    description: 'Test type',
+    examples: ['type:smoke', 'type:e2e', 'type:integration', 'type:regression', 'type:experiment'],
+    required: true
+  },
+  priority: {
+    description: 'Priority level',
+    examples: ['priority:critical', 'priority:high', 'priority:medium', 'priority:low'],
+    required: true
+  },
+  status: {
+    description: 'Test stability',
+    examples: ['status:stable', 'status:flaky', 'status:wip'],
+    required: false
+  },
+  platform: {
+    description: 'Platform target',
+    examples: ['platform:web', 'platform:mobile', 'platform:api'],
+    required: false
+  },
+  browser: {
+    description: 'Browser specific',
+    examples: ['browser:chrome', 'browser:firefox', 'browser:safari'],
+    required: false
+  },
+  component: {
+    description: 'System component',
+    examples: ['component:robot', 'component:database', 'component:api', 'component:app'],
+    required: false
+  },
+  role: {
+    description: 'User role',
+    examples: ['role:admin', 'role:user', 'role:guest'],
+    required: false
+  },
+  url: {
+    description: 'URL/domain',
+    examples: ['url:example.com', 'url:staging.example.com'],
+    required: false
+  }
+}
+
+const ALLOWED_TAG_CATEGORIES = Object.keys(TAG_SYSTEM)
+const REQUIRED_TAG_CATEGORIES = Object.keys(TAG_SYSTEM).filter(cat => TAG_SYSTEM[cat].required)
+
+/**
+ * Validate tag format
+ * @param {string} tag - Tag to validate
+ * @returns {Object} Validation result { valid: boolean, error?: string }
+ */
+function validateTag(tag) {
+  if (!tag || typeof tag !== 'string') {
+    return { valid: false, error: 'Tag must be a non-empty string' }
+  }
+
+  // Check format: category:name
+  if (!tag.includes(':')) {
+    return {
+      valid: false,
+      error: `Tag "${tag}" must use format category:name (e.g., "feature:login")`
+    }
+  }
+
+  const [category, ...nameParts] = tag.split(':')
+  const name = nameParts.join(':') // Allow colons in name part
+
+  if (!category || !name) {
+    return {
+      valid: false,
+      error: `Tag "${tag}" must have both category and name (format: category:name)`
+    }
+  }
+
+  if (!ALLOWED_TAG_CATEGORIES.includes(category)) {
+    return {
+      valid: false,
+      error: `Tag category "${category}" is not allowed. Must be one of: ${ALLOWED_TAG_CATEGORIES.join(', ')}`
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Validate array of tags
+ * @param {string[]} tags - Tags to validate
+ * @returns {Object} Validation result { valid: boolean, errors?: string[] }
+ */
+function validateTags(tags) {
+  const errors = []
+
+  // Tags are REQUIRED
+  if (!tags || !Array.isArray(tags) || tags.length === 0) {
+    return {
+      valid: false,
+      errors: ['Tags are REQUIRED. Every test must have at least type: and priority: tags']
+    }
+  }
+
+  // Validate format of each tag
+  for (const tag of tags) {
+    const result = validateTag(tag)
+    if (!result.valid) {
+      errors.push(result.error)
+    }
+  }
+
+  // Check for required categories
+  const tagCategories = tags.map(tag => tag.split(':')[0])
+  for (const requiredCategory of REQUIRED_TAG_CATEGORIES) {
+    if (!tagCategories.includes(requiredCategory)) {
+      errors.push(`Missing required tag category: ${requiredCategory}`)
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Generate tag documentation from TAG_SYSTEM
+ */
+function generateTagDocumentation() {
+  const categoriesDoc = Object.entries(TAG_SYSTEM)
+    .map(([category, config]) => {
+      const requiredLabel = config.required ? ' **[REQUIRED]**' : ''
+      const examples = config.examples.slice(0, 3).join(', ')
+      return `- ${category}:${requiredLabel} ${config.description} (${examples})`
+    })
+    .join('\n')
+
+  const goodExamples = Object.values(TAG_SYSTEM)
+    .flatMap(config => config.examples.slice(0, 1))
+    .map(ex => `✅ "${ex}"`)
+    .join('\n')
+
+  const requiredDocs = REQUIRED_TAG_CATEGORIES.length > 0
+    ? `\n**IMPORTANT: Every test MUST have at least:**\n${REQUIRED_TAG_CATEGORIES.map(cat => `- One ${cat}: tag (${TAG_SYSTEM[cat].examples[0]})`).join('\n')}\n`
+    : ''
+
+  return `**Tag Convention:**
+Tags MUST use format: {category}:{name}
+
+**Allowed Tag Categories:**
+${categoriesDoc}
+${requiredDocs}
+**Tags - Bad Examples:**
+❌ "new"
+❌ "fixed"
+❌ "updated"
+❌ "test"
+❌ "login" (missing category)
+❌ "temp"
+❌ "asdf"
+
+**Tags - Good Examples:**
+${goodExamples}`
+}
+
+/**
  * Naming conventions for tests and tags
  */
 const NAMING_CONVENTIONS = `
@@ -30,35 +201,7 @@ const NAMING_CONVENTIONS = `
 ✅ "Password Reset"
 ✅ "Search Products"
 
-**Tag Convention:**
-Tags MUST use format: {category}:{name}
-
-**Allowed Tag Categories:**
-- feature: Feature area (feature:login, feature:checkout, feature:search)
-- type: Test type (type:smoke, type:regression, type:e2e, type:integration)
-- priority: Test priority (priority:critical, priority:high, priority:medium, priority:low)
-- status: Test status (status:flaky, status:wip, status:stable)
-- platform: Platform specific (platform:web, platform:mobile, platform:api)
-- browser: Browser specific (browser:chrome, browser:firefox, browser:safari)
-
-**Tags - Bad Examples:**
-❌ "new"
-❌ "fixed"
-❌ "updated"
-❌ "test"
-❌ "login" (missing category)
-❌ "temp"
-❌ "asdf"
-
-**Tags - Good Examples:**
-✅ "feature:login"
-✅ "feature:checkout"
-✅ "type:smoke"
-✅ "type:regression"
-✅ "priority:critical"
-✅ "status:stable"
-✅ "platform:web"
-✅ "browser:chrome"
+${generateTagDocumentation()}
 `
 
 /**
@@ -305,9 +448,21 @@ The raw data contains all the information you need - analyze it carefully and be
  */
 async function handleCreateTest(args) {
   const { name, content, description, tags } = args
-  
+
   debug(config, `Creating test with name: ${name}`)
-  
+
+  // Validate tags
+  const tagValidation = validateTags(tags)
+  if (!tagValidation.valid) {
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Tag Validation Failed\n\n${tagValidation.errors.join('\n')}\n\nPlease fix the tags and try again.`
+      }],
+      isError: true
+    }
+  }
+
   try {
     // Always use "new" as ID to force auto-generation for security
     const testPayload = {
@@ -478,6 +633,20 @@ async function handleModifyTest(args) {
   const { id, name, content, description, tags } = args
 
   debug(config, `Modifying test with ID: ${id}`)
+
+  // Validate tags if they're being updated
+  if (tags !== undefined) {
+    const tagValidation = validateTags(tags)
+    if (!tagValidation.valid) {
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Tag Validation Failed\n\n${tagValidation.errors.join('\n')}\n\nPlease fix the tags and try again.`
+        }],
+        isError: true
+      }
+    }
+  }
 
   try {
     // Build the update payload - only include fields that are provided

@@ -547,7 +547,7 @@ Before testing ANY features or authentication, you MUST set up fundamental domai
 
    Example test content:
    \`\`\`robot
-   SSL Is Valid    example.com    ==    ${True}
+   SSL Is Valid    example.com    ==    True
    SSL Days Remaining    example.com    >=    30
    SSL Issuer Organization    example.com    # Log issuer for tracking
    \`\`\`
@@ -558,7 +558,7 @@ Before testing ANY features or authentication, you MUST set up fundamental domai
      id: artifactId,
      updates: {
        "availableAreas.uptimeTests.-1": {
-         "name": `Domain Uptime - ${extractedDomain}`,
+         "name": \`Domain Uptime - \${extractedDomain}\`,
          "url": extractedDomain,
          "description": "Fundamental uptime monitoring to ensure domain accessibility. This is the foundation - all other tests depend on this.",
          "requiresSetup": true,
@@ -570,7 +570,7 @@ Before testing ANY features or authentication, you MUST set up fundamental domai
          ]
        },
        "availableAreas.sslTests.-1": {
-         "name": `SSL Check - ${extractedDomain}`,
+         "name": \`SSL Check - \${extractedDomain}\`,
          "url": extractedDomain,
          "description": "Essential security checks that every production domain MUST pass. Prevents SSL failures, man-in-the-middle attacks, and security warnings.",
          "requiresSetup": true,
@@ -622,6 +622,126 @@ Before testing ANY features or authentication, you MUST set up fundamental domai
 - Without valid SSL, HTTPS fails completely
 - These are prerequisites for ALL other testing
 - They catch infrastructure issues that break everything at once
+
+**🎯 CRITICAL: DEFINITION OF DONE FOR TESTS**
+
+Every test MUST have proper validation at the end. A test is NOT complete until it VERIFIES the expected outcome.
+
+**❌ WRONG - Just retrieves data without checking:**
+\`\`\`robot
+Fill Text  input.search  test query
+Click  button.search
+Get Text  .results    # ❌ This just retrieves text, doesn't verify anything!
+\`\`\`
+
+**✅ CORRECT - Validates the expected outcome:**
+\`\`\`robot
+Fill Text  input.search  test query
+Click  button.search
+Get Text  .results  *=  test query    # ✅ Asserts that results contain the search query
+Get Element Count  .result-item  >  0    # ✅ Verifies at least one result appeared
+\`\`\`
+
+**Definition of Done Checklist:**
+1. ✅ **Does the test ASSERT something?** - Use Robot Framework assertions like:
+   - \`Get Text .element contains expected-text\` (checks text contains substring)
+   - \`Get Text .element ==  exact-text\` (checks exact match)
+   - \`Get Text .element *=  partial-text\` (checks text contains)
+   - \`Get Element Count .elements  >  0\` (checks elements exist)
+   - \`Get Element Count .elements  ==  5\` (checks exact count)
+   - \`Get Attribute .element  class  *=  active\` (checks attribute contains value)
+
+2. ✅ **Does the test verify STATE CHANGE?** - Check that something actually happened:
+   - Modal appeared: \`Get Element Count  .modal  ==  1\`
+   - Button became disabled: \`Get Attribute  button  disabled  ==  true\`
+   - List grew: Count elements before AND after action
+   - Text changed: Check text BEFORE and AFTER
+   - New element appeared: \`Get Element Count  .new-message  >  {previous-count}\`
+
+3. ✅ **Does the test handle DYNAMIC CONTENT?** - For AI responses, loading states, async operations:
+   - Wait for element to appear: \`Wait For Elements State  .ai-response  visible  timeout=30s\`
+   - Check element count changed: Store initial count, wait, check new count is higher
+   - Verify loading completed: \`Wait For Elements State  .spinner  hidden\`
+   - Check text is non-empty: \`Get Text .message  validate  value  then  value.length > 0\`
+
+**Examples of PROPER test validation:**
+
+**Example 1: AI Chat (Dynamic Content)**
+\`\`\`robot
+# Count messages before
+\${initial_count}=  Get Element Count  .message-bubble
+# Send message
+Fill Text  textarea.chat-input  Tell me about this document
+Click  button[aria-label="Send"]
+# Wait for AI response (30s timeout for AI processing)
+Wait For Elements State  .message-bubble  visible  timeout=30s
+# Verify new message appeared
+\${final_count}=  Get Element Count  .message-bubble
+Should Be True  \${final_count} > \${initial_count}  Message: AI response did not appear
+# Verify response has content
+Get Text  .message-bubble >> nth=-1  validate  value  then  value.length > 10
+\`\`\`
+
+**Example 2: Form Validation**
+\`\`\`robot
+# Submit empty form
+Click  button[type="submit"]
+# Verify error message appeared
+Get Element Count  .error-message  >  0
+Get Text  .error-message  *=  required
+\`\`\`
+
+**Example 3: Modal Display**
+\`\`\`robot
+# Before clicking
+Get Element Count  .pricing-modal  ==  0
+# Click button
+Click  button:has-text("Upgrade")
+# After clicking - modal should appear
+Get Element Count  .pricing-modal  ==  1
+Get Text  .pricing-modal  *=  Plus
+Get Text  .pricing-modal  *=  \$11
+\`\`\`
+
+**🚨 MANDATORY: Never end a test with just \`Get Text\` or \`Sleep\`**
+- If you use \`Get Text\`, ALWAYS add an assertion operator (\`contains\`, \`==\`, \`*=\`, etc.)
+- If you use \`Sleep\`, follow it with a verification command
+- Every test must PROVE something worked, not just execute steps
+
+**🔥 CRITICAL: Robot Framework Syntax Requirements**
+
+Robot Framework requires **AT LEAST 2 SPACES** (preferably 4 spaces) between keyword and arguments, and between each argument.
+
+**❌ WRONG - Single space or no space:**
+\`\`\`robot
+Go To https://example.com
+SSL Is Valid example.com == True
+Click button#submit
+\`\`\`
+
+**✅ CORRECT - Multiple spaces (4 recommended):**
+\`\`\`robot
+Go To    https://example.com
+SSL Is Valid    example.com    ==    True
+Click    button#submit
+\`\`\`
+
+**Robot Framework Spacing Rules:**
+1. **Keyword and first argument**: At least 2 spaces (4 recommended)
+   - ✅ \`Go To    https://example.com\`
+   - ❌ \`Go To https://example.com\`
+
+2. **Between arguments**: At least 2 spaces (4 recommended)
+   - ✅ \`SSL Is Valid    dev.0docs.ai    ==    True\`
+   - ❌ \`SSL Is Valid dev.0docs.ai == True\`
+
+3. **Operator and expected value**: At least 2 spaces
+   - ✅ \`Get Text    .title    ==    Welcome\`
+   - ❌ \`Get Text .title == Welcome\`
+
+**Why this matters:** Robot Framework parser treats single spaces as part of the argument value. Without proper spacing, the test will fail with syntax errors like "No keyword with name 'SSL Is Valid dev.0docs.ai == True' found."
+
+**When creating test content, ALWAYS use 4 spaces between keyword/arguments for maximum clarity and reliability.**
 
 **Step 1: Look for Login/Signup Forms (After Step 0 is complete)**
 1. **Analyze the page data** - search for login, signup, sign-in, register, authentication forms
