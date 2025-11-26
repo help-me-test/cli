@@ -1,5 +1,25 @@
 # Release Notes
 
+## v1.19.0 (2025-11-26)
+
+### New Features
+
+- **Artifact Knowledge Base**: Added comprehensive artifact system for documenting and organizing test context. Create, update, and search artifacts like business analysis, page descriptions, API documentation, known errors, and exploratory testing results. AI assistants can now access structured domain knowledge to improve test creation and debugging.
+- **Intelligent Exploratory Testing**: Complete rewrite of exploratory testing with smart priority-based workflow. Automatically identifies critical paths (authentication, payment, billing) and generates test plans. Tracks tested use cases, discovered bugs, and coverage in persistent artifacts.
+- **Incremental Artifact Updates**: New partial update capability allows modifying specific artifact fields using dot notation (e.g., `testResults.-1` to append array items) without regenerating entire content, significantly reducing token usage and improving performance.
+
+### Improvements
+
+- **Domain Health Monitoring**: Enhanced test naming for domain uptime and SSL checks with cleaner formatting (no emojis) and URL tags for better organization. SSL and domain checks now prioritized as foundational Step 0 before other testing.
+- **Authentication-First Testing**: Exploratory testing now prioritizes authentication flows (login/signup) as Priority 10, with credential collection and "Save as Authenticated User" patterns for testing protected features.
+- **Optimized Event Handling**: Smart truncation of large event fields (html, content, logs) while preserving event structure and counts, preventing token limit issues while maintaining debugging context.
+- **Robot Framework Boolean Syntax**: Fixed boolean comparisons to use proper two-space syntax (`==  True`, `==  False`) for reliable test execution.
+- **Direct API Integration**: Replaced MCP handler calls with direct API calls in exploratory testing for better performance and simpler code flow.
+
+### Bug Fixes
+
+- **Interactive Session Management**: Removed premature Exit command instructions that were causing sessions to end unexpectedly. Sessions now remain active for continued iterative testing.
+
 ## v1.18.0 (2025-11-07)
 
 ### New Features
