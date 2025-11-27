@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.19.1 (2025-11-27)
+
+### Improvements
+
+- **Updated MCP Tools**: Refreshed MCP tool definitions to ensure compatibility with latest Claude Desktop and AI assistants.
+
 ## v1.19.0 (2025-11-26)
 
 ### New Features
