@@ -1,5 +1,21 @@
 # Release Notes
 
+## v1.19.2 (2025-11-28)
+
+### Improvements
+
+- **AI-Friendly Interactive Output**: Interactive debugging commands now return clean, structured markdown instead of overwhelming JSON. Output includes command execution status, page content, interactive elements table, browser activity (navigation, performance, network, console logs), making it dramatically easier for AI assistants to understand page state and create accurate tests.
+- **Complete Console Log Visibility**: All console logs (error, warn, info, log, debug) now visible with emoji indicators and full messages - no more truncation. Helps quickly identify JavaScript errors, warnings, and debugging information during test development.
+- **Precise Network Request Tracking**: All network requests now logged with millisecond-precision timestamps, HTTP status codes, methods, URLs, and durations. Status-based emojis (✅ success, ❌ client errors, 💥 server errors, 🐌 slow requests) make it easy to spot issues at a glance.
+- **Full Element Text Display**: Interactive element text no longer truncated - see complete button labels, link text, and form field content. Essential for creating accurate test selectors and understanding page structure.
+- **Smart Element Grouping**: Elements grouped by selector when the same selector supports multiple actions (click, hover, type), reducing visual clutter while maintaining complete information.
+
+### Bug Fixes
+
+- **Console Log Parsing**: Fixed array destructuring that was skipping the log level, causing console logs to not appear in output.
+- **Network Event Processing**: Separated NetworkRequest event processing to prevent array length mismatches with other event types.
+- **Element Text Truncation**: Removed 20-character limit on element text in interactive debugging, now shows full text for better test creation.
+
 ## v1.19.1 (2025-11-27)
 
 ### Improvements

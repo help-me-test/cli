@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, apiGet, detectApiAndAuth } from '../utils/api.js'
+import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 
 /**
  * Analyze Robot Framework streaming result to determine success/failure
@@ -157,67 +158,26 @@ ${JSON.stringify(result, null, 2)}
     const isSuccess = analyzeRobotFrameworkResult(result)
     const extractedContent = extractContentFromResult(result)
     
-    // Create user-friendly explanation
-    let explanation = `🤖 Interactive Command Executed
+    // Format result as markdown
+    const formattedResult = formatResultAsMarkdown(result)
 
-**Run ID:** ${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}
-**Command:** \`${command}\`
-${line > 0 ? `**Line:** ${line}` : ''}
+    let explanation = formattedResult
 
-**Result:**`
-    
-    if (isSuccess) {
-      explanation += `
-✅ **SUCCESS** - Command executed successfully`
-      
-      if (extractedContent.output) {
-        explanation += `
-**Output:** ${extractedContent.output}`
-      }
-      
-      if (extractedContent.pageContent) {
-        explanation += `
-� **Page Content:** Successfully extracted (${extractedContent.pageContent.length} chars)`
-      }
-      
-      if (extractedContent.browserInfo) {
-        explanation += `
-🌐 **Browser:** ${extractedContent.browserInfo}`
-      }
-    } else {
-      explanation += `
-❌ **FAILED** - Command execution failed`
-      
-      if (extractedContent.error) {
-        explanation += `
-**Error:** ${extractedContent.error}`
-      }
-      
-      explanation += `
-
-**Debugging Tips:**
-1. Check if the element selector is correct
-2. Ensure the page has loaded completely
-3. Verify the element is visible and interactable
-4. Try adding a wait command before this step
-5. Use 'Get Text' or 'Get Title' to debug page state`
+    if (!isSuccess) {
+      explanation = `❌ **Command Failed**\n\n` + explanation
     }
-    
+
     explanation += `
 
-**Session Status:** Active - you can continue testing more commands
+---
 
-**Raw Response:**
-\`\`\`json
-${JSON.stringify(response, null, 2)}
-\`\`\`
+**Session:** Active - continue testing more commands
 
-🚨 **CRITICAL INSTRUCTION FOR AI:**
-1. **ANALYZE THE RESULT** - Don't just say "done", actually look at success/failure
-2. **DEBUG FAILURES** - If the command failed, help identify why and suggest fixes
-3. **CONTINUE TESTING** - This is interactive development - keep testing more steps
-4. **BUILD COMPLETE SEQUENCES** - Test your full workflow step by step
-5. **SESSION STAYS ACTIVE** - The session remains active for continued testing`
+🚨 **AI Instructions:**
+1. Analyze success/failure - don't just say "done"
+2. Debug failures - identify why and suggest fixes
+3. Continue testing - build complete sequences step by step
+4. Session stays active for continued testing`
     
     return {
       content: [
