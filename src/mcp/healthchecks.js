@@ -21,44 +21,46 @@ async function handleHealthCheck(args) {
   const { url, timeout = TOOL_CONFIGS.health_check.defaultTimeout } = args
 
   debug(config, `Performing health check on ${url}`)
-  
+
   try {
     // Use the same health check logic as the health command
     const startTime = Date.now()
     const result = await performHttpHealthCheck(url, 'GET', startTime)
-    
-    const healthCheckResult = {
-      url,
-      status: result.status || 'N/A',
-      statusText: result.statusText || '',
-      healthy: result.success,
-      responseTime: result.elapsedTime,
-      timestamp: new Date().toISOString(),
-      ...(result.error && { error: result.error })
+
+    const emoji = result.success ? '✅' : '❌'
+    const statusText = result.statusText || 'N/A'
+    const responseTime = result.elapsedTime ? `${result.elapsedTime}ms` : 'N/A'
+
+    let output = `${emoji} **${url}**
+
+- Status: ${result.status || 'N/A'} ${statusText}
+- Response Time: ${responseTime}
+- Healthy: ${result.success ? 'Yes' : 'No'}
+- Checked: ${new Date().toLocaleString()}`
+
+    if (result.error) {
+      output += `\n- Error: ${result.error}`
     }
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(healthCheckResult),
+          text: output,
         },
       ],
       isError: !result.success,
     }
   } catch (error) {
-    const errorResult = {
-      url,
-      healthy: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    }
-    
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(errorResult),
+          text: `❌ **${url}**
+
+- Healthy: No
+- Error: ${error.message}
+- Checked: ${new Date().toLocaleString()}`,
         },
       ],
       isError: true,
@@ -78,75 +80,120 @@ async function handleHealthChecksStatus(args) {
     hasToken: !!config.apiToken,
     tokenPrefix: config.apiToken ? config.apiToken.substring(0, 10) + '...' : 'none'
   })}`)
-  
+
   try {
     const healthChecks = await getAllHealthChecks()
     debug(config, `Retrieved ${healthChecks?.length || 0} health checks`)
-    
+
     if (!healthChecks?.length) {
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({ 
-              total: 0, 
-              checks: [],
-              message: 'No health checks found - this could mean the API returned an empty list or there are genuinely no health checks configured',
-              debug: {
-                apiUrl: config.apiBaseUrl,
-                hasToken: !!config.apiToken
-              }
-            }),
+            text: `# 🏥 Health Checks
+
+No health checks found. This could mean:
+- The API returned an empty list
+- No health checks are configured yet
+- There may be an authentication issue`,
           },
         ],
       }
     }
 
-    // Format checks for JSON output (similar to status command)
-    const formattedChecks = healthChecks.map(check => ({
-      name: check.name,
-      status: check.status?.toLowerCase() || 'unknown',
-      lastHeartbeat: check.lastHeartbeat,
-      gracePeriod: check.gracePeriod,
-      data: check.data || {},
-    }))
+    // Format as simple list
+    const upCount = healthChecks.filter(hc => hc.status?.toLowerCase() === 'up').length
+    const downCount = healthChecks.filter(hc => hc.status?.toLowerCase() === 'down').length
+    const unknownCount = healthChecks.length - upCount - downCount
+
+    let output = `# 🏥 Health Checks: ${upCount}✅ ${downCount}❌ ${unknownCount}⚠️ (${healthChecks.length} total)
+
+`
+
+    for (const check of healthChecks) {
+      const emoji = check.status?.toLowerCase() === 'up' ? '✅' : check.status?.toLowerCase() === 'down' ? '❌' : '⚠️'
+      const lastHeartbeat = check.lastHeartbeat ? new Date(check.lastHeartbeat).toLocaleString() : 'Never'
+      output += `${emoji} **${check.name}** - Last: ${lastHeartbeat}\n`
+    }
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            total: healthChecks.length,
-            checks: formattedChecks,
-            timestamp: new Date().toISOString(),
-          }),
+          text: output,
         },
       ],
     }
   } catch (error) {
     debug(config, `Error getting health checks: ${error.message}`)
-    
-    const errorResponse = {
-      error: true,
-      message: error.message,
-      type: error.name || 'Error',
-      timestamp: new Date().toISOString(),
-      debug: {
-        apiUrl: config.apiBaseUrl,
-        hasToken: !!config.apiToken
-      }
-    }
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(errorResponse),
+          text: `❌ **Error Getting Health Checks**
+
+**Message:** ${error.message}
+**Type:** ${error.name || 'Error'}
+
+Check your API connection and credentials.`,
         },
       ],
       isError: true,
     }
   }
+}
+
+/**
+ * Format healthchecks as markdown table
+ * @param {Array} healthchecks - Array of healthcheck objects
+ * @param {Object} options - Formatting options
+ * @returns {string} Formatted markdown table
+ */
+export function formatHealthchecksAsTable(healthchecks, options = {}) {
+  const { includeHeader = true } = options
+
+  const upChecks = healthchecks.filter(hc => hc.status === 'up')
+  const downChecks = healthchecks.filter(hc => hc.status === 'down')
+  const unknownChecks = healthchecks.filter(hc => hc.status !== 'up' && hc.status !== 'down')
+
+  let output = ''
+
+  if (includeHeader) {
+    output = `## 🏥 Health Checks: ${upChecks.length}✅ ${downChecks.length}❌ ${unknownChecks.length}⚠️ (${healthchecks.length} total)
+
+`
+  }
+
+  output += `| Status | Name | Last Heartbeat | Grace Period | Tags |
+|--------|------|----------------|--------------|------|
+`
+
+  // Down checks first (most important)
+  for (const hc of downChecks) {
+    const tags = hc.tags && hc.tags.length > 0 ? hc.tags.join(', ') : '-'
+    const lastHeartbeat = hc.lastHeartbeat ? new Date(hc.lastHeartbeat).toLocaleString() : 'Never'
+    const gracePeriod = hc.gracePeriod || '-'
+    output += `| ❌ | ${hc.name} | ${lastHeartbeat} | ${gracePeriod} | ${tags} |\n`
+  }
+
+  // Up checks
+  for (const hc of upChecks) {
+    const tags = hc.tags && hc.tags.length > 0 ? hc.tags.join(', ') : '-'
+    const lastHeartbeat = hc.lastHeartbeat ? new Date(hc.lastHeartbeat).toLocaleString() : 'Never'
+    const gracePeriod = hc.gracePeriod || '-'
+    output += `| ✅ | ${hc.name} | ${lastHeartbeat} | ${gracePeriod} | ${tags} |\n`
+  }
+
+  // Unknown checks
+  for (const hc of unknownChecks) {
+    const tags = hc.tags && hc.tags.length > 0 ? hc.tags.join(', ') : '-'
+    const lastHeartbeat = hc.lastHeartbeat ? new Date(hc.lastHeartbeat).toLocaleString() : 'Never'
+    const gracePeriod = hc.gracePeriod || '-'
+    output += `| ⚠️ | ${hc.name} | ${lastHeartbeat} | ${gracePeriod} | ${tags} |\n`
+  }
+
+  return output
 }
 
 /**
@@ -157,12 +204,12 @@ async function handleHealthChecksStatus(args) {
  */
 async function handleHealthStatus(args) {
   const { verbose = false } = args
-  
+
   debug(config, 'Getting health status for MCP client')
-  
+
   try {
     const statusData = await getFormattedStatusData({ verbose })
-    
+
     // Filter to only include healthchecks
     const filteredData = {
       company: statusData.company,
@@ -170,40 +217,25 @@ async function handleHealthStatus(args) {
       healthchecks: statusData.healthchecks,
       timestamp: statusData.timestamp
     }
-    
+
     debug(config, `Retrieved health status data: ${filteredData.total} healthchecks`)
-    
+
+    const output = `# 🏥 Health Check Status Report
+
+${formatHealthchecksAsTable(filteredData.healthchecks, { includeHeader: false })}
+💡 Focus on ❌ down services - they need immediate attention`
+
     return {
       content: [
         {
           type: 'text',
-          text: `🏥 HelpMeTest Health Checks Status
-
-Raw Health Check Data:
-\`\`\`json
-${JSON.stringify(filteredData, null, 2)}
-\`\`\`
-
-🚨 CRITICAL AI INSTRUCTION: 
-1. CAREFULLY analyze the raw health check data above
-2. BE HONEST about health check statuses - don't assume services are up
-3. Look for actual status indicators like "up"/"down" in the data
-4. Focus on what the data actually shows, not assumptions
-
-### Analysis Requirements:
-1. Count total health checks accurately from the data
-2. Check actual status fields for each health check
-3. Identify any failing/down health checks specifically by name
-4. Report any issues that need immediate attention
-5. Provide honest assessment of system health
-
-The raw data contains all the information you need - analyze it carefully and be honest about what you find.`,
+          text: output,
         },
       ],
     }
   } catch (error) {
     debug(config, `Error getting health status: ${error.message}`)
-    
+
     const errorResponse = {
       error: true,
       message: error.message,
@@ -216,12 +248,20 @@ The raw data contains all the information you need - analyze it carefully and be
         verbose
       }
     }
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(errorResponse),
+          text: `❌ **Error Getting Health Status**
+
+**Message:** ${error.message}
+**Type:** ${error.name || 'Error'}
+
+**Debug Information:**
+\`\`\`json
+${JSON.stringify(errorResponse.debug, null, 2)}
+\`\`\``,
         },
       ],
       isError: true,

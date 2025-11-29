@@ -152,14 +152,17 @@ ${JSON.stringify(result, null, 2)}
       timestamp: new Date().toISOString(),
       sessionActive: true
     }
-    
+
     // Analyze the streaming result to determine success/failure
     // The result is an array of Robot Framework execution events
     const isSuccess = analyzeRobotFrameworkResult(result)
     const extractedContent = extractContentFromResult(result)
-    
+
     // Format result as markdown
     const formattedResult = formatResultAsMarkdown(result)
+
+    // Build interactive session URL with subdomain
+    const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
 
     let explanation = formattedResult
 
@@ -172,12 +175,14 @@ ${JSON.stringify(result, null, 2)}
 ---
 
 **Session:** Active - continue testing more commands
+**View Execution:** [${sessionUrl}](${sessionUrl})
 
 🚨 **AI Instructions:**
 1. Analyze success/failure - don't just say "done"
 2. Debug failures - identify why and suggest fixes
 3. Continue testing - build complete sequences step by step
-4. Session stays active for continued testing`
+4. Session stays active for continued testing
+5. User can observe execution at: ${sessionUrl}`
     
     return {
       content: [

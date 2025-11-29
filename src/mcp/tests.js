@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runTest, createTest, deleteTest, getAllTests, detectApiAndAuth } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
+import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 import open from 'open'
 
 /**
@@ -212,61 +213,89 @@ ${generateTagDocumentation()}
  */
 async function handleRunTest(args) {
   const { identifier } = args
-  
+
   debug(config, `Running test with identifier: ${identifier}`)
-  
+
   try {
     // Collect all events from the test run
     const events = []
-    
+
     await runTest(identifier, (event) => {
       if (event) {
         events.push(event)
       }
     })
-    
-    // Process events to extract meaningful results
+
+    // Check if we got any results
     const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
-    const keywordEvents = events.filter(e => e.type === 'keyword')
-    
-    // Build response with test execution data
-    const response = {
-      identifier,
-      timestamp: new Date().toISOString(),
-      totalEvents: events.length,
-      testResults: testResults.map(result => ({
-        testId: result.attrs?.name || 'unknown',
-        status: result.attrs?.status || 'UNKNOWN',
-        duration: result.attrs?.elapsed_time ? `${result.attrs.elapsed_time}s` : 'N/A',
-        message: result.attrs?.doc || ''
-      })),
-      keywords: keywordEvents.map(kw => ({
-        keyword: kw.keyword,
-        status: kw.status,
-        duration: kw.elapsed_time || kw.elapsedtime || null
-      })),
-      allEvents: events // Include all raw events for debugging
+
+    if (testResults.length === 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ No test results found for "${identifier}"
+
+This could mean:
+• Test doesn't exist
+• Test execution failed to start
+• Test identifier is incorrect
+
+**Debug Information:**
+\`\`\`json
+{
+  "identifier": "${identifier}",
+  "totalEvents": ${events.length},
+  "events": ${JSON.stringify(events.slice(0, 3), null, 2)}
+}
+\`\`\``,
+          },
+        ],
+        isError: true,
+      }
     }
-    
+
     // Determine overall success
-    const hasFailures = testResults.some(r => r.status === 'FAIL')
-    response.success = !hasFailures && testResults.length > 0
-    
-    // Create user-friendly explanation
-    const explanation = createTestRunExplanation(response, identifier)
-    
+    const hasFailures = testResults.some(r => r.attrs?.status === 'FAIL')
+
+    // Debug: Save events to file for inspection
+    const fs = await import('fs')
+    await fs.promises.writeFile('/tmp/test-events-debug.json', JSON.stringify(events, null, 2))
+    console.log(`[DEBUG] Saved ${events.length} events to /tmp/test-events-debug.json`)
+
+    // Extract run ID from events to build URL
+    const firstEvent = events.find(e => e.id)
+    let runUrl = null
+    if (firstEvent?.id) {
+      const [company, testId, timestamp] = firstEvent.id.split('__')
+      if (company && testId && timestamp) {
+        // Get user info to build URL with subdomain
+        const { detectApiAndAuth } = await import('../utils/api.js')
+        const userInfo = await detectApiAndAuth()
+        runUrl = `${userInfo.dashboardBaseUrl}/test/${testId}/${timestamp}`
+      }
+    }
+
+    // Format result as markdown using unified formatter
+    let formattedResult = formatResultAsMarkdown(events, { identifier })
+
+    // Add run URL at the end if available
+    if (runUrl) {
+      formattedResult += `\n\n---\n\n**View Execution:** [${runUrl}](${runUrl})\n`
+    }
+
     return {
       content: [
         {
           type: 'text',
-          text: explanation,
+          text: formattedResult,
         },
       ],
       isError: hasFailures,
     }
   } catch (error) {
     debug(config, `Error running test: ${error.message}`)
-    
+
     const errorResponse = {
       error: true,
       identifier,
@@ -279,12 +308,25 @@ async function handleRunTest(args) {
         status: error.status || null
       }
     }
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(errorResponse),
+          text: `❌ Test Execution Failed
+
+**Identifier:** ${identifier}
+**Error:** ${error.message}
+
+**Troubleshooting:**
+1. Verify the test exists using \`helpmetest_status_test\`
+2. Check your API connection and credentials
+3. Try running a different test to isolate the issue
+
+**Debug Information:**
+\`\`\`json
+${JSON.stringify(errorResponse, null, 2)}
+\`\`\``,
         },
       ],
       isError: true,
@@ -293,72 +335,55 @@ async function handleRunTest(args) {
 }
 
 /**
- * Create explanation for test run results
- * @param {Object} response - Test run response data
- * @param {string} identifier - Test identifier
- * @returns {string} Human-readable explanation
+ * Format tests as markdown table
+ * @param {Array} tests - Array of test objects
+ * @param {Object} options - Formatting options
+ * @returns {string} Formatted markdown table
  */
-function createTestRunExplanation(response, identifier) {
-  const { success, testResults, keywords, totalEvents } = response
-  
-  let explanation = `🧪 Test Execution Results for "${identifier}"\n\n`
-  
-  if (testResults.length === 0) {
-    explanation += `❌ No test results found. This could mean:\n`
-    explanation += `• Test "${identifier}" doesn't exist\n`
-    explanation += `• Test execution failed to start\n`
-    explanation += `• Test identifier is incorrect\n\n`
-    explanation += `Raw event data (${totalEvents} events):\n`
-    explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
-    return explanation
+export function formatTestsAsTable(tests, options = {}) {
+  const { includeHeader = true } = options
+
+  const passedTests = tests.filter(t => t.status === 'PASS')
+  const failedTests = tests.filter(t => t.status === 'FAIL')
+  const otherTests = tests.filter(t => t.status !== 'PASS' && t.status !== 'FAIL')
+
+  let output = ''
+
+  if (includeHeader) {
+    output = `## 🧪 Tests: ${passedTests.length}✅ ${failedTests.length}❌ ${otherTests.length}⚠️ (${tests.length} total)
+
+`
   }
 
-  // Overall status
-  if (success) {
-    explanation += `✅ Test execution PASSED\n\n`
-  } else {
-    explanation += `❌ Test execution FAILED\n\n`
+  output += `| Status | Test Name | ID | Duration | Tags |
+|--------|-----------|-----|----------|------|
+`
+
+  // Failed tests first (most important)
+  for (const test of failedTests) {
+    const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : '-'
+    const duration = test.duration || '-'
+    const id = test.id ? `\`${test.id}\`` : '-'
+    output += `| ❌ | ${test.name} | ${id} | ${duration} | ${tags} |\n`
   }
 
-  // Test results summary
-  explanation += `📊 Test Results:\n`
-  testResults.forEach((result, index) => {
-    const statusIcon = result.status === 'PASS' ? '✅' : '❌'
-    explanation += `${index + 1}. ${statusIcon} ${result.testId} (${result.status}) - ${result.duration}\n`
-    if (result.message) {
-      explanation += `   📝 ${result.message}\n`
-    }
-  })
-
-  // Keywords summary
-  if (keywords.length > 0) {
-    explanation += `\n🔧 Keywords Executed:\n`
-    keywords.slice(0, 10).forEach((kw, index) => { // Limit to first 10 keywords
-      const statusIcon = kw.status === 'PASS' ? '✅' : kw.status === 'FAIL' ? '❌' : '⏸️'
-      const duration = kw.duration ? ` (${kw.duration}s)` : ''
-      explanation += `${index + 1}. ${statusIcon} ${kw.keyword}${duration}\n`
-    })
-    if (keywords.length > 10) {
-      explanation += `   ... and ${keywords.length - 10} more keywords\n`
-    }
+  // Passing tests
+  for (const test of passedTests) {
+    const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : '-'
+    const duration = test.duration || '-'
+    const id = test.id ? `\`${test.id}\`` : '-'
+    output += `| ✅ | ${test.name} | ${id} | ${duration} | ${tags} |\n`
   }
 
-  // Next steps
-  explanation += `\n📋 Next Steps:\n`
-  if (success) {
-    explanation += `• Test completed successfully - no action needed\n`
-    explanation += `• You can view the full test details in the browser using the 'helpmetest_open_test' command\n`
-  } else {
-    explanation += `• Review failed keywords above for debugging\n`
-    explanation += `• Check test logs for detailed error messages\n`
-    explanation += `• Consider using 'helpmetest_run_interactive_command' to debug step by step\n`
-    explanation += `• You can view the full test details in the browser using the 'helpmetest_open_test' command\n`
+  // Other tests
+  for (const test of otherTests) {
+    const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : '-'
+    const duration = test.duration || '-'
+    const id = test.id ? `\`${test.id}\`` : '-'
+    output += `| ⚠️ | ${test.name} | ${id} | ${duration} | ${tags} |\n`
   }
 
-  explanation += `\n🔍 Raw Data (for debugging):\n`
-  explanation += `\`\`\`json\n${JSON.stringify(response, null, 2)}\`\`\`\n`
-
-  return explanation
+  return output
 }
 
 /**
@@ -369,12 +394,12 @@ function createTestRunExplanation(response, identifier) {
  */
 async function handleTestStatus(args) {
   const { verbose = false } = args
-  
+
   debug(config, 'Getting test status for MCP client')
-  
+
   try {
     const statusData = await getFormattedStatusData({ verbose })
-    
+
     // Filter to only include tests
     const filteredData = {
       company: statusData.company,
@@ -382,40 +407,25 @@ async function handleTestStatus(args) {
       tests: statusData.tests,
       timestamp: statusData.timestamp
     }
-    
+
     debug(config, `Retrieved test status data: ${filteredData.total} tests`)
-    
+
+    const output = `# 🧪 Test Status Report
+
+${formatTestsAsTable(filteredData.tests, { includeHeader: false })}
+💡 Focus on ❌ failed tests - they need immediate attention`
+
     return {
       content: [
         {
           type: 'text',
-          text: `🧪 HelpMeTest Tests Status
-
-Raw Test Data:
-\`\`\`json
-${JSON.stringify(filteredData, null, 2)}
-\`\`\`
-
-🚨 CRITICAL AI INSTRUCTION: 
-1. CAREFULLY analyze the raw test data above
-2. BE HONEST about test statuses - don't assume tests are passing
-3. Look for actual status indicators like "PASS"/"FAIL" in the recent runs
-4. Focus on what the data actually shows, not assumptions
-
-### Analysis Requirements:
-1. Count total tests accurately from the data
-2. Check recent run status for each test if available
-3. Identify any failing tests specifically by name/ID
-4. Report any issues that need immediate attention
-5. Provide honest assessment of test suite health
-
-The raw data contains all the information you need - analyze it carefully and be honest about what you find.`,
+          text: output,
         },
       ],
     }
   } catch (error) {
     debug(config, `Error getting test status: ${error.message}`)
-    
+
     const errorResponse = {
       error: true,
       message: error.message,
@@ -428,12 +438,20 @@ The raw data contains all the information you need - analyze it carefully and be
         verbose
       }
     }
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(errorResponse),
+          text: `❌ **Error Getting Test Status**
+
+**Message:** ${error.message}
+**Type:** ${error.name || 'Error'}
+
+**Debug Information:**
+\`\`\`json
+${JSON.stringify(errorResponse.debug, null, 2)}
+\`\`\``,
         },
       ],
       isError: true,

@@ -115,16 +115,16 @@ const formatApiResponse = R.curry((baseFields, verboseFields, item, verbose) => 
  * Format healthcheck for JSON output
  */
 export const formatHealthcheck = formatApiResponse(
-  ['name', 'status', 'last_heartbeat', 'grace_period', 'tags'],
-  ['id', 'grace_period_seconds', 'created_at', 'updated_at', 'latest_elapsed_time', 'latest_env', 'latest_heartbeat_data']
+  ['name', 'status', 'lastHeartbeat', 'gracePeriod', 'tags'],
+  ['id', 'gracePeriodSeconds', 'createdAt', 'updatedAt', 'latestElapsedTime', 'latestEnv', 'latestHeartbeatData']
 )
 
 /**
- * Format test for JSON output  
+ * Format test for JSON output
  */
 export const formatTest = formatApiResponse(
-  ['name', 'status', 'last_run', 'duration', 'tags'],
-  ['id', 'content', 'description']
+  ['id', 'name', 'status', 'last_run', 'duration', 'tags'],
+  ['content', 'description']
 )
 
 /**

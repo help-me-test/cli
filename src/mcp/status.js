@@ -7,6 +7,8 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { getTestRuns, getDeployments } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
+import { formatTestsAsTable } from './tests.js'
+import { formatHealthchecksAsTable } from './healthchecks.js'
 
 /**
  * Handle comprehensive status tool call
@@ -16,51 +18,35 @@ import { getFormattedStatusData } from '../utils/status-data.js'
  */
 async function handleStatus(args) {
   const { verbose = false } = args
-  
+
   debug(config, 'Getting comprehensive status for MCP client')
-  
+
   try {
     const statusData = await getFormattedStatusData({ verbose })
-    
+
     debug(config, `Retrieved status data: ${statusData.tests.length} tests, ${statusData.healthchecks.length} healthchecks`)
-    
+
+    const output = `# 🔍 Complete System Status - ${statusData.company}
+
+${formatTestsAsTable(statusData.tests, { includeHeader: true })}
+
+${formatHealthchecksAsTable(statusData.healthchecks, { includeHeader: true })}
+
+💡 **Action Items:**
+- Focus on ❌ failed tests and down services
+- Check recent deployments if you see new failures`
+
     return {
       content: [
         {
           type: 'text',
-          text: `🔍 HelpMeTest Complete System Status
-
-Raw Status Data:
-\`\`\`json
-${JSON.stringify(statusData, null, 2)}
-\`\`\`
-
-🚨 CRITICAL AI INSTRUCTION: 
-1. CAREFULLY analyze the raw status data above
-2. BE HONEST about system health - don't assume everything is working
-3. Look for actual status indicators in both tests and health checks
-4. Focus on what the data actually shows, not assumptions
-
-### Analysis Requirements:
-1. **Tests**: Count total tests, check recent run statuses (PASS/FAIL), identify failing tests
-2. **Health Checks**: Count total health checks, check status fields (up/down), identify failing services
-3. **Overall Health**: Provide honest assessment of system health
-4. **Issues**: Report any problems that need immediate attention
-5. **Trends**: Note any patterns in failures or system degradation
-
-### Key Findings to Report:
-- Total tests and how many are passing/failing
-- Total health checks and how many are up/down
-- Any critical issues requiring immediate attention
-- System health summary (healthy/degraded/failing)
-
-The raw data contains all the information you need - analyze it carefully and be honest about what you find.`,
+          text: output,
         },
       ],
     }
   } catch (error) {
     debug(config, `Error getting comprehensive status: ${error.message}`)
-    
+
     const errorResponse = {
       error: true,
       message: error.message,
@@ -73,12 +59,20 @@ The raw data contains all the information you need - analyze it carefully and be
         verbose
       }
     }
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(errorResponse),
+          text: `❌ **Error Getting System Status**
+
+**Message:** ${error.message}
+**Type:** ${error.name || 'Error'}
+
+**Debug Information:**
+\`\`\`json
+${JSON.stringify(errorResponse.debug, null, 2)}
+\`\`\``,
         },
       ],
       isError: true,
@@ -158,11 +152,31 @@ async function handleTestRuns(args) {
       timestamp: new Date().toISOString()
     }
 
+    // Build table for failed runs
+    const failedRuns = formattedRuns.filter(r => r.status === 'FAIL')
+    let failedTable = ''
+    if (failedRuns.length > 0) {
+      failedTable = `\n**Failed Test Runs:**
+
+| Test Name | Status | Duration | Error | Time |
+|-----------|--------|----------|-------|------|
+`
+      for (const run of failedRuns.slice(0, 10)) { // Show max 10 failures
+        const error = run.errorMessage ? run.errorMessage.substring(0, 50) + '...' : '-'
+        const duration = run.duration || '-'
+        const time = run.startTime ? new Date(run.startTime).toLocaleString() : '-'
+        failedTable += `| ${run.testName} | ❌ ${run.status} | ${duration} | ${error} | ${time} |\n`
+      }
+      if (failedRuns.length > 10) {
+        failedTable += `\n*Showing 10 of ${failedRuns.length} failed runs*`
+      }
+    }
+
     return {
       content: [
         {
           type: 'text',
-          text: `🏃 Test Runs Analysis
+          text: `# 🏃 Test Runs Analysis
 
 **Summary:**
 - Total runs: ${summary.total}
@@ -174,27 +188,9 @@ ${status ? `- Status: ${status.join(', ')}` : ''}
 ${startDate ? `- Start Date: ${startDate}` : ''}
 ${endDate ? `- End Date: ${endDate}` : ''}
 - Limit: ${limit}
+${failedTable}
 
-**Raw Test Runs Data:**
-\`\`\`json
-${JSON.stringify({ summary, runs: formattedRuns }, null, 2)}
-\`\`\`
-
-🚨 CRITICAL AI INSTRUCTION:
-1. CAREFULLY analyze the test runs data above
-2. Look for patterns in test failures and success rates
-3. Identify any tests that are consistently failing
-4. Check for recent trend changes in test reliability
-5. Be honest about test execution health
-
-### Analysis Requirements:
-1. Identify failing test runs and their error messages
-2. Calculate success/failure rates over time
-3. Spot any tests that need immediate attention
-4. Report on overall test execution health
-5. Suggest debugging steps for failing tests
-
-The raw data contains detailed information about each test run - use it to provide meaningful insights.`,
+💡 Focus on failed runs to identify patterns and fix flaky tests`,
         },
       ],
     }
@@ -295,59 +291,41 @@ async function handleDeployments(args) {
       timestamp: new Date().toISOString()
     }
 
+    // Build recent deployments table
+    let deploymentsTable = `\n**Recent Deployments:**
+
+| Time | App/Environment | Description |
+|------|-----------------|-------------|
+`
+    for (const dep of formattedDeployments.slice(0, 20)) { // Show max 20 deployments
+      const time = dep.timestamp ? new Date(dep.timestamp).toLocaleString() : '-'
+      const appEnv = `${dep.app || 'unknown'}/${dep.environment || 'unknown'}`
+      const desc = dep.description ? dep.description.substring(0, 60) + '...' : '-'
+      deploymentsTable += `| ${time} | ${appEnv} | ${desc} |\n`
+    }
+    if (formattedDeployments.length > 20) {
+      deploymentsTable += `\n*Showing 20 of ${formattedDeployments.length} deployments*`
+    }
+
     return {
       content: [
         {
           type: 'text',
-          text: `🚀 Deployments Analysis
+          text: `# 🚀 Deployments Analysis
 
 **Summary:**
 - Total deployments: ${summary.total}
 - App/Environment breakdown:
 ${summary.byAppEnvironment.map(({ appEnvironment, count, latest }) =>
-  `  - ${appEnvironment}: ${count} deployments (latest: ${latest.timestamp})`
+  `  - ${appEnvironment}: ${count} deployments (latest: ${new Date(latest.timestamp).toLocaleString()})`
 ).join('\n')}
 
 **Applied Filters:**
 ${startDate ? `- Start Date: ${startDate}` : ''}
 - Limit: ${limit}
+${deploymentsTable}
 
-**Raw Deployments Data:**
-\`\`\`json
-${JSON.stringify({ summary, deployments: formattedDeployments }, null, 2)}
-\`\`\`
-
-🚨 CRITICAL AI INSTRUCTION - USE THIS TOOL AS FIRST LINE OF DEBUGGING:
-
-**When to use this tool:**
-1. **ALWAYS check deployments FIRST when debugging errors**
-2. **Before assuming code issues, check if error started after a deployment**
-3. **Correlate error timestamps with deployment timestamps**
-4. **If error started after a deployment, that deployment is the likely cause**
-
-**Analysis Requirements:**
-1. **Timeline Analysis**: Compare deployment times with when errors started occurring
-2. **App/Environment Matching**: Match deployments to the services/environments experiencing issues
-3. **Recent Changes**: Identify what changed in deployments that could cause current issues
-4. **Root Cause**: If error timestamp is AFTER deployment timestamp, investigate that deployment
-5. **Deployment Description**: Read deployment descriptions for clues about changes made
-
-**Key Questions to Answer:**
-- Did any deployments happen right before the error started?
-- Which app/environment was deployed?
-- What changes were mentioned in the deployment description?
-- Are there multiple deployments in quick succession that could cause issues?
-- Is the error isolated to one environment or affecting all?
-
-**Debugging Workflow:**
-1. Get error timestamp from logs/test failures
-2. Call this tool to get recent deployments
-3. Find deployments that happened just before the error
-4. Check deployment description for relevant changes
-5. Correlate deployment app/environment with affected service
-6. Report: "Error started at X, deployment to Y happened at Z (just before), likely cause is the deployment"
-
-The deployment timeline is crucial for debugging - don't skip this step!`,
+💡 **Debugging Tip:** When investigating errors, check if they started after a deployment - that deployment is likely the cause`,
         },
       ],
     }

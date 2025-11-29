@@ -1,19 +1,73 @@
 /**
- * Format interactive command result as human-readable Markdown
+ * Format Robot Framework execution results as human-readable Markdown
+ * Works for both interactive commands and test runs
  * This gives the AI proper context instead of overwhelming JSON
  */
+
+/**
+ * Format test execution results (end_test events)
+ * @param {Array} events - Array of events
+ * @returns {string} Formatted test results or empty string
+ */
+function formatTestResults(events) {
+  const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
+
+  if (testResults.length === 0) return ''
+
+  const lines = ['## 🧪 Test Results\n']
+
+  // Determine overall status
+  const hasFailures = testResults.some(r => r.attrs.status === 'FAIL')
+  const overallStatus = hasFailures ? '❌ FAILED' : '✅ PASSED'
+
+  lines.push(`**Overall Status:** ${overallStatus}\n`)
+
+  // List each test result
+  for (const result of testResults) {
+    const { status, name, elapsed_time, elapsedtime, doc, message } = result.attrs || {}
+    const time = elapsed_time || elapsedtime
+    const icon = status === 'PASS' ? '✅' : '❌'
+
+    let testLine = `${icon} **${name || 'Unknown Test'}**`
+
+    if (time !== undefined && time !== null) {
+      testLine += ` _(${time}s)_`
+    }
+
+    if (status) {
+      testLine += ` - ${status}`
+    }
+
+    lines.push(testLine)
+
+    if (doc) {
+      lines.push(`  > ${doc}`)
+    }
+
+    // Show error message for failed tests
+    if (status === 'FAIL' && message) {
+      lines.push(`  > ⚠️ **Error:** ${message}`)
+    }
+
+    lines.push('')
+  }
+
+  return lines.join('\n') + '\n'
+}
 
 /**
  * Format keyword execution events as a markdown list
  * Only show final PASS/FAIL status, not intermediate states
  */
-function formatKeywordExecution(events) {
+function formatKeywordExecution(events, isTestRun = false) {
   const keywords = events.filter(e => e.type === 'keyword' && e.status && e.status !== 'NOT SET')
 
   if (keywords.length === 0) return ''
 
-  const lines = ['## 🤖 Command Execution\n']
+  const title = isTestRun ? '## 🔧 Keywords Executed' : '## 🤖 Command Execution'
+  const lines = [title + '\n']
 
+  // Show all keywords for both interactive and test runs
   for (const kw of keywords) {
     const { keyword, status, elapsed_time, elapsedtime, error, message } = kw
     const time = elapsed_time || elapsedtime
@@ -21,12 +75,9 @@ function formatKeywordExecution(events) {
     // Status icon
     const icon = status === 'PASS' ? '✅' : status === 'FAIL' ? '❌' : '⚪'
 
-    // Build line
-    let kwLine = `${icon} **${keyword}**`
-
-    if (time !== undefined && time !== null) {
-      kwLine += ` _(${time.toFixed(3)}s)_`
-    }
+    // Build line: icon time keyword
+    const timeStr = (time !== undefined && time !== null) ? `${time.toFixed(3)}s ` : ''
+    const kwLine = `${icon} ${timeStr}${keyword}`
 
     lines.push(kwLine)
 
@@ -158,8 +209,8 @@ function formatOpenReplayEvents(events) {
         sections.performance.push(`- **${metric}:** ${value}ms`)
       }
 
-      // Console logs - ALL levels
-      if (eventType === 'ConsoleLog') {
+      // Console logs - ALL levels (handle both string 'ConsoleLog' and numeric type 22)
+      if (eventType === 'ConsoleLog' || eventType === 22) {
         const [level, message] = args
         sections.debug.push(`ConsoleLog: level="${level}"`)
 
@@ -268,32 +319,79 @@ function formatOpenReplayEvents(events) {
 }
 
 /**
+ * Format next steps based on test results
+ * @param {Array} events - Array of events
+ * @returns {string} Next steps or empty string
+ */
+function formatNextSteps(events) {
+  const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
+
+  if (testResults.length === 0) return ''
+
+  const hasFailures = testResults.some(r => r.attrs.status === 'FAIL')
+  const lines = ['## 📋 Next Steps\n']
+
+  if (hasFailures) {
+    lines.push('• Review failed keywords above for debugging')
+    lines.push('• Check test logs for detailed error messages')
+    lines.push('• Consider using `helpmetest_run_interactive_command` to debug step by step')
+    lines.push('• View full test details in browser using `helpmetest_open_test`')
+  } else {
+    lines.push('• Test completed successfully - no action needed')
+    lines.push('• View full test details in browser using `helpmetest_open_test`')
+  }
+
+  return lines.join('\n') + '\n'
+}
+
+/**
  * Main formatter - convert result array to markdown
- * @param {Array} result - Raw result from interactive command
+ * Works for both interactive commands and test runs
+ * @param {Array} result - Raw result from interactive command or test run
+ * @param {Object} options - Formatting options
+ * @param {string} options.identifier - Test identifier (for test runs)
  * @returns {string} Formatted markdown
  */
-export function formatResultAsMarkdown(result) {
+export function formatResultAsMarkdown(result, options = {}) {
   if (!Array.isArray(result) || result.length === 0) {
     return '_No result data available_'
   }
 
+  const { identifier } = options
+
+  // Detect if this is a test run (has end_test events)
+  const isTestRun = result.some(e => e.type === 'end_test')
+
   const sections = []
 
-  // Command execution (keywords)
-  const keywordSection = formatKeywordExecution(result)
+  // Add header for test runs
+  if (isTestRun && identifier) {
+    sections.push(`# 🧪 Test Execution: ${identifier}\n`)
+  }
+
+  // Test results (for test runs only)
+  const testResultsSection = formatTestResults(result)
+  if (testResultsSection) sections.push(testResultsSection)
+
+  // Keyword execution
+  const keywordSection = formatKeywordExecution(result, isTestRun)
   if (keywordSection) sections.push(keywordSection)
 
-  // Page information
+  // Page information (usually not relevant for test runs, but include if present)
   const pageSection = formatPageInfo(result)
   if (pageSection) sections.push(pageSection)
 
-  // Interactive elements
+  // Interactive elements (usually not relevant for test runs, but include if present)
   const elementsSection = formatInteractiveElements(result)
   if (elementsSection) sections.push(elementsSection)
 
   // Browser activity (OpenReplay events)
   const browserActivitySection = formatOpenReplayEvents(result)
   if (browserActivitySection) sections.push(browserActivitySection)
+
+  // Next steps (for test runs only)
+  const nextStepsSection = formatNextSteps(result)
+  if (nextStepsSection) sections.push(nextStepsSection)
 
   if (sections.length === 0) {
     return '_No actionable information in result_'
