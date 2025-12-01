@@ -626,9 +626,10 @@ const getDeployments = async (timestamp = new Date(), limit = 1000) => {
  * @param {string} params.timestamp - Timestamp for runId construction
  * @returns {Promise<Object>} Result of the interactive command execution
  */
-const runInteractiveCommand = async ({ command, line = 0, test, timestamp }) => {
+const runInteractiveCommand = async ({ command, explanation, line = 0, test, timestamp }) => {
   const requestData = {
     command,
+    explanation,
     line,
     test,
     timestamp

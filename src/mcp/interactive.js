@@ -99,9 +99,9 @@ function extractContentFromResult(result) {
  * @returns {Object} Interactive command result
  */
 async function handleRunInteractiveCommand(args) {
-  const { command, line = 0 } = args
-  
-  debug(config, `Running interactive command: ${command}`)
+  const { command, explanation, line = 0 } = args
+
+  debug(config, `Running interactive command: ${command} (${explanation})`)
   
   try {
     // Get user info (memoized - will call detectApiAndAuth if not cached)
@@ -112,6 +112,7 @@ async function handleRunInteractiveCommand(args) {
       test: 'interactive',
       timestamp: userInfo.interactiveTimestamp,
       command,
+      explanation,
       line
     })
     
@@ -164,13 +165,13 @@ ${JSON.stringify(result, null, 2)}
     // Build interactive session URL with subdomain
     const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
 
-    let explanation = formattedResult
+    let responseText = formattedResult
 
     if (!isSuccess) {
-      explanation = `❌ **Command Failed**\n\n` + explanation
+      responseText = `❌ **Command Failed**\n\n` + responseText
     }
 
-    explanation += `
+    responseText += `
 
 ---
 
@@ -183,12 +184,12 @@ ${JSON.stringify(result, null, 2)}
 3. Continue testing - build complete sequences step by step
 4. Session stays active for continued testing
 5. User can observe execution at: ${sessionUrl}`
-    
+
     return {
       content: [
         {
           type: 'text',
-          text: explanation,
+          text: responseText,
         },
       ],
       isError: !isSuccess,
@@ -333,6 +334,7 @@ Example:
 "❌ The login button click failed with error: 'Element not found'. I need to find the correct selector before proceeding."`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
+        explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
       },
     },
