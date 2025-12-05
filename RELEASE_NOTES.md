@@ -1,5 +1,23 @@
 # Release Notes
 
+## v1.20.0 (2025-12-05)
+
+### New Features
+
+- **Windows Platform Support**: Full Windows support for editor detection including VS Code, Cursor, and Claude. Automatically checks both Program Files and AppData installation locations, and uses Windows-specific 'where' command for PATH detection.
+- **Interactive Command Explanations**: Interactive debugging commands now require an explanation parameter, ensuring AI assistants always describe what each command does and why, providing better transparency during test development and making the testing process more understandable.
+- **Existing Test Detection**: Exploratory testing now fetches and analyzes existing tests to avoid duplication. Shows relevant tests that match the URL or domain being tested, helping maintain consistent test coverage without redundant work.
+
+### Improvements
+
+- **Generic Exploratory Testing**: Complete rewrite removes hardcoded test scenarios and goal generation. Tool is now completely generic - AI analyzes page data and decides what to test based on actual content, making exploratory testing more flexible and intelligent.
+- **Verbose Debugging by Default**: MCP command now defaults to verbose mode (verbose=true) for better out-of-the-box debugging experience. Debug information helps troubleshoot integration issues without requiring explicit flags.
+- **Markdown Status Output**: Status tool responses now use compact markdown tables instead of verbose JSON, dramatically improving readability for AI assistants and making test results easier to understand at a glance.
+
+### Bug Fixes
+
+- **Editor Installation Check**: Removed blocking installation check that prevented MCP setup when editors weren't detected. All editor options now shown regardless of installation status, allowing users to prepare configurations for editors they'll install later.
+
 ## v1.19.2 (2025-11-28)
 
 ### Improvements
