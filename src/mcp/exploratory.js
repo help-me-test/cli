@@ -329,6 +329,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
+import { openSessionInBrowser } from './interactive.js'
 
 /**
  * Priority levels for testing
@@ -350,6 +351,7 @@ const PRIORITY_MAP = {
   accessibility: 0,
   seo: 0
 }
+
 
 /**
  * Get or create exploratory testing artifact for a URL
@@ -599,7 +601,7 @@ async function executeTestGoal(goal, url, sessionTimestamp) {
 
     try {
       const result = await runInteractiveCommand({
-        test: 'exploratory',
+        test: 'interactive',
         timestamp: sessionTimestamp,
         command,
         line: i
@@ -762,18 +764,310 @@ async function getExistingTests(url) {
 }
 
 /**
- * Select the next test goal to execute based on priority
- * THIS FUNCTION SHOULD BE REMOVED - it's hardcoding test scenarios
- * The exploratory tool should be completely generic and let the AI decide what to test
- *
- * DEPRECATION NOTICE: This function exists only for backward compatibility
- * Future versions should remove this entirely and let AI analyze page data
+ * Generate exploratory testing instructions - completely generic
  */
-async function selectNextTestGoal(artifact, pageData, url, existingTests = []) {
-  // REMOVED: All hardcoded test goal generation
-  // The AI should analyze pageData and create test goals based on what it finds
-  // This function now returns null to signal the tool should present data to AI
-  return null
+function generateExploratoryInstructions(artifact, existingTests, url) {
+  const artifactId = artifact?.id || `exploratory-${url.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`
+
+  return `## 🎯 Exploratory Testing Workflow
+
+**Your Task:** Analyze the page and propose the most valuable test to run next.
+
+**Critical Workflow (Follow Exactly):**
+
+### Step 0: Analyze Page and Create Artifact Scaffolding (FIRST TIME ONLY)
+
+**IMPORTANT:** Only do this step if artifact's \`availableAreas\` is empty or missing!
+
+0. **Analyze the page data** below and populate the artifact with test areas:
+
+   **Data Sources:**
+   - **Interactive Elements table** - clickable buttons, form inputs, links with selectors and text
+   - **Page Content** - readable text showing what the page is about
+   - **Network Requests** - API calls revealing backend functionality
+   - **Console Logs** - runtime information about the page
+
+   **Your Task:** Look at the data and identify test areas. Use \`helpmetest_partial_update_artifact\` to populate.
+
+   **Example (e-commerce site):**
+   \`\`\`javascript
+   helpmetest_partial_update_artifact({
+     id: "exploratory-https---shop-example-com",
+     updates: {
+       "availableAreas": {
+         "authentication": [
+           {
+             "name": "User Login",
+             "selector": "[data-testid='login-button']",
+             "priority": 9,
+             "testIdeas": ["Click login button", "Fill credentials", "Verify dashboard access"]
+           }
+         ],
+         "checkout": [
+           {
+             "name": "Purchase Flow",
+             "selector": "[data-testid='checkout-btn']",
+             "priority": 8,
+             "testIdeas": ["Add item to cart", "Proceed to checkout", "Fill payment info", "Complete purchase"]
+           }
+         ],
+         "productBrowsing": [
+           {
+             "name": "Product Search",
+             "selector": "input[type='search']",
+             "priority": 5,
+             "testIdeas": ["Search for product", "Verify results", "Test filters"]
+           }
+         ],
+         "notes": [
+           "Found login and signup buttons - auth is testable",
+           "Checkout button visible - payment flow is available",
+           "Search bar present - product discovery can be tested"
+         ]
+       }
+     }
+   })
+   \`\`\`
+
+   **Priority Scale:**
+   - **9-10**: Authentication, Payment, Billing, Checkout
+   - **5-7**: Core features, Search, Forms
+   - **3-4**: Navigation, Links
+   - **0-2**: Accessibility, SEO (skip these)
+
+   **After populating:** Open artifact in browser using URL at bottom, then proceed to Step 1.
+
+### Step 1-5: Propose Test
+1. **Analyze** the page data below - what elements, forms, buttons exist?
+2. **Check** what's already tested in artifact - avoid duplication
+3. **Check** existing permanent tests - don't recreate what exists
+4. **Propose** next test area with priority and reasoning (use availableAreas from artifact as guide)
+5. **Wait** for user approval ("continue", "yes", "ok")
+
+### Step 6: Execute Test Interactively
+
+**CRITICAL: What Makes a REAL Test Case**
+
+A test case is NOT just clicking buttons. A test case:
+- **Has a clear user goal** - what is the user trying to accomplish?
+- **Tests complete workflow** - not just navigation, but the ENTIRE user journey
+- **Verifies the expected result** - did the user achieve their goal?
+- **Has measurable success criteria** - how do you know it worked?
+
+**Examples of FAKE vs REAL tests:**
+
+❌ **FAKE TEST (Navigation Smoke):**
+\`\`\`
+Goal: Click login button
+Steps:
+1. Navigate to homepage
+2. Click "Log In" button
+3. Verify URL changed to /sign-in
+Result: Button navigates somewhere
+\`\`\`
+**Why this is FAKE:** No user goal, no meaningful verification, no complete workflow
+
+✅ **REAL TEST (User Login):**
+\`\`\`
+Goal: User successfully logs into their account with valid credentials
+Steps:
+1. Navigate to homepage
+2. Click "Log In" button
+3. Enter email: user@example.com
+4. Enter password: ValidPass123
+5. Click "Sign In" button
+6. Verify user dashboard appears
+7. Verify user name/email is displayed
+8. Verify logout button is present
+Result: User successfully authenticated and sees their account
+\`\`\`
+**Why this is REAL:** Clear user goal, complete workflow, meaningful verification of success
+
+**CRITICAL RULES:**
+
+1. **Define the user goal BEFORE starting**
+   - What is the user trying to accomplish?
+   - What should happen if everything works?
+   - How will you know it succeeded?
+
+2. **If you CANNOT complete the full workflow, ASK THE USER**
+   - ❌ DON'T record partial flows as "tests"
+   - ❌ DON'T pretend navigation is verification
+   - ✅ DO ask: "I can test up to the OAuth page, but cannot proceed without credentials. Should I:
+     a) Record this as 'Navigation to OAuth' (not a real test)
+     b) Stop here and wait for credentials
+     c) Document this limitation in notes"
+
+3. **Test execution:**
+   - Run each command one by one using \`helpmetest_run_interactive_command\`
+   - Observe results after each step
+   - **If command fails due to wrong keyword or syntax:** IMMEDIATELY use \`helpmetest_keywords\` to find correct syntax
+   - **Every test goal MUST be verified** - if goal was "User logs in", you MUST verify dashboard/account visible
+   - **Test without complete verification is NOT A TEST** - it's exploratory navigation at best
+   - **If you hit a blocker (no credentials, external service, etc.):** STOP and ASK USER what to do
+
+4. **When you encounter blockers:**
+   - OAuth/external auth without real credentials
+   - Payment forms requiring real card
+   - Email verification requiring real inbox
+   - SMS/2FA requiring real phone
+
+   **STOP and ASK:** "I've reached [blocker]. I cannot complete the full user workflow without [what's needed]. Options:
+   1. Provide test credentials/data
+   2. Document this limitation and move to next test
+   3. Record partial flow with clear note this is NOT a complete test"
+
+### Step 7: Record Results (MANDATORY)
+7. **Record** results to artifact using \`helpmetest_partial_update_artifact\`
+
+   **IMPORTANT:** Always update artifact after completing interactive testing!
+
+   **CRITICAL:** Record the ACTUAL commands that were executed interactively
+   - Copy exact command syntax from interactive execution
+   - Don't manually write commands - use what actually worked
+   - Don't invent commands or make up syntax - record reality
+   - If unsure about command syntax, use \`helpmetest_keywords\` to search for correct usage and examples
+
+   **Example (Login Flow):**
+   \`\`\`javascript
+   helpmetest_partial_update_artifact({
+     id: "${artifactId}",
+     updates: {
+       "testedUseCases.-1": "Login with valid credentials",
+       "testResults.-1": {
+         useCase: "Login with valid credentials",
+         passed: true,
+         timestamp: new Date().toISOString(),
+         steps: [
+           { step: "Navigate to login page", command: "Go To https://example.com/login", passed: true },
+           { step: "Enter username", command: "Fill Text input#username  testuser", passed: true },
+           { step: "Enter password", command: "Fill Text input#password  validpass123", passed: true },
+           { step: "Click login button", command: "Click button[type='submit']", passed: true },
+           { step: "Verify redirect to dashboard", command: "Get Url  ==  https://example.com/dashboard", passed: true }
+         ]
+       },
+       "coverage": "low"  // or "medium", "high", "comprehensive"
+     }
+   })
+   \`\`\`
+
+   **If test found bugs:**
+   \`\`\`javascript
+   helpmetest_partial_update_artifact({
+     id: "${artifactId}",
+     updates: {
+       "bugs.-1": {
+         title: "Login fails with valid credentials",
+         priority: 10,
+         severity: "CRITICAL",
+         description: "Login button click does not redirect to dashboard",
+         impact: "Users cannot access the application",
+         affects: "All users",
+         location: "/login page",
+         reproSteps: ["Navigate to /login", "Enter valid credentials", "Click login", "Observe: stays on login page"]
+       }
+     }
+   })
+   \`\`\`
+
+### Step 7.5: Verify Recorded Commands (MANDATORY)
+7.5. **Create and run temporary test** to verify recorded commands actually work
+
+   **Why:** Artifact should only contain working, verified test flows
+
+   **Process:**
+   \`\`\`javascript
+   // 1. Create temporary test with recorded commands
+   helpmetest_create_test({
+     name: "TEMP - Verify <UseCase>",
+     description: "Temporary test to verify recorded commands",
+     tags: ["temp", "verification"],
+     content: "<commands-from-artifact>"
+   })
+
+   // 2. Run the test
+   helpmetest_run_test({ identifier: "<test-id>" })
+
+   // 3. If test passes: Delete temp test, recorded commands are good
+   helpmetest_delete_test({ identifier: "<test-id>" })
+
+   // 4. If test fails: Fix commands, update artifact, run again
+   \`\`\`
+
+   **If verification fails:**
+   - Debug what's wrong (spacing, selectors, assertions)
+   - Fix the commands
+   - Update artifact with corrected commands
+   - Run verification again until it passes
+
+### Step 8: Create Permanent Test (OPTIONAL - ASK USER FIRST)
+8. **Ask user:** "Should I save this as a permanent test?"
+
+   **"Save As" Behavior:**
+   - Recording to artifact = progress tracking (always happens)
+   - Creating permanent test = reusable test for CI/CD (optional)
+
+   **When to ask:**
+   - After successful test execution
+   - User might want multiple variations (e.g., "Login - Valid", "Login - Invalid", "Login - Empty Fields")
+
+   **If user says YES:**
+   \`\`\`javascript
+   helpmetest_create_test({
+     name: "Login - Valid Credentials",
+     description: "Tests successful login with valid username and password",
+     tags: ["feature:auth", "type:smoke", "priority:critical"],
+     content: "Go To https://example.com/login\\nFill Text input#username  testuser\\n..."
+   })
+   \`\`\`
+
+   **CRITICAL - After creating test:**
+   \`\`\`javascript
+   // Immediately run the test you just created to verify it works
+   helpmetest_run_test({ identifier: "<test-id-from-create-response>" })
+   \`\`\`
+
+   **If test fails:**
+   - Debug the issue (wrong selector, timing, etc.)
+   - Fix using \`helpmetest_update_test\`
+   - Run again to verify fix works
+   - Repeat until test passes
+
+   **If user says NO or doesn't respond:** Skip test creation, results already saved to artifact.
+
+   **DO NOT create tests automatically!** Recording to artifact is mandatory, but test creation is optional.
+
+### Step 9: Loop
+9. **Loop** back to step 1 - propose next test area
+
+---
+
+## 🎯 Priority Guide
+
+- **Priority 10**: Foundation (domain uptime, SSL certificates)
+- **Priority 9**: Authentication (login, signup, registration)
+- **Priority 8**: Payments/billing/checkout
+- **Priority 7**: Core user workflows
+- **Priority 5**: Navigation and interactions
+- **Priority 3**: Usability features
+
+---
+
+## 🔍 What to Look For
+
+- Missing uptime test? → Propose: "Test domain is reachable"
+- Missing SSL test (HTTPS)? → Propose: "Validate SSL certificate"
+- See login/signup forms? → Propose: "Test authentication flow"
+- See payment/checkout? → Propose: "Test payment process"
+- See interactive elements? → Propose: "Test [specific feature]"
+
+---
+
+## 📦 Artifact Information
+
+**Artifact ID:** \`${artifactId}\`
+**Purpose:** Tracks all exploratory testing results, bugs found, and coverage
+**Updates:** Use \`helpmetest_partial_update_artifact\` after EVERY test execution`
 }
 
 /**
@@ -822,7 +1116,7 @@ async function handleExplore(args) {
 
   try {
     const userInfo = await detectApiAndAuth()
-    const sessionTimestamp = Date.now()
+    const sessionTimestamp = userInfo.interactiveTimestamp
     const sessionId = `${userInfo.activeCompany}__exploratory__${sessionTimestamp}`
 
     // Get or create artifact
@@ -854,9 +1148,12 @@ ${summary}`,
     }
 
     // First time - start new session
+    // Open browser automatically on first exploratory session
+    openSessionInBrowser(userInfo.dashboardBaseUrl, sessionTimestamp)
+
     // Navigate to page and get all the data
     const goToResult = await runInteractiveCommand({
-      test: 'exploratory',
+      test: 'interactive',
       timestamp: sessionTimestamp,
       command: `Go To    ${url}`,
       line: 0
@@ -912,12 +1209,18 @@ ${summary}`,
     const existingTests = await getExistingTests(url)
     debug(config, `Found ${existingTests.length} existing tests for this URL`)
 
+    // AI will analyze page and populate artifact with test areas
+    // This happens in Step 0 of the workflow (see instructions below)
+
     // REMOVED: Auto-execution of test goals
     // The tool should be generic - AI will analyze page data and decide what to test
     // No hardcoded "Domain Uptime" or "SSL Check" logic here
 
     // Format the page data as markdown for better readability
     const formattedPageData = formatResultAsMarkdown(goToResult)
+
+    // Generate exploratory instructions
+    const instructions = generateExploratoryInstructions(artifact, existingTests, url)
 
     const summary = generateTestingSummary(artifact, url)
     const stopStatus = shouldStopTesting(artifact)
@@ -926,65 +1229,43 @@ ${summary}`,
       content: [
         {
           type: 'text',
-          text: `🔍 Exploratory Testing Tool - Page Analysis Complete
+          text: `🔍 Exploratory Testing - Session Started
+
+${instructions}
+
+---
 
 ${summary}
 
 ---
 
-## 📚 Existing Tests Found
+## 📚 Existing Tests
 
-${existingTests.length > 0 ? `
-Found **${existingTests.length}** existing test(s) for this URL:
-
-${existingTests.map(t => `- **${t.name}** (Tags: ${t.tags.join(', ')})`).join('\n')}
-
-Use these as inspiration and to avoid duplication.
-` : 'No existing tests found for this URL.'}
-
----
-
-## 📄 Page Data Captured
-
-Successfully navigated to **${url}** and captured page interaction data.
-
-**Event Summary:** ${goToResult?.length || 0} total events captured
-
----
-
-## 📊 Current Artifact Status
-
-**Coverage:** ${stopStatus.coverage}
-**Tested Use Cases:** ${artifact.content.testedUseCases?.length || 0}
-**Bugs Found:** ${artifact.content.bugs?.length || 0}
-
-${stopStatus.shouldStop ? `
-⚠️ **High Coverage Reached**
-${stopStatus.reason}
-
-Consider reviewing findings and converting successful test sequences to permanent tests.
-` : `
-✅ **Ready for Testing**
-Analyze the page data below and use interactive commands to test features.
-`}
-
----
-
-## 🎯 Next Steps
-
-1. **Analyze the page data below** to understand what's on the page
-2. **Check existing tests** to avoid duplication
-3. **Use \`helpmetest_run_interactive_command\`** to test features interactively
-4. **Use \`helpmetest_partial_update_artifact\`** to record test results
-5. **Use \`helpmetest_create_test\`** to save working test sequences
-
-**Artifact Link:** [${userInfo.dashboardBaseUrl}/artifacts/${artifact.id}](${userInfo.dashboardBaseUrl}/artifacts/${artifact.id})
+${existingTests.length > 0 ?
+  existingTests.map(t => `- **${t.name}** [${t.tags?.join(', ')}]`).join('\n') :
+  'No existing tests found for this URL.'}
 
 ---
 
 ## 📋 Page Data
 
-${formattedPageData}`,
+${formattedPageData}
+
+---
+
+## 📊 Artifact Status
+
+**Coverage:** ${stopStatus.coverage}
+**Tested Use Cases:** ${artifact.content.testedUseCases?.length || 0}
+**Bugs Found:** ${artifact.content.bugs?.length || 0}
+
+**Artifact Link:** [${userInfo.dashboardBaseUrl}/artifacts/${artifact.id}](${userInfo.dashboardBaseUrl}/artifacts/${artifact.id})
+
+---
+
+## ✅ Ready
+
+Analyze the data above, propose the next test area, and wait for approval.`,
         },
       ],
       _meta: {
@@ -1110,149 +1391,66 @@ export function registerExploratoryTools(server) {
   server.registerTool(
     'helpmetest_explore',
     {
-      title: 'Help Me Test: Smart Exploratory Testing',
-      description: `🎯 AUTO-EXECUTION MODE: Intelligent exploratory testing with smart prioritization and automated test generation.
+      title: 'Help Me Test: Exploratory Testing',
+      description: `Systematic exploratory testing tool for web applications.
 
-**✨ NEW: This tool now AUTO-EXECUTES tests and provides comprehensive results!**
+**Purpose:**
+Analyze a URL, propose test areas based on priority, execute tests interactively, and track results in an artifact.
 
-**How it works:**
-1. Call this tool with URL → Analyzes existing tests and proposes next goal
-2. Tool AUTO-EXECUTES the test goal → Reports pass/fail for each step
-3. Updates artifact automatically → Tracks results, bugs, and coverage
-4. Suggests next action → Continue, debug failures, or convert to tests
-5. Repeats until comprehensive coverage achieved
+**Workflow:**
+1. Analyzes page structure and existing tests
+2. Proposes next test area based on priority (authentication > payment > core features)
+3. Waits for user approval
+4. Executes test interactively with step-by-step verification
+5. Records results to artifact (test outcomes, bugs, coverage)
+6. Repeats until adequate coverage achieved
 
-**Auto-Execution Features:**
-- ✅ Automatic test execution (no manual approval needed)
-- ✅ Pass/fail tracking for every test step
-- ✅ Smart stopping point detection
-- ✅ Coverage analysis (low/medium/high/comprehensive)
-- ✅ Automatic bug documentation
-- ✅ Conversion to Robot Framework tests
+**What This Tool Does:**
+- Opens browser to interactive session for manual testing
+- Navigates to URL and analyzes page elements
+- Proposes test areas based on business risk
+- Executes Robot Framework commands interactively
+- Tracks test results, bugs, and coverage in artifact
+- Verifies recorded commands work before saving
+
+**What This Tool Does NOT Do:**
+- Does not execute tests automatically
+- Does not make assumptions about user workflows
+- Does not record incomplete tests as "passing"
+- Does not proceed past blockers without asking user
+
+**Test Case Requirements:**
+A valid test case must have:
+1. Clear user goal (what the user is trying to accomplish)
+2. Complete workflow (from start to finish)
+3. Meaningful verification (did the goal succeed?)
+4. Measurable success criteria (how you know it worked)
+
+Navigation smoke tests ("click button, check URL") are NOT valid test cases.
 
 **Priority System:**
-- ⚡ Priority 10: Domain Uptime & SSL Monitoring (FOUNDATIONAL - TEST FIRST!)
-- 🔴 Priority 10: Billing, Payment, Stripe, Checkout
-- 🔴 Priority 8-9: Signup, Registration, Login
-- 🟡 Priority 5-7: Core navigation and critical flows
-- 🟢 Priority 2-3: Usability issues
-- ⚪ Priority 0: Accessibility, SEO (SKIP)
+- Priority 10: Authentication (signup, login, registration)
+- Priority 9: Payment/billing/checkout flows
+- Priority 7: Core user workflows
+- Priority 5: Navigation and interactions
+- Priority 3: Usability features
+- Priority 0: Accessibility, SEO (skip)
 
-**Why Domain Health is Priority #1:**
-Domain uptime and SSL monitoring are BASE-LEVEL checks that must come before everything else. Without a reachable domain with valid SSL, ALL other tests fail. These checks:
-- Catch infrastructure failures that break everything
-- Prevent wasted time testing features on unreachable sites
-- Alert on SSL expiration before users see security warnings
-- Use the DomainChecker library for comprehensive certificate monitoring
+**Blockers:**
+When encountering blockers (OAuth without credentials, payment forms, email verification):
+- STOP execution
+- ASK user for credentials or guidance
+- DO NOT record partial flows as complete tests
+- Document limitation in artifact notes
 
-**Updated Artifact Structure:**
-{
-  "content": {
-    "url": "https://example.com",
-    "testedUseCases": ["Pro subscription signup", "Free tier signup"],
-    "testResults": [
-      {
-        "useCase": "Pro subscription signup",
-        "passed": true,
-        "timestamp": "2025-11-23T10:30:00.000Z",
-        "steps": [
-          { "step": "Navigate to homepage", "command": "Go To...", "passed": true },
-          { "step": "Click signup", "command": "Click...", "passed": true }
-        ]
-      }
-    ],
-    "bugs": [
-      {
-        "title": "Onboarding form validation broken",
-        "priority": 10,
-        "severity": "CRITICAL",
-        "description": "...",
-        "impact": "Users cannot complete signup",
-        "affects": "All new users",
-        "location": "/signup page",
-        "reproSteps": ["..."]
-      }
-    ],
-    "availableAreas": {
-      "uptimeTests": [
-        {
-          "name": "Domain Uptime - example.com",
-          "url": "https://example.com",
-          "description": "Fundamental uptime monitoring - ensures domain is reachable",
-          "requiresSetup": true,
-          "testIdeas": [
-            "Create Robot Framework test: Go To [URL]",
-            "Verifies site is reachable and page loads successfully",
-            "Tag with priority:critical type:smoke"
-          ]
-        }
-      ],
-      "sslTests": [
-        {
-          "name": "SSL Check - example.com",
-          "url": "https://example.com",
-          "description": "Critical SSL/TLS certificate monitoring using DomainChecker",
-          "requiresSetup": true,
-          "testIdeas": [
-            "SSL Is Valid ==  True",
-            "SSL Days Remaining >= 30 (30-day warning)",
-            "Monitor SSL Issuer Organization",
-            "Verify SSL Algorithm is modern",
-            "Check SSL SANs coverage"
-          ]
-        }
-      ],
-      "apiTests": [
-        {
-          "name": "PetStore API",
-          "url": "http://petstore.playground.helpmetest.com",
-          "description": "RESTful API for pet store operations with full CRUD support",
-          "testIdeas": [
-            "Test GET /pet/{petId} - retrieve existing pet",
-            "Test POST /pet - create new pet with valid data",
-            "Test PUT /pet - update existing pet details",
-            "Test DELETE /pet/{petId} - remove pet from store",
-            "Test authentication/authorization flows",
-            "Test error handling for invalid pet IDs",
-            "Test data validation for required fields"
-          ]
-        }
-      ],
-      "functionalTests": [
-        {
-          "name": "Calculator",
-          "url": "http://calculator.playground.helpmetest.com",
-          "description": "Simple calculator with basic arithmetic operations",
-          "testIdeas": [
-            "Test addition: 2+3=5, 10+20=30, negative numbers",
-            "Test subtraction: 5-3=2, handle negative results",
-            "Test multiplication and division",
-            "Test decimal numbers and precision",
-            "Test operator precedence",
-            "Test edge cases: division by zero, very large numbers"
-          ]
-        }
-      ]
-    },
-    "notes": ["Add observations and insights here"],
-    "coverage": "low"
-  }
-}
-
-**Example Flow:**
-1. Call explore(url) → Proposes "Complete Pro Signup Flow" (Priority 10)
-2. Tool auto-executes → Reports: 8/10 steps passed, 2 failed
-3. Updates artifact → Adds test result with pass/fail for each step
-4. Suggests → "Found bug in payment step. Continue? (Y/N)"
-5. User says "yes" → Tool proposes next untested path and auto-executes
-
-**Smart Stopping:**
-- Stops after: 2+ critical paths tested, 2+ auth flows, bugs found
-- Stops after: 10+ test scenarios (comprehensive coverage)
-- Suggests: Convert to tests, review findings, or continue
-- Shows: Coverage percentage, pass/fail ratio, bug count
-
-**No More Manual Work - Just Say "yes"!**`,
+**Artifact Structure:**
+Tracks all exploratory testing in structured JSON:
+- testedUseCases: List of completed test scenarios
+- testResults: Detailed pass/fail results for each test
+- bugs: Identified issues with priority and reproduction steps
+- availableAreas: Test areas discovered on page (populated by AI analysis)
+- notes: Observations and limitations
+- coverage: Overall test coverage level (low/medium/high)`,
       inputSchema: {
         url: z.string().describe('URL to explore and test'),
         session_state: z.string().optional().describe('Session state from previous exploration (optional - artifact tracks state)'),

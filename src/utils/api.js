@@ -502,10 +502,12 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
       const url = new URL(endpoint)
       url.hostname = `${userInfo.subdomain}.${url.hostname}`
       userInfo.dashboardBaseUrl = url.toString().replace(/\/$/, '')
-      
+
+      // Set interactive timestamp BEFORE caching
+      userInfo.interactiveTimestamp = new Date().toISOString()
+
       cachedUserInfo = userInfo
       authInitialized = true
-      userInfo.interactiveTimestamp = new Date().toISOString()
       return cachedUserInfo
     } catch (error) {
       if (enableDebug) {

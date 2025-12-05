@@ -354,7 +354,7 @@ function formatNextSteps(events) {
  */
 export function formatResultAsMarkdown(result, options = {}) {
   if (!Array.isArray(result) || result.length === 0) {
-    return '_No result data available_'
+    return `## 🔍 Raw Result\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
   }
 
   const { identifier } = options
@@ -393,8 +393,9 @@ export function formatResultAsMarkdown(result, options = {}) {
   const nextStepsSection = formatNextSteps(result)
   if (nextStepsSection) sections.push(nextStepsSection)
 
+  // If no sections were formatted, return raw JSON instead of useless message
   if (sections.length === 0) {
-    return '_No actionable information in result_'
+    return `## 🔍 Raw Result\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
   }
 
   return sections.join('\n---\n\n')

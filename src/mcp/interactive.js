@@ -7,6 +7,24 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, apiGet, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
+import open from 'open'
+
+// Track sessions that have been opened in browser
+const openedSessions = new Set()
+
+/**
+ * Open browser for session if not already opened
+ * @param {string} dashboardBaseUrl - Base URL for dashboard
+ * @param {number} timestamp - Session timestamp
+ */
+export function openSessionInBrowser(dashboardBaseUrl, timestamp) {
+  if (!openedSessions.has(timestamp)) {
+    openedSessions.add(timestamp)
+    const sessionUrl = `${dashboardBaseUrl}/interactive/${timestamp}`
+    open(sessionUrl)
+    debug(config, `Opened browser for session: ${sessionUrl}`)
+  }
+}
 
 /**
  * Analyze Robot Framework streaming result to determine success/failure
@@ -102,11 +120,14 @@ async function handleRunInteractiveCommand(args) {
   const { command, explanation, line = 0 } = args
 
   debug(config, `Running interactive command: ${command} (${explanation})`)
-  
+
   try {
     // Get user info (memoized - will call detectApiAndAuth if not cached)
     const userInfo = await detectApiAndAuth()
-    
+
+    // Open browser automatically on first command of new session
+    openSessionInBrowser(userInfo.dashboardBaseUrl, userInfo.interactiveTimestamp)
+
     // Execute the command with the same timestamp for session persistence
     const result = await runInteractiveCommand({
       test: 'interactive',
@@ -115,7 +136,7 @@ async function handleRunInteractiveCommand(args) {
       explanation,
       line
     })
-    
+
     debug(config, `Interactive command result: ${JSON.stringify(result)}`)
     
     // Check if this is an Exit command
@@ -162,9 +183,6 @@ ${JSON.stringify(result, null, 2)}
     // Format result as markdown
     const formattedResult = formatResultAsMarkdown(result)
 
-    // Build interactive session URL with subdomain
-    const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
-
     let responseText = formattedResult
 
     if (!isSuccess) {
@@ -176,14 +194,12 @@ ${JSON.stringify(result, null, 2)}
 ---
 
 **Session:** Active - continue testing more commands
-**View Execution:** [${sessionUrl}](${sessionUrl})
 
 🚨 **AI Instructions:**
 1. Analyze success/failure - don't just say "done"
 2. Debug failures - identify why and suggest fixes
 3. Continue testing - build complete sequences step by step
-4. Session stays active for continued testing
-5. User can observe execution at: ${sessionUrl}`
+4. Session stays active for continued testing`
 
     return {
       content: [
