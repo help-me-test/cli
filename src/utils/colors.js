@@ -125,7 +125,7 @@ const output = {
     // Use stderr for MCP compatibility (stdout is reserved for JSON-RPC)
     const isStdioMode = process.argv.includes('mcp') && !process.argv.includes('--sse')
     const outputStream = isStdioMode ? console.error : console.log
-    outputStream(colors.dim('[VERBOSE]'), colors.dim(message))
+    outputStream(message)
   },
 
   /**

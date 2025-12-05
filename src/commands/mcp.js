@@ -20,7 +20,7 @@ import { getMcpServerInfo } from '../utils/version.js'
  */
 export default async function mcpCommand(token, options) {
   try {
-    const { sse = false, port = 31337, verbose = false } = options
+    const { sse = false, port = 31337, verbose = true } = options
     const transport = sse ? 'http' : 'stdio'
 
     // Token is already set in index.js before auth check
@@ -31,10 +31,8 @@ export default async function mcpCommand(token, options) {
       process.exit(1)
     }
 
-    // Enable debug mode if verbose is requested
-    if (verbose) {
-      config.debug = true
-    }
+    // Enable debug mode by default for MCP command
+    config.debug = verbose
 
     // Debug configuration to see what we have
     debug(config, `MCP Server Configuration:`)

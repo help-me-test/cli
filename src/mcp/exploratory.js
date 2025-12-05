@@ -1,3 +1,325 @@
+/** SCOUT exploratory cycle for reference
+ * https://scoutqa.ai/
+Toggle Chat Panel
+Preview
+Report
+Rerun
+Hi Scout, help me to test https://scoutqa.ai/.
+I'll help you test https://scoutqa.ai/. Based on the router context, this is an AI-powered testing companion platform. Let me create a structured plan to thoroughly test the key areas, especially focusing on AI/automation app functionality.
+
+
+Update todos 5 tasks
+Completed
+Open URL https://scoutqa.ai/
+Completed
+Tool execution screenshot
+Now let me check for console errors and network issues:
+
+
+Check console messages
+Completed
+Check network requests
+Completed
+Let me now test the main URL input functionality and examine the key CTAs:
+
+
+Update todos 1 of 5 completed
+Completed
+Type https://example.com into URL input textbox
+Completed
+Tool execution screenshot
+Click Start Scouting button
+Completed
+Tool execution screenshot
+I can see the form has been submitted and is showing "Opening the session..." with animated dots. Let me wait a bit and check if it redirects or shows results:
+
+
+Evaluate script
+Completed
+Great! The app successfully navigated to a testing session page. I can see:
+
+It's now testing https://example.com/
+There's a crawl that completed
+The interface shows tabs for "Preview" and "Report"
+There's a chat interface and summary panel
+Let me explore the Report tab and see what kind of testing results it provides:
+
+
+Click Report tab
+Completed
+Tool execution screenshot
+Excellent! I can see that Scout is actively running an AI-powered testing session. It has:
+
+Created a structured task list (5 tasks)
+Is currently running "Open URL" action
+Shows the progress of each task with visual indicators
+Has an AI assistant providing contextual analysis
+Let me wait for the testing to complete and check the chat panel:
+
+
+Click Toggle Chat Panel button
+Completed
+Tool execution screenshot
+I can see the chat panel has been toggled and the layout shows the tasks panel more prominently. Let me try the Preview tab to see how the AI testing results are presented:
+
+
+Click Preview tab
+Completed
+Tool execution screenshot
+Let me now test the authentication flow by going to the sign-up area:
+
+
+Update todos 3 of 5 completed
+Completed
+Open URL https://scoutqa.ai/
+Completed
+Tool execution screenshot
+Click Login / Sign Up button
+Completed
+Tool execution screenshot
+Perfect! I found the login/signup modal. Let me test the email signup flow:
+
+
+Type scoutqa.ai+019ad543-d42a-75a0-ae01-310e8cda628f@execution.scoutqa.cc into Email textbox
+Completed
+Tool execution screenshot
+Click Send magic link button
+Completed
+Tool execution screenshot
+Great! The email magic link was sent successfully. Let me check the emails:
+
+
+Excellent! Let me follow the magic link:
+
+
+Open URL https://scoutqa.ai/api/auth/magic-link/verify?token=aJPRVfKEiANHZeLhDBMFcjUAveePgFYv&callbackURL=%2Foverview&errorCallbackURL=%2Fauth%2Ferror
+Completed
+Tool execution screenshot
+Perfect! The magic link authentication worked and I'm now logged in to the overview page. Let me wait for the page to fully load:
+
+
+Evaluate script
+Completed
+Excellent! The onboarding process redirected me to set up the first project. I can see it's step 1 of 2. Let me complete this onboarding flow:
+
+
+Type https://example.com into Application URL textbox
+Completed
+Tool execution screenshot
+Click Continue button
+Completed
+Tool execution screenshot
+Great! Now I'm on step 2 of 2. I can see that Scout automatically filled in "Example Domain" as the project name. Let me add a description and complete the setup:
+
+
+Type Testing Scout's AI quality companion features on a sample domain into Project description textbox
+Completed
+Tool execution screenshot
+Click Create project button
+Completed
+Tool execution screenshot
+Perfect! The project is being created. I can see the button shows "Creating project…" with a loading state. Let me wait for it to complete:
+
+
+Evaluate script
+Completed
+Fantastic! The onboarding completed successfully and I'm now in the main project execution view. I can see:
+
+Project Created: "Example Domain" project at https://example.com/
+Execution Started: Scout has already initiated testing with a conversation
+UI Elements: Preview/Report tabs, chat panel, timer showing 59:49
+Status: Shows "Crawl Completed"
+AI Response: Scout is providing comprehensive testing plan
+Now let me check the final performance and accessibility aspects:
+
+
+Update todos 4 of 5 completed
+Completed
+Navigate back
+Completed
+Tool execution screenshot
+Let me navigate to the main homepage:
+
+
+Open URL https://scoutqa.ai/
+Completed
+Tool execution screenshot
+Now let me check for accessibility and SEO issues, and test keyboard navigation:
+
+
+Press key Tab
+Completed
+Tool execution screenshot
+Good! I can see keyboard focus is working - the user button is now focused. Let me check some additional keyboard navigation and examine key issues:
+
+
+Press key Tab
+Completed
+Tool execution screenshot
+Perfect! The focus moved to the URL input textbox. Let me now identify any issues I've found during testing:
+
+
+Update todos 5 of 5 completed
+Completed
+Now let me report the key issues I discovered during my testing:
+
+
+Close the page
+Completed
+Tool execution screenshot
+Test Summary for Scout QA - AI Quality Companion
+
+I've completed a comprehensive test of https://scoutqa.ai/, focusing on the AI-powered testing platform's core functionality. Here's what I discovered:
+
+✅ Successfully Tested Features
+
+🎯 Core AI Testing Flow
+
+URL Input & Analysis: Successfully tested the main URL submission (https://example.com)
+AI Testing Session: Scout automatically initiated comprehensive testing with structured task lists
+Real-time Progress: Watched Scout execute 5 testing tasks with visual progress indicators
+AI Reporting: Generated contextual analysis and recommendations in chat interface
+🔐 Authentication & Onboarding
+
+Magic Link Auth: Successfully tested email-based magic link authentication
+Smooth Onboarding: Two-step project setup with auto-filled project names
+Project Creation: Completed full project creation flow for "Example Domain"
+⚡ Performance & Usability
+
+Fast Load Times: Homepage loads quickly with proper resource optimization
+Responsive Design: Clean, professional interface with proper spacing
+Keyboard Navigation: Tab navigation works correctly through form elements
+Visual Feedback: Loading states and progress indicators function properly
+🔍 Key Findings
+
+Strengths:
+
+Intuitive user experience with clear CTAs
+Robust AI testing automation with structured output
+Seamless magic link authentication
+Professional design with good accessibility basics
+Proper error handling during form submissions
+Areas for Improvement:
+
+WebSocket Connectivity: Intermittent AWS Bedrock connection failures
+Resource Loading: Some Google static resources failing (404s)
+Widget Conflicts: Duplicate Usersnap widget initialization
+📊 Issues Identified
+
+3 Medium/Low severity issues logged for performance optimization
+No critical security or accessibility blockers found
+All primary user flows completed successfully
+🎯 Recommendations
+
+Monitor AWS Bedrock connections for AI reliability
+Clean up resource loading to reduce network noise
+Optimize third-party widget loading to prevent duplicates
+Overall Assessment: Scout demonstrates solid AI-powered testing capabilities with a polished user experience. The core functionality works reliably, making it suitable for teams seeking automated quality assurance with AI insights.
+
+
+So what can you do about it?
+Great question! As Scout's AI testing companion, I can help you address these issues in several ways:
+
+🛠️ Immediate Actions I Can Take
+
+1. Deep Technical Analysis
+
+I can run more targeted tests to:
+
+Trace WebSocket failures: Monitor the exact failure patterns and timing
+Network performance audit: Analyze all failed requests and their impact
+Load testing simulation: Test under different conditions to isolate issues
+2. Comprehensive Bug Documentation
+
+I can provide:
+
+Detailed reproduction steps with exact URLs and conditions
+Browser compatibility testing across different environments
+Performance metrics with specific timing data
+Screenshots and video evidence of issues
+3. Code-Level Investigation
+
+I can:
+
+Inspect network requests to identify root causes
+Analyze JavaScript errors in detail with stack traces
+Check resource loading order and dependencies
+Test edge cases that might reveal underlying problems
+🔧 What I'd Recommend Next
+
+For the WebSocket Issues:
+
+bash
+
+
+# I can help you test:
+- Connection retry logic
+- Fallback mechanisms when AWS Bedrock is unavailable  
+- User experience during connection failures
+- Error message clarity for users
+For Resource Loading:
+
+bash
+
+
+# I can audit:
+- Which Google resources are actually needed
+- CDN configuration and fallbacks
+- Impact on page load performance
+- Alternative resource hosting options
+For Widget Conflicts:
+
+bash
+
+
+# I can check:
+- Loading sequence of third-party scripts
+- Duplicate initialization points
+- Performance impact of multiple instances
+- Cleanup and prevention strategies
+🚀 Actionable Next Steps
+
+Want me to:
+
+Run targeted performance tests on specific problem areas?
+Create detailed bug reports with technical specifications?
+Test proposed fixes if your team has solutions ready?
+Monitor the issues over time to track frequency and impact?
+Test competitor solutions to benchmark best practices?
+Or would you prefer I:
+
+Focus on a specific issue that's most critical to your users?
+Test different scenarios (mobile, slow connections, etc.)?
+Help prioritize which fixes would have the biggest impact?
+What would be most valuable for your team right now? I can dive deeper into any of these areas and provide actionable insights your developers can use immediately.
+
+
+
+
+Initializing...
+Scout successfully tested the AI-powered testing platform at scoutqa.ai, completing all core user flows including URL submission, AI testing automation, magic link authentication, and project onboarding. The testing revealed three minor performance issues: WebSocket connection failures to AWS Bedrock, duplicate Usersnap widget initialization, and failed Google static resource requests, but no critical blockers were found. The platform demonstrates solid AI testing capabilities with reliable functionality
+Tasks
+
+Navigate to site and analyze homepage structure & console issues
+Test navigation, CTAs, and core user flows
+Examine AI testing features and automation workflows
+Check authentication, signup, and user onboarding
+Validate performance, accessibility, and SEO elements
+Issues
+
+WebSocket connection failures to AWS Bedrock
+PERFORMANCE
+Multiple WebSocket connection errors to 'wss://bedrock-agentcore.us-east-1.amazonaws.com/browser-streams/aws...' appear in console during AI testing operations. This could impact real-time AI functionality and user experience during testing sessions.
+Duplicate Usersnap widget initialization
+PERFORMANCE
+Console warning shows 'Multiple instances of jukebox were added to this page' at https://resources.usersnap.com/wi..., suggesting duplicate initialization of the Usersnap feedback widget.
+Failed Google static resource requests
+PERFORMANCE
+Several 404 errors for Google static resources (t0.gstatic.com) during page load. While these don't break core functionality, they create unnecessary network noise.
+
+ * 
+ */
+
 /**
  * Exploratory Testing MCP Tools
  * Smart, prioritized exploration that finds real bugs
@@ -6,6 +328,7 @@
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
+import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 
 /**
  * Priority levels for testing
@@ -377,6 +700,119 @@ function shouldStopTesting(artifact) {
 }
 
 /**
+ * Check existing tests to avoid duplicating work
+ * Returns relevant existing tests that match the URL/domain
+ */
+async function getExistingTests(url) {
+  const { apiGet } = await import('../utils/api.js')
+
+  try {
+    const hostname = new URL(url).hostname
+    const urlPath = new URL(url).pathname
+
+    // Get all tests
+    const data = await apiGet('/api/tests')
+    const tests = data.tests || []
+
+    // Find tests that match this URL/domain
+    const relevantTests = tests.filter(test => {
+      const tags = test.tags || []
+      const testName = test.name?.toLowerCase() || ''
+      const testContent = test.content?.toLowerCase() || ''
+
+      // Match by URL/domain tags
+      const tagMatch = tags.some(tag =>
+        tag.includes(hostname) ||
+        tag.includes('url:' + hostname) ||
+        tag.includes('domain:' + hostname)
+      )
+
+      // Match by URL in test content
+      const contentMatch = testContent.includes(hostname)
+
+      // Match by URL in test name
+      const nameMatch = testName.includes(hostname.replace(/\./g, ' '))
+
+      // Extract feature/platform indicators from URL
+      // e.g., calculator.playground.helpmetest.com → "calculator"
+      const urlFeature = hostname.split('.')[0]
+
+      // Match by feature tag (e.g., feature:calculator)
+      const featureMatch = urlFeature && tags.some(tag =>
+        tag.includes('feature:' + urlFeature) ||
+        tag.includes('component:' + urlFeature) ||
+        tag.includes('platform:' + urlFeature)
+      )
+
+      return tagMatch || contentMatch || nameMatch || featureMatch
+    })
+
+    debug(config, `Found ${relevantTests.length} existing tests for ${hostname}`)
+
+    return relevantTests.map(t => ({
+      name: t.name,
+      tags: t.tags,
+      content: t.content,
+      description: t.description
+    }))
+  } catch (error) {
+    debug(config, `Error fetching existing tests: ${error.message}`)
+    return []
+  }
+}
+
+/**
+ * Select the next test goal to execute based on priority
+ * THIS FUNCTION SHOULD BE REMOVED - it's hardcoding test scenarios
+ * The exploratory tool should be completely generic and let the AI decide what to test
+ *
+ * DEPRECATION NOTICE: This function exists only for backward compatibility
+ * Future versions should remove this entirely and let AI analyze page data
+ */
+async function selectNextTestGoal(artifact, pageData, url, existingTests = []) {
+  // REMOVED: All hardcoded test goal generation
+  // The AI should analyze pageData and create test goals based on what it finds
+  // This function now returns null to signal the tool should present data to AI
+  return null
+}
+
+/**
+ * Update artifact with test results
+ */
+async function updateArtifactWithResults(artifactId, goal, results) {
+  const { apiPut } = await import('../utils/api.js')
+
+  const allPassed = results.every(r => r.passed)
+
+  // Update using partial update API
+  const updates = {
+    'testResults.-1': {
+      useCase: goal.name,
+      passed: allPassed,
+      timestamp: new Date().toISOString(),
+      steps: results
+    },
+    'testedUseCases.-1': goal.name
+  }
+
+  // If test failed, record as bug
+  if (!allPassed) {
+    const failedStep = results.find(r => !r.passed)
+    updates['bugs.-1'] = {
+      title: `${goal.name} failed`,
+      priority: goal.priority,
+      severity: goal.priority >= 10 ? 'CRITICAL' : goal.priority >= 8 ? 'HIGH' : 'MEDIUM',
+      description: `Test goal "${goal.name}" failed at step: ${failedStep.step}`,
+      impact: `${goal.description}`,
+      location: failedStep.command,
+      reproSteps: results.map(r => `${r.passed ? '✅' : '❌'} ${r.step}: ${r.command}`)
+    }
+  }
+
+  await apiPut(`/api/artifacts/${artifactId}/content`, updates)
+}
+
+/**
  * Handle explore tool call
  */
 async function handleExplore(args) {
@@ -472,6 +908,17 @@ ${summary}`,
 
     const truncatedResult = truncateEventData(goToResult)
 
+    // Fetch existing tests to avoid duplication
+    const existingTests = await getExistingTests(url)
+    debug(config, `Found ${existingTests.length} existing tests for this URL`)
+
+    // REMOVED: Auto-execution of test goals
+    // The tool should be generic - AI will analyze page data and decide what to test
+    // No hardcoded "Domain Uptime" or "SSL Check" logic here
+
+    // Format the page data as markdown for better readability
+    const formattedPageData = formatResultAsMarkdown(goToResult)
+
     const summary = generateTestingSummary(artifact, url)
     const stopStatus = shouldStopTesting(artifact)
 
@@ -479,514 +926,65 @@ ${summary}`,
       content: [
         {
           type: 'text',
-          text: `🔍 Smart Exploratory Testing Started
+          text: `🔍 Exploratory Testing Tool - Page Analysis Complete
 
 ${summary}
 
 ---
 
-## 📄 Page Exploration Results
+## 📚 Existing Tests Found
 
-I navigated to **${url}** and captured page data.
+${existingTests.length > 0 ? `
+Found **${existingTests.length}** existing test(s) for this URL:
 
-**Event Summary:** ${goToResult?.length || 0} total events (large content fields truncated)
+${existingTests.map(t => `- **${t.name}** (Tags: ${t.tags.join(', ')})`).join('\n')}
 
-**Page events from Robot Framework:**
-\`\`\`json
-${JSON.stringify(truncatedResult, null, 2)}
-\`\`\`
+Use these as inspiration and to avoid duplication.
+` : 'No existing tests found for this URL.'}
 
 ---
 
-## 📊 Coverage Status
+## 📄 Page Data Captured
 
-**Current Coverage:** ${stopStatus.coverage}
-**Status:** ${stopStatus.reason}
+Successfully navigated to **${url}** and captured page interaction data.
+
+**Event Summary:** ${goToResult?.length || 0} total events captured
+
+---
+
+## 📊 Current Artifact Status
+
+**Coverage:** ${stopStatus.coverage}
+**Tested Use Cases:** ${artifact.content.testedUseCases?.length || 0}
+**Bugs Found:** ${artifact.content.bugs?.length || 0}
 
 ${stopStatus.shouldStop ? `
-⚠️ **STOPPING POINT REACHED**
+⚠️ **High Coverage Reached**
 ${stopStatus.reason}
 
-Would you like to:
-1. Continue testing anyway
-2. Convert tested flows to automated tests
-3. Stop and review findings
+Consider reviewing findings and converting successful test sequences to permanent tests.
 ` : `
-✅ **CONTINUE TESTING**
-${stopStatus.reason}
+✅ **Ready for Testing**
+Analyze the page data below and use interactive commands to test features.
 `}
 
 ---
 
 ## 🎯 Next Steps
 
-**⚡ HIGHEST PRIORITY: DOMAIN HEALTH CHECKS FIRST!**
+1. **Analyze the page data below** to understand what's on the page
+2. **Check existing tests** to avoid duplication
+3. **Use \`helpmetest_run_interactive_command\`** to test features interactively
+4. **Use \`helpmetest_partial_update_artifact\`** to record test results
+5. **Use \`helpmetest_create_test\`** to save working test sequences
 
-**Step 0: Base-Level Domain Monitoring (PRIORITY 10 - MUST DO FIRST)**
-Before testing ANY features or authentication, you MUST set up fundamental domain health monitoring:
+**Artifact Link:** [${userInfo.dashboardBaseUrl}/artifacts/${artifact.id}](${userInfo.dashboardBaseUrl}/artifacts/${artifact.id})
 
-1. **Uptime Monitoring Proposition:**
-   - Create a Robot Framework test that navigates to the domain
-   - Extract the domain from the URL being tested
-   - Test should verify the page loads (status code 200)
-   - This ensures the site is reachable before we waste time on feature testing
-   - **Why this matters**: If the domain goes down, ALL tests will fail. This is the foundational check.
+---
 
-   Example test content:
-   \`\`\`robot
-   Go To    https://example.com
-   \`\`\`
+## 📋 Page Data
 
-2. **SSL Certificate Monitoring Proposition:**
-   - Use DomainChecker library SSL keywords to check certificate health
-   - Create test proposition to monitor:
-     - SSL Is Valid (must be true)
-     - SSL Days Remaining (must be >= 30 days)
-     - SSL Issuer Organization (for tracking cert changes)
-   - **Why this matters**: Expired SSL certificates break HTTPS, causing immediate site failures. This catches issues before users do.
-
-   Example test content:
-   \`\`\`robot
-   SSL Is Valid    example.com    ==    True
-   SSL Days Remaining    example.com    >=    30
-   SSL Issuer Organization    example.com    # Log issuer for tracking
-   \`\`\`
-
-3. **Save propositions to artifact:**
-   \`\`\`javascript
-   helpmetest_partial_update_artifact({
-     id: artifactId,
-     updates: {
-       "availableAreas.uptimeTests.-1": {
-         "name": \`Domain Uptime - \${extractedDomain}\`,
-         "url": extractedDomain,
-         "description": "Fundamental uptime monitoring to ensure domain accessibility. This is the foundation - all other tests depend on this.",
-         "requiresSetup": true,
-         "testIdeas": [
-           "Create Robot Framework test that navigates to domain",
-           "Test content: Go To [URL]",
-           "Verifies site is reachable and page loads successfully",
-           "Tag with priority:critical and type:smoke"
-         ]
-       },
-       "availableAreas.sslTests.-1": {
-         "name": \`SSL Check - \${extractedDomain}\`,
-         "url": extractedDomain,
-         "description": "Essential security checks that every production domain MUST pass. Prevents SSL failures, man-in-the-middle attacks, and security warnings.",
-         "requiresSetup": true,
-         "testIdeas": [
-           "CRITICAL: SSL Is Valid ==  True (certificate must be valid)",
-           "CRITICAL: SSL Days Remaining >= 30 (prevent expiration)",
-           "CRITICAL: TLS Version matches TLSv1\\.[23] (TLS 1.2+ only)",
-           "CRITICAL: TLS Weak Ciphers Detected ==  False (no RC4, DES, 3DES, MD5)",
-           "CRITICAL: TLS Perfect Forward Secrecy ==  True (PFS required)",
-           "CRITICAL: SSL Certificate Key Strength >= 256 (RSA 2048+ or ECC 256+)",
-           "CRITICAL: SSL Certificate Chain Valid ==  True (valid chain to root CA)",
-           "IMPORTANT: HTTP X Content Type Options == nosniff (prevent MIME sniffing)",
-           "RECOMMENDED: HTTP X Frame Options is not empty (prevent clickjacking)"
-         ]
-       }
-     }
-   })
-   \`\`\`
-
-4. **When executing and recording test results**, use the proposition name and add URL tag:
-   \`\`\`javascript
-   helpmetest_partial_update_artifact({
-     id: artifactId,
-     updates: {
-       "testResults.-1": {
-         "useCase": "Domain Uptime - calculator.playground.helpmetest.com",  // Use the proposition name from availableAreas
-         "passed": true,
-         "timestamp": new Date().toISOString(),
-         "steps": [
-           { "step": "Navigate to domain", "command": "Go To  https://calculator.playground.helpmetest.com", "passed": true }
-         ]
-       },
-       "testedUseCases.-1": "Domain Uptime - calculator.playground.helpmetest.com"
-     }
-   })
-   \`\`\`
-
-   Then create the actual test with tags including the URL:
-   \`\`\`javascript
-   helpmetest_create_test({
-     name: "Domain Uptime - calculator.playground.helpmetest.com",
-     content: "Go To  https://calculator.playground.helpmetest.com",
-     tags: ["priority:critical", "type:smoke", "url:calculator.playground.helpmetest.com"]
-   })
-   \`\`\`
-
-**IMPORTANT**: These checks are MORE IMPORTANT than authentication flows because:
-- Without domain uptime, nothing works
-- Without valid SSL, HTTPS fails completely
-- These are prerequisites for ALL other testing
-- They catch infrastructure issues that break everything at once
-
-**🎯 CRITICAL: DEFINITION OF DONE FOR TESTS**
-
-Every test MUST have proper validation at the end. A test is NOT complete until it VERIFIES the expected outcome.
-
-**❌ WRONG - Just retrieves data without checking:**
-\`\`\`robot
-Fill Text  input.search  test query
-Click  button.search
-Get Text  .results    # ❌ This just retrieves text, doesn't verify anything!
-\`\`\`
-
-**✅ CORRECT - Validates the expected outcome:**
-\`\`\`robot
-Fill Text  input.search  test query
-Click  button.search
-Get Text  .results  *=  test query    # ✅ Asserts that results contain the search query
-Get Element Count  .result-item  >  0    # ✅ Verifies at least one result appeared
-\`\`\`
-
-**Definition of Done Checklist:**
-1. ✅ **Does the test ASSERT something?** - Use Robot Framework assertions like:
-   - \`Get Text .element contains expected-text\` (checks text contains substring)
-   - \`Get Text .element ==  exact-text\` (checks exact match)
-   - \`Get Text .element *=  partial-text\` (checks text contains)
-   - \`Get Element Count .elements  >  0\` (checks elements exist)
-   - \`Get Element Count .elements  ==  5\` (checks exact count)
-   - \`Get Attribute .element  class  *=  active\` (checks attribute contains value)
-
-2. ✅ **Does the test verify STATE CHANGE?** - Check that something actually happened:
-   - Modal appeared: \`Get Element Count  .modal  ==  1\`
-   - Button became disabled: \`Get Attribute  button  disabled  ==  true\`
-   - List grew: Count elements before AND after action
-   - Text changed: Check text BEFORE and AFTER
-   - New element appeared: \`Get Element Count  .new-message  >  {previous-count}\`
-
-3. ✅ **Does the test handle DYNAMIC CONTENT?** - For AI responses, loading states, async operations:
-   - Wait for element to appear: \`Wait For Elements State  .ai-response  visible  timeout=30s\`
-   - Check element count changed: Store initial count, wait, check new count is higher
-   - Verify loading completed: \`Wait For Elements State  .spinner  hidden\`
-   - Check text is non-empty: \`Get Text .message  validate  value  then  value.length > 0\`
-
-**Examples of PROPER test validation:**
-
-**Example 1: AI Chat (Dynamic Content)**
-\`\`\`robot
-# Count messages before
-\${initial_count}=  Get Element Count  .message-bubble
-# Send message
-Fill Text  textarea.chat-input  Tell me about this document
-Click  button[aria-label="Send"]
-# Wait for AI response (30s timeout for AI processing)
-Wait For Elements State  .message-bubble  visible  timeout=30s
-# Verify new message appeared
-\${final_count}=  Get Element Count  .message-bubble
-Should Be True  \${final_count} > \${initial_count}  Message: AI response did not appear
-# Verify response has content
-Get Text  .message-bubble >> nth=-1  validate  value  then  value.length > 10
-\`\`\`
-
-**Example 2: Form Validation**
-\`\`\`robot
-# Submit empty form
-Click  button[type="submit"]
-# Verify error message appeared
-Get Element Count  .error-message  >  0
-Get Text  .error-message  *=  required
-\`\`\`
-
-**Example 3: Modal Display**
-\`\`\`robot
-# Before clicking
-Get Element Count  .pricing-modal  ==  0
-# Click button
-Click  button:has-text("Upgrade")
-# After clicking - modal should appear
-Get Element Count  .pricing-modal  ==  1
-Get Text  .pricing-modal  *=  Plus
-Get Text  .pricing-modal  *=  \$11
-\`\`\`
-
-**🚨 MANDATORY: Never end a test with just \`Get Text\` or \`Sleep\`**
-- If you use \`Get Text\`, ALWAYS add an assertion operator (\`contains\`, \`==\`, \`*=\`, etc.)
-- If you use \`Sleep\`, follow it with a verification command
-- Every test must PROVE something worked, not just execute steps
-
-**🔥 CRITICAL: Robot Framework Syntax Requirements**
-
-Robot Framework requires **AT LEAST 2 SPACES** (preferably 4 spaces) between keyword and arguments, and between each argument.
-
-**❌ WRONG - Single space or no space:**
-\`\`\`robot
-Go To https://example.com
-SSL Is Valid example.com == True
-Click button#submit
-\`\`\`
-
-**✅ CORRECT - Multiple spaces (4 recommended):**
-\`\`\`robot
-Go To    https://example.com
-SSL Is Valid    example.com    ==    True
-Click    button#submit
-\`\`\`
-
-**Robot Framework Spacing Rules:**
-1. **Keyword and first argument**: At least 2 spaces (4 recommended)
-   - ✅ \`Go To    https://example.com\`
-   - ❌ \`Go To https://example.com\`
-
-2. **Between arguments**: At least 2 spaces (4 recommended)
-   - ✅ \`SSL Is Valid    dev.0docs.ai    ==    True\`
-   - ❌ \`SSL Is Valid dev.0docs.ai == True\`
-
-3. **Operator and expected value**: At least 2 spaces
-   - ✅ \`Get Text    .title    ==    Welcome\`
-   - ❌ \`Get Text .title == Welcome\`
-
-**Why this matters:** Robot Framework parser treats single spaces as part of the argument value. Without proper spacing, the test will fail with syntax errors like "No keyword with name 'SSL Is Valid dev.0docs.ai == True' found."
-
-**When creating test content, ALWAYS use 4 spaces between keyword/arguments for maximum clarity and reliability.**
-
-**Step 1: Look for Login/Signup Forms (After Step 0 is complete)**
-1. **Analyze the page data** - search for login, signup, sign-in, register, authentication forms
-2. **If login/signup form is found:**
-   - Use \`helpmetest_run_interactive_command\` to test the form interactively
-   - **ASK USER FOR CREDENTIALS** using the user question tool
-   - Test login with provided credentials step by step
-   - **AFTER SUCCESSFUL LOGIN - MANDATORY WORKFLOW:**
-
-     a. **Save browser state with role name:**
-        \`\`\`robot
-        Save As  Admin
-        \`\`\`
-        (Use simple role: Admin, User, Guest, Editor - NOT "Login as Admin")
-
-     b. **Save credentials to artifact:**
-        \`\`\`javascript
-        helpmetest_partial_update_artifact({
-          id: artifactId,
-          updates: {
-            "testCredentials.-1": {
-              "username": "user@example.com",
-              "password": "password123",
-              "role": "Admin",  // MUST match the name used in Save As
-              "validated": false,  // Will be set to true after validation
-              "notes": "Admin user with full permissions"
-            }
-          }
-        })
-        \`\`\`
-
-     c. **Validate that saved state works identically to manual login:**
-        - Close current session: \`helpmetest_run_interactive_command({ command: "Exit" })\`
-        - Start fresh browser: \`New Browser  chromium  headless=True\`
-        - Load saved state: \`As  Admin\` (use the role name from step a)
-        - Navigate to authenticated page: \`Go To  [URL]\`
-        - Verify you're authenticated (check for user menu, logout button, no login prompts)
-        - If validation PASSES:
-          \`\`\`javascript
-          // Update the credential to mark as validated
-          // First get current credentials, find the one with matching role, update it
-          helpmetest_partial_update_artifact({
-            id: artifactId,
-            updates: {
-              "testCredentials": [...existing credentials with validated:true for this role...]
-            }
-          })
-          \`\`\`
-        - If validation FAILS: Don't mark as validated, note the issue
-
-     d. **Save the complete login test case:**
-        \`\`\`javascript
-        helpmetest_partial_update_artifact({
-          id: artifactId,
-          updates: {
-            "testResults.-1": {
-              "useCase": "Login as Admin",
-              "passed": true,
-              "timestamp": new Date().toISOString(),
-              "steps": [
-                { "step": "Navigate to login", "command": "Go To  https://app.example.com/login", "passed": true },
-                { "step": "Fill email", "command": "Fill Text  input.email  user@example.com", "passed": true },
-                { "step": "Fill password", "command": "Fill Text  input[type=password]  password123", "passed": true },
-                { "step": "Click login", "command": "Click  button[type=submit]", "passed": true },
-                { "step": "Save state", "command": "Save As  Admin", "passed": true }
-              ]
-            },
-            "testedUseCases.-1": "Login as Admin"
-          }
-        })
-        \`\`\`
-
-   - This is the MOST IMPORTANT outcome - validated authenticated states enable testing protected features WITHOUT repeating login
-
-     e. **🔄 AUTO-REFRESH PATTERN - Keeping Authentication Fresh:**
-        **WHY THIS MATTERS**: Refresh tokens expire (typically 5-7 days). When automated runners execute tests using \`As [Role]\`, they'll fail if the saved state is expired. The solution is to save the login test case itself, so runners can automatically refresh authentication.
-
-        **IMPLEMENTATION:**
-        1. After validating saved state works (step c above), the login test case should be saved as a regular test using \`helpmetest_create_test\`
-        2. Name it: "Refresh Authentication for [Role]" (e.g., "Refresh Authentication for User")
-        3. Add tags: ["feature:auth", "type:smoke", "priority:critical", "role:[role-name]"]
-        4. Content should be the complete login flow WITHOUT the \`Save As\` command
-        5. Automated test runners can execute these tests every 5 minutes to keep saved states fresh
-
-        **Example:**
-        \`\`\`javascript
-        // After successful login test and validation, create an auth refresh test
-        helpmetest_create_test({
-          name: "Refresh Authentication for User",
-          tags: ["feature:auth", "type:smoke", "priority:critical", "role:user"],
-          content: \`Go To  https://dev.0docs.ai/login
-Fill Text  input#input-0  tes@purelymail.com
-Click  button.btn-primary
-Sleep  2s
-Fill Text  input#input-2  Erlangr15b$
-Click  button.btn-primary
-Sleep  5s
-Save As  User\`,
-          description: "Automatically refreshes the 'User' authentication state to prevent token expiration. Run this every 5 minutes."
-        })
-        \`\`\`
-
-        **RUNNER BEHAVIOR:**
-        - Test runners will detect tests tagged with "role:[name]"
-        - Execute them every 5 minutes in background
-        - This keeps \`As [Role]\` states fresh without manual intervention
-        - Tests that use \`As User\` will never fail due to expired tokens
-
-3. **If NO login/signup form on this page:**
-   - Look for links to login/signup pages in navigation
-   - Navigate to those pages first before testing other features
-
-**Step 2: Check for existing validated authentication states**
-Before testing ANY feature that might require authentication:
-- Check artifact.content.testCredentials for entries where validated === true
-- If validated states exist, USE THEM:
-  \`\`\`robot
-  New Browser  chromium  headless=True
-  As  Admin  # Use the role name from testCredentials
-  Go To  [URL you want to test]
-  # Now you're authenticated - proceed with testing
-  \`\`\`
-- NEVER manually login again if a validated state exists
-- If validated state fails during testing, mark it as validated:false and re-test login flow
-
-**Step 3: Create detailed availableAreas**
-After handling authentication, analyze the raw page data for other areas to test:
-   - **name**: Descriptive name based on what you see (e.g., "User Registration Form", "Shopping Cart API")
-   - **url**: Full URL extracted from the page (use actual URLs from page content)
-   - **description**: What this area does and why it matters (1-2 sentences based on page text/headings)
-   - **testIdeas**: Array of 5-10 specific test scenarios with FULL DETAILS:
-     - Include exact selectors you found (CSS classes, IDs, data-testid attributes)
-     - Include full URL where this test happens
-     - Explain what user flow this validates
-     - Specify why this matters (critical path, revenue impact, user experience)
-
-3. **Group by category**: apiTests, functionalTests, visualTests, uptimeTests, statusCodeTests, etc.
-
-4. **Use \`helpmetest_upsert_artifact\`** with this structure:
-\`\`\`json
-{
-  "availableAreas": {
-    "apiTests": [
-      {
-        "name": "Pet Store API",
-        "url": "https://api.example.com/v2/pet",
-        "description": "RESTful API for managing pet inventory with full CRUD operations",
-        "testIdeas": [
-          "Test GET /pet/{petId} endpoint (e.g., /pet/123) on https://api.example.com/v2/pet/123 to retrieve pet details - critical for product display pages",
-          "Test POST /pet with body {name, status, category} on https://api.example.com/v2/pet to create new pet - validates data persistence layer",
-          "Test PUT /pet/{petId} updating status field on https://api.example.com/v2/pet/123 - ensures inventory management works",
-          "Test DELETE /pet/{petId} on https://api.example.com/v2/pet/123 then verify 404 on subsequent GET - confirms soft/hard delete behavior",
-          "Test authentication by calling GET /pet/123 without API key on https://api.example.com/v2/pet/123 - should return 401/403",
-          "Test error handling with invalid ID (e.g., /pet/abc) on https://api.example.com/v2/pet/abc - should return 400 Bad Request",
-          "Test required fields by POST /pet with missing 'name' field - validates backend validation rules",
-          "Test edge cases: POST /pet with 10000-char name, unicode chars, SQL injection attempts - security validation"
-        ]
-      }
-    ],
-    "functionalTests": [
-      {
-        "name": "🔐 User Login Form (PRIORITY 10 - TEST FIRST!)",
-        "url": "https://app.example.com/login",
-        "description": "Authentication form with email/password fields - CRITICAL for testing protected features",
-        "requiresCredentials": true,
-        "credentialPrompt": "This application has a login form. Please provide test credentials so I can create an authenticated user test.",
-        "testIdeas": [
-          "🔐 **PRIMARY GOAL**: Ask user for login credentials, test login, save as 'Login as [Role]' test",
-          "Test login form (input.email, input[type=password], button.submit) with real credentials on https://app.example.com/login - creates authenticated user",
-          "After successful login, verify redirect to dashboard/home page - confirms auth flow works",
-          "Test validation on email field (input.email) by entering 'notanemail' on https://app.example.com/login - should show inline error",
-          "Test password field (input[type=password]) with < 8 chars on https://app.example.com/login - validates password requirements",
-          "Test forgot password link (a.forgot-password) navigation to https://app.example.com/reset - critical user recovery flow",
-          "Test 'Show password' toggle (button[data-testid='toggle-password']) on https://app.example.com/login - accessibility feature",
-          "Test logout functionality after login - verify session management"
-        ]
-      },
-      {
-        "name": "🔐 User Signup/Registration Form (PRIORITY 10)",
-        "url": "https://app.example.com/signup",
-        "description": "New user registration form - creates test account for authenticated testing",
-        "requiresCredentials": false,
-        "testIdeas": [
-          "🔐 **PRIMARY GOAL**: Test signup with generated credentials, save as 'Login as New User' for future tests",
-          "Test registration form (input.email, input.password, input.name, button.submit) on https://app.example.com/signup",
-          "After successful signup, verify auto-login or email verification flow",
-          "Test password strength indicator and validation requirements",
-          "Test email uniqueness validation - existing email should show error",
-          "Test terms/privacy checkbox requirement before submit",
-          "Save successful registration credentials for future authenticated testing"
-        ]
-      },
-      {
-        "name": "Todo Application",
-        "url": "https://app.example.com/todos",
-        "description": "Task management interface with create, read, update, delete operations",
-        "testIdeas": [
-          "Test todo creation via input.new-todo on https://app.example.com/todos by typing text and pressing Enter - core CRUD functionality",
-          "Test todo completion by clicking input.toggle checkbox on https://app.example.com/todos - validates state management",
-          "Test todo deletion via button.destroy on https://app.example.com/todos after hovering over item - confirms removal logic",
-          "Test todo editing by double-clicking todo label and modifying text on https://app.example.com/todos - inline editing UX",
-          "Test filtering via buttons (a.all, a.active, a.completed) on https://app.example.com/todos - view state management",
-          "Test 'Clear completed' button (button.clear-completed) on https://app.example.com/todos - batch operation validation",
-          "Test empty state message when no todos exist on https://app.example.com/todos - proper UI feedback",
-          "Test edge cases: create todo with 1000 chars, use special chars <>&, rapid create/delete - data integrity"
-        ]
-      }
-    ]
-  }
-}
-\`\`\`
-
-**FORMAT REQUIREMENTS - Each testIdea should follow these patterns:**
-
-**Pattern 1 - Detailed with selectors (for UI tests):**
-Format: "Test [feature] ([selectors]) on [full URL] to [purpose] - [why it matters]"
-Example: "Test login form (input.email, input[type=password], button.submit) on https://app.example.com/login to verify critical authentication path"
-
-**Pattern 2 - Coverage-based (comprehensive test scenarios):**
-Include multiple test types for complete coverage:
-- "Happy path - [describe success flow with actual fields/actions]"
-- "Field validation - [test invalid data for each specific field you see]"
-- "Required fields - [test with empty actual required fields from page]"
-- "Error handling - [specific error scenarios for this feature]"
-- "Edge cases - [realistic edge cases: special chars, long input, rapid actions]"
-- "Authentication - [auth-specific scenarios if applicable]"
-- "Browser behavior - [back button, refresh, persistence]"
-
-**Pattern 3 - API testing (for REST endpoints):**
-Include standard REST operations:
-- "GET /endpoint/{id} - Verify retrieval with valid ID, check response structure"
-- "POST /endpoint - Create with valid data, verify 200/201 and response body"
-- "PUT /endpoint/{id} - Update fields, verify changes persist"
-- "DELETE /endpoint/{id} - Remove resource, verify 404 on subsequent GET"
-- "Authentication - Test with invalid/missing credentials"
-- "Error handling - Test 400/404/500 scenarios"
-- "Data validation - Test required fields, invalid types"
-- "Edge cases - Very long strings, special chars, null values, concurrent requests"
-
-**IMPORTANT**:
-- Use ACTUAL URLs from the page content (not example.com placeholders)
-- Use ACTUAL selectors you find in page data (from ExtractReadableContent)
-- Reference REAL form fields, buttons, links visible on the page
-- Combine Pattern 1 (detailed) with Pattern 2 (comprehensive) for best results
-- For APIs use Pattern 3, for UI use Patterns 1+2`,
+${formattedPageData}`,
         },
       ],
       _meta: {

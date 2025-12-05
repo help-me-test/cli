@@ -38,32 +38,68 @@ async function notifyMcpInstalled(editor) {
 }
 
 /**
- * Check if an editor is installed by checking both PATH and Applications folder
+ * Check if an editor is installed by checking both PATH and installation folders
  * @param {string} editor - Editor name (cursor, code, claude)
  * @returns {Promise<boolean>} - True if editor is installed
  */
 async function checkEditor(editor) {
+  const platform = os.platform()
+
   // First check PATH
   try {
-    await execAsync(`which ${editor}`)
+    const pathCommand = platform === 'win32' ? 'where' : 'which'
+    await execAsync(`${pathCommand} ${editor}`)
     return true
   } catch {
-    // If not in PATH, check Applications folder
-    const appNames = {
-      cursor: 'Cursor.app',
-      code: 'Visual Studio Code.app', 
-      claude: 'Claude.app'
-    }
-    
-    const appName = appNames[editor]
-    if (!appName) return false
-    
-    try {
-      await execAsync(`test -d "/Applications/${appName}"`)
-      return true
-    } catch {
+    // If not in PATH, check platform-specific installation folders
+    if (platform === 'darwin') {
+      const appNames = {
+        cursor: 'Cursor.app',
+        code: 'Visual Studio Code.app',
+        claude: 'Claude.app'
+      }
+
+      const appName = appNames[editor]
+      if (!appName) return false
+
+      try {
+        await execAsync(`test -d "/Applications/${appName}"`)
+        return true
+      } catch {
+        return false
+      }
+    } else if (platform === 'win32') {
+      // Check Windows-specific paths
+      const windowsPaths = {
+        code: [
+          path.join('C:', 'Program Files', 'Microsoft VS Code', 'Code.exe'),
+          path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Microsoft VS Code', 'Code.exe')
+        ],
+        cursor: [
+          path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Cursor', 'Cursor.exe'),
+          path.join('C:', 'Program Files', 'Cursor', 'Cursor.exe')
+        ],
+        claude: [
+          path.join(os.homedir(), 'AppData', 'Local', 'Claude', 'Claude.exe')
+        ]
+      }
+
+      const paths = windowsPaths[editor]
+      if (!paths) return false
+
+      for (const editorPath of paths) {
+        try {
+          await fs.promises.access(editorPath, fs.constants.F_OK)
+          return true
+        } catch {
+          // Continue checking other paths
+        }
+      }
+
       return false
     }
+
+    return false
   }
 }
 
@@ -197,8 +233,8 @@ export default async function installCommand(token, options) {
 
     const companyName = userInfo.companyName || userInfo.requestCompany?.name || 'HelpMeTest'
 
-    // Check for available binaries
-    const editors = [
+    // Show all editor options without detection
+    const editorChoices = [
       { name: 'Claude Code', value: 'claude' },
       { name: 'Claude Desktop (.mcpb extension)', value: 'claude-desktop' },
       { name: 'VSCode', value: 'code' },
@@ -206,33 +242,41 @@ export default async function installCommand(token, options) {
       { name: 'Other (.mcp.json config)', value: 'mcp-json' }
     ]
 
-    const checks = await Promise.all([
-      checkEditor('claude'),
-      Promise.resolve(true), // Always show Claude Desktop option
-      checkEditor('code'),
-      checkEditor('cursor'),
-      Promise.resolve(true) // Always show MCP JSON option
-    ])
+    // Check for available binaries (disabled - now showing all options)
+    // const editors = [
+    //   { name: 'Claude Code', value: 'claude' },
+    //   { name: 'Claude Desktop (.mcpb extension)', value: 'claude-desktop' },
+    //   { name: 'VSCode', value: 'code' },
+    //   { name: 'Cursor', value: 'cursor' },
+    //   { name: 'Other (.mcp.json config)', value: 'mcp-json' }
+    // ]
 
-    const editorChoices = editors.map((editor, index) => ({
-      name: `${editor.name}${checks[index] ? '' : ' (not installed)'}`,
-      value: editor.value,
-      disabled: false
-    }))
+    // const checks = await Promise.all([
+    //   checkEditor('claude'),
+    //   Promise.resolve(true), // Always show Claude Desktop option
+    //   checkEditor('code'),
+    //   checkEditor('cursor'),
+    //   Promise.resolve(true) // Always show MCP JSON option
+    // ])
 
-    const availableCount = checks.filter(Boolean).length
-    if (availableCount === 0) {
-      output.warning('No supported editors found (cursor, code, claude)')
-      return
-    }
+    // const editorChoices = editors.map((editor, index) => ({
+    //   name: `${editor.name}${checks[index] ? '' : ' (not installed)'}`,
+    //   value: editor.value,
+    //   disabled: false
+    // }))
+
+    // const availableCount = checks.filter(Boolean).length
+    // if (availableCount === 0) {
+    //   output.warning('No supported editors found (cursor, code, claude)')
+    //   return
+    // }
 
     // Show interactive selection
     let selectedEditor
-    
+
     // For testing purposes, if all available editors should be selected
     if (options.all) {
-      const availableEditor = editorChoices.find((_, index) => checks[index])
-      selectedEditor = availableEditor ? availableEditor.value : editorChoices[0].value
+      selectedEditor = editorChoices[0].value
     } else {
       const result = await inquirer.prompt([
         {
@@ -246,13 +290,7 @@ export default async function installCommand(token, options) {
     }
 
     // Generate installation instructions for selected editor
-    const editorIndex = editors.findIndex(e => e.value === selectedEditor)
-    const isInstalled = checks[editorIndex]
-    
-    if (!isInstalled) {
-      output.warning(`${editors[editorIndex].name} is not installed on this system - cannot install MCP integration`)
-      return
-    }
+    // (removed installation check - now showing all options regardless of install status)
     
     switch (selectedEditor) {
       case 'claude':

@@ -264,7 +264,7 @@ const isDebugMode = (config) => {
  */
 const debug = (config, message) => {
   if (isDebugMode(config)) {
-    output.verbose(`[DEBUG] ${message}`)
+    output.verbose(message)
   }
 }
 
