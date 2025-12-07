@@ -16,13 +16,26 @@ const openedSessions = new Set()
  * Open browser for session if not already opened
  * @param {string} dashboardBaseUrl - Base URL for dashboard
  * @param {number} timestamp - Session timestamp
+ * @returns {Object} Result with opened status and URL
  */
-export function openSessionInBrowser(dashboardBaseUrl, timestamp) {
+export async function openSessionInBrowser(dashboardBaseUrl, timestamp) {
+  const sessionUrl = `${dashboardBaseUrl}/interactive/${timestamp}`
+
   if (!openedSessions.has(timestamp)) {
     openedSessions.add(timestamp)
-    const sessionUrl = `${dashboardBaseUrl}/interactive/${timestamp}`
-    open(sessionUrl)
-    debug(config, `Opened browser for session: ${sessionUrl}`)
+    console.log(`🌐 Opening browser for session: ${sessionUrl}`)
+    try {
+      await open(sessionUrl)
+      debug(config, `✅ Browser opened successfully: ${sessionUrl}`)
+      return { opened: true, url: sessionUrl, alreadyOpen: false }
+    } catch (error) {
+      console.error(`❌ Failed to open browser: ${error.message}`)
+      debug(config, `Failed to open browser for session: ${error.message}`)
+      return { opened: false, url: sessionUrl, error: error.message, alreadyOpen: false }
+    }
+  } else {
+    console.log(`ℹ️ Session ${timestamp} already opened, skipping`)
+    return { opened: false, url: sessionUrl, alreadyOpen: true }
   }
 }
 
@@ -126,7 +139,7 @@ async function handleRunInteractiveCommand(args) {
     const userInfo = await detectApiAndAuth()
 
     // Open browser automatically on first command of new session
-    openSessionInBrowser(userInfo.dashboardBaseUrl, userInfo.interactiveTimestamp)
+    const browserResult = await openSessionInBrowser(userInfo.dashboardBaseUrl, userInfo.interactiveTimestamp)
 
     // Execute the command with the same timestamp for session persistence
     const result = await runInteractiveCommand({
@@ -189,17 +202,11 @@ ${JSON.stringify(result, null, 2)}
       responseText = `❌ **Command Failed**\n\n` + responseText
     }
 
+    const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
+
     responseText += `
 
----
-
-**Session:** Active - continue testing more commands
-
-🚨 **AI Instructions:**
-1. Analyze success/failure - don't just say "done"
-2. Debug failures - identify why and suggest fixes
-3. Continue testing - build complete sequences step by step
-4. Session stays active for continued testing`
+**Session:** ${sessionUrl}`
 
     return {
       content: [
@@ -247,52 +254,6 @@ ${JSON.stringify(result, null, 2)}
 \`\`\`json
 ${JSON.stringify(errorResponse, null, 2)}
 \`\`\``,
-        },
-      ],
-      isError: true,
-    }
-  }
-}
-
-/**
- * Handle keywords tool call
- * @param {Object} args - Tool arguments
- * @param {string} [args.search] - Search term to filter keywords/libraries
- * @param {string} [args.type] - Type of documentation to search
- * @returns {Object} Keywords result
- */
-async function handleKeywords(args) {
-  const { search, type = 'all' } = args
-
-  debug(config, `Searching keywords with: search="${search}", type="${type}"`)
-
-  try {
-    const response = await apiGet('/api/keywords', { search, type })
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(response, null, 2),
-        },
-      ],
-    }
-  } catch (error) {
-    debug(config, `Error searching keywords: ${error.message}`)
-
-    const errorResponse = {
-      error: true,
-      search,
-      type,
-      message: error.message,
-      timestamp: new Date().toISOString()
-    }
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(errorResponse),
         },
       ],
       isError: true,
@@ -357,25 +318,6 @@ Example:
     async (args) => {
       debug(config, `Interactive command tool called with args: ${JSON.stringify(args)}`)
       return await handleRunInteractiveCommand(args)
-    }
-  )
-
-  // Register keywords tool
-  server.registerTool(
-    'helpmetest_keywords',
-    {
-      title: 'Help Me Test: Keywords Documentation Tool',
-      description: `Search and get documentation for available Robot Framework keywords and libraries
-
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're searching for and why. After getting results, summarize the key keywords or libraries found that are relevant to the user's needs. Don't just say "Done".`,
-      inputSchema: {
-        search: z.string().optional().describe('Search term to filter keywords/libraries (optional - if not provided, returns all)'),
-        type: z.enum(['keywords', 'libraries', 'all']).optional().default('all').describe('Type of documentation to search: keywords, libraries, or all'),
-      },
-    },
-    async (args) => {
-      debug(config, `Keywords tool called with args: ${JSON.stringify(args)}`)
-      return await handleKeywords(args)
     }
   )
 }
