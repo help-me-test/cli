@@ -5,7 +5,7 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import { runInteractiveCommand, apiGet, detectApiAndAuth } from '../utils/api.js'
+import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 import open from 'open'
 

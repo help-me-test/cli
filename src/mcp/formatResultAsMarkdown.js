@@ -56,11 +56,12 @@ function formatTestResults(events) {
 }
 
 /**
- * Format keyword execution events as a markdown list
- * Only show final PASS/FAIL status, not intermediate states
+ * Format keyword execution with return values inline
+ * Combines execution status and return value in one compact section
  */
 function formatKeywordExecution(events, isTestRun = false) {
   const keywords = events.filter(e => e.type === 'keyword' && e.status && e.status !== 'NOT SET')
+  const keywordResults = events.filter(e => e.type === 'keyword_result')
 
   if (keywords.length === 0) return ''
 
@@ -81,10 +82,16 @@ function formatKeywordExecution(events, isTestRun = false) {
 
     lines.push(kwLine)
 
+    // Add return value on next line if available
+    const kwResult = keywordResults.find(r => r.keyword === keyword)
+    if (kwResult && kwResult.value !== null && kwResult.value !== undefined) {
+      lines.push(`  → ${JSON.stringify(kwResult.value)}`)
+    }
+
     // Add error details if failed
     if (status === 'FAIL' && (error || message)) {
       const errorMsg = error || message
-      lines.push(`  > ⚠️ ${errorMsg}\n`)
+      lines.push(`  ⚠️ ${errorMsg}`)
     }
   }
 
@@ -267,8 +274,50 @@ function formatOpenReplayEvents(events) {
       else if (durationMs > 2000) emoji = '🐌'
 
       const durationStr = durationMs ? ` (${(durationMs/1000).toFixed(2)}s)` : ''
-      sections.network.push(`${emoji} **${time}** **${statusCode}** ${method} ${url}${durationStr}`)
-      sections.debug.push(`  ✓ Added to network logs`)
+
+      // Build the network log entry
+      let networkEntry = `${emoji} **${time}** **${statusCode}** ${method} ${url}${durationStr}`
+
+      // Helper to format network data (parse nested JSON in body field)
+      const formatNetworkData = (data) => {
+        if (!data) return null
+
+        try {
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data
+
+          // If it has a body field that's a JSON string, parse it
+          if (parsed.body && typeof parsed.body === 'string') {
+            try {
+              parsed.body = JSON.parse(parsed.body)
+            } catch (e) {
+              // Body is not JSON, leave as-is
+            }
+          }
+
+          return JSON.stringify(parsed, null, 2)
+        } catch (e) {
+          return typeof data === 'string' ? data : JSON.stringify(data)
+        }
+      }
+
+      // Add request body for mutations (POST, PUT, PATCH, DELETE)
+      if (requestData && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method?.toUpperCase?.())) {
+        const formatted = formatNetworkData(requestData)
+        if (formatted) {
+          networkEntry += `\n  📤 Request:\n\`\`\`json\n${formatted}\n\`\`\``
+        }
+      }
+
+      // Add response body for errors (4xx, 5xx) or when there's meaningful response data
+      if (responseData && (statusCode >= 400 || (statusCode >= 200 && statusCode < 300))) {
+        const formatted = formatNetworkData(responseData)
+        if (formatted) {
+          networkEntry += `\n  📥 Response:\n\`\`\`json\n${formatted}\n\`\`\``
+        }
+      }
+
+      sections.network.push(networkEntry)
+      sections.debug.push(`  ✓ Added to network logs with request/response bodies`)
     }
   }
 
@@ -373,7 +422,7 @@ export function formatResultAsMarkdown(result, options = {}) {
   const testResultsSection = formatTestResults(result)
   if (testResultsSection) sections.push(testResultsSection)
 
-  // Keyword execution
+  // Keyword execution (with return values inline)
   const keywordSection = formatKeywordExecution(result, isTestRun)
   if (keywordSection) sections.push(keywordSection)
 
@@ -398,5 +447,5 @@ export function formatResultAsMarkdown(result, options = {}) {
     return `## 🔍 Raw Result\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
   }
 
-  return sections.join('\n---\n\n')
+  return sections.join('\n')
 }

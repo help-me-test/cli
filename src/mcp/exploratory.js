@@ -898,13 +898,102 @@ Result: User successfully authenticated and sees their account
      b) Stop here and wait for credentials
      c) Document this limitation in notes"
 
-3. **Test execution:**
-   - Run each command one by one using \`helpmetest_run_interactive_command\`
-   - Observe results after each step
-   - **If command fails due to wrong keyword or syntax:** IMMEDIATELY use \`helpmetest_keywords\` to find correct syntax
-   - **Every test goal MUST be verified** - if goal was "User logs in", you MUST verify dashboard/account visible
-   - **Test without complete verification is NOT A TEST** - it's exploratory navigation at best
-   - **If you hit a blocker (no credentials, external service, etc.):** STOP and ASK USER what to do
+3. **Test execution with PROPER VALIDATION:**
+
+   **🚨 CRITICAL: VALIDATION IS NOT OPTIONAL**
+
+   Every action MUST be validated. Validation = proving state changed.
+
+   **VALIDATION RULES (MANDATORY):**
+
+   **Current state is ALWAYS shown after each command:**
+   - **URL:** shown in response
+   - **Page Title:** shown in response
+   - **Page Content:** shown in response
+   - **Interactive Elements:** shown in response
+   - **Network Requests:** shown in response
+   - **Console Logs:** shown in response
+
+   You DON'T need to run extra commands to "record state" - just READ the response!
+
+   **Your job: PROVE state changed by using ASSERTIONS**
+
+   a) **Before action**: OBSERVE current state from previous command response
+      - Note the URL
+      - Note what text/elements are visible
+      - Note what the page title is
+
+   b) **Execute action**: Click, fill, navigate
+      - Use specific selectors from "Interactive Elements" table: \`button.sign-out\`, \`input[type='email']\`
+      - NEVER use generic: \`button\`, \`input\`, \`div\`
+
+   c) **After action**: VALIDATE state changed using ASSERTIONS
+      - **URL changed?** → \`Get Url    ==    https://expected-url.com\`
+      - **Text appeared?** → \`Get Text h1    ==    Welcome Back\`
+      - **Element appeared?** → \`Wait For Elements State    button[data-testid='logout']    visible    timeout=5s\`
+      - **Element disappeared?** → \`Get Element States    button.sign-in    hidden\`
+      - **Title changed?** → Check response shows new title
+
+   **❌ FORBIDDEN (these are NOT validation):**
+   - \`Get Text body\` - too generic, doesn't validate anything
+   - \`Sleep 3s\` - lazy waiting, use \`Wait For Elements State\` instead
+   - \`Click button\` - which button? be specific!
+   - No assertion operator (\`==\`, \`contains\`, \`!=\`) - you're not validating, just reading!
+
+   **✅ REQUIRED (actual validation):**
+   - \`Get Url    ==    https://dashboard.example.com\` - validates URL changed
+   - \`Get Text h1    contains    Dashboard\` - validates specific text exists
+   - \`Wait For Elements State    .user-profile    visible    timeout=5s\` - waits for specific element
+   - \`Get Element States    button.sign-out    visible\` - validates element state
+
+   **VALIDATION PATTERN (FOLLOW THIS):**
+
+   \`\`\`
+   # Step 1: Navigate to login
+   Go To    https://example.com/login
+   # → Response shows: URL = https://example.com/login, Title = "Login"
+   # → VALIDATE: URL is correct
+   Get Url    ==    https://example.com/login
+
+   # Step 2: Fill credentials
+   Fill Text    input[name='email']    user@example.com
+   Fill Text    input[name='password']    password123
+   # → Response shows: fields filled, "Interactive Elements" shows submit button
+
+   # Step 3: Submit and VALIDATE login succeeded
+   Click    button[type='submit']
+   # → Response shows: URL changed to /dashboard, Title changed to "Dashboard"
+   # → Response shows: "Interactive Elements" now has button.sign-out
+   # → Response shows: Page content has "Welcome, John Doe"
+   # → NOW VALIDATE these changes with assertions:
+   Wait For Elements State    .dashboard-header    visible    timeout=10s
+   Get Url    contains    /dashboard
+   Get Text    .user-name    ==    John Doe
+
+   # Step 4: Logout
+   Click    button.sign-out
+   # → Response shows: URL changed back to /login, Title = "Login"
+   # → Response shows: button.sign-out disappeared from "Interactive Elements"
+   # → Response shows: button.sign-in appeared
+   # → NOW VALIDATE logout succeeded:
+   Get Url    ==    https://example.com/login
+   Wait For Elements State    button.sign-in    visible    timeout=5s
+   \`\`\`
+
+   **Key Point:** After each command, READ the response to see what changed, THEN write assertions to PROVE those changes.
+
+   **How to find what to validate:**
+   - Look at page content from interactive command results
+   - Identify specific elements that appear/disappear
+   - Note URL changes
+   - Check for text that confirms success (usernames, welcome messages, dashboard titles)
+
+   **If command fails:**
+   - Use \`helpmetest_keywords search="keyword"\` to find correct syntax
+   - Check selector is specific enough
+   - Verify element actually exists on page
+
+   **If you hit a blocker:** STOP and ASK USER what to do
 
 4. **When you encounter blockers:**
    - OAuth/external auth without real credentials
@@ -1149,7 +1238,7 @@ ${summary}`,
 
     // First time - start new session
     // Open browser automatically on first exploratory session
-    openSessionInBrowser(userInfo.dashboardBaseUrl, sessionTimestamp)
+    await openSessionInBrowser(userInfo.dashboardBaseUrl, sessionTimestamp)
 
     // Navigate to page and get all the data
     const goToResult = await runInteractiveCommand({
