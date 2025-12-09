@@ -130,7 +130,7 @@ function extractContentFromResult(result) {
  * @returns {Object} Interactive command result
  */
 async function handleRunInteractiveCommand(args) {
-  const { command, explanation, line = 0 } = args
+  const { command, explanation, line = 0, debug: debugMode = false } = args
 
   debug(config, `Running interactive command: ${command} (${explanation})`)
 
@@ -147,11 +147,12 @@ async function handleRunInteractiveCommand(args) {
       timestamp: userInfo.interactiveTimestamp,
       command,
       explanation,
-      line
+      line,
+      debug: debugMode
     })
 
     debug(config, `Interactive command result: ${JSON.stringify(result)}`)
-    
+
     // Check if this is an Exit command
     if (command.toLowerCase().trim() === 'exit') {
       return {
@@ -177,7 +178,7 @@ ${JSON.stringify(result, null, 2)}
         ],
       }
     }
-    
+
     // Format the response for better readability
     const response = {
       runId: `${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}`,
@@ -193,8 +194,8 @@ ${JSON.stringify(result, null, 2)}
     const isSuccess = analyzeRobotFrameworkResult(result)
     const extractedContent = extractContentFromResult(result)
 
-    // Format result as markdown
-    const formattedResult = formatResultAsMarkdown(result)
+    // Format result as markdown with debug mode
+    const formattedResult = formatResultAsMarkdown(result, { debug: debugMode })
 
     let responseText = formattedResult
 
@@ -313,6 +314,7 @@ Example:
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
+        debug: z.boolean().optional().default(false).describe('Enable debug mode to show network request/response bodies. When false (default), hides request/response data.'),
       },
     },
     async (args) => {

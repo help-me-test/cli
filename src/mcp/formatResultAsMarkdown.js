@@ -56,6 +56,30 @@ function formatTestResults(events) {
 }
 
 /**
+ * Format errors prominently at the top
+ */
+function formatErrors(events) {
+  const errors = events.filter(e => e.type === 'error')
+
+  if (errors.length === 0) return ''
+
+  const lines = ['## ❌ Error\n']
+
+  for (const error of errors) {
+    const { message, traceback } = error
+    lines.push(`**${message}**\n`)
+
+    if (traceback) {
+      lines.push('```')
+      lines.push(traceback)
+      lines.push('```\n')
+    }
+  }
+
+  return lines.join('\n')
+}
+
+/**
  * Format keyword execution with return values inline
  * Combines execution status and return value in one compact section
  */
@@ -100,6 +124,7 @@ function formatKeywordExecution(events, isTestRun = false) {
 
 /**
  * Format page information with actual content
+ * @param {Array} events - Array of events
  */
 function formatPageInfo(events) {
   const browserInfo = events.find(e => e.type === 'GetAllTabsInfo')
@@ -120,6 +145,7 @@ function formatPageInfo(events) {
     }
   }
 
+  // Always show markdown content
   if (readableContent?.content) {
     lines.push('**Content:**\n')
     lines.push(readableContent.content)
@@ -178,8 +204,10 @@ function formatInteractiveElements(events) {
 
 /**
  * Format OpenReplay events - navigation, performance, errors, network
+ * @param {Array} events - Array of events
+ * @param {boolean} debug - If true, show request/response data; if false, hide it
  */
-function formatOpenReplayEvents(events) {
+function formatOpenReplayEvents(events, debug = false) {
   const openReplay = events.find(e => e.type === 'OpenReplayEvents')
 
   if (!openReplay?.events) return ''
@@ -300,16 +328,16 @@ function formatOpenReplayEvents(events) {
         }
       }
 
-      // Add request body for mutations (POST, PUT, PATCH, DELETE)
-      if (requestData && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method?.toUpperCase?.())) {
+      // Add request body for mutations (POST, PUT, PATCH, DELETE) - only in debug mode
+      if (debug && requestData && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method?.toUpperCase?.())) {
         const formatted = formatNetworkData(requestData)
         if (formatted) {
           networkEntry += `\n  📤 Request:\n\`\`\`json\n${formatted}\n\`\`\``
         }
       }
 
-      // Add response body for errors (4xx, 5xx) or when there's meaningful response data
-      if (responseData && (statusCode >= 400 || (statusCode >= 200 && statusCode < 300))) {
+      // Add response body for errors (4xx, 5xx) or when there's meaningful response data - only in debug mode
+      if (debug && responseData && (statusCode >= 400 || (statusCode >= 200 && statusCode < 300))) {
         const formatted = formatNetworkData(responseData)
         if (formatted) {
           networkEntry += `\n  📥 Response:\n\`\`\`json\n${formatted}\n\`\`\``
@@ -399,6 +427,7 @@ function formatNextSteps(events) {
  * @param {Array} result - Raw result from interactive command or test run
  * @param {Object} options - Formatting options
  * @param {string} options.identifier - Test identifier (for test runs)
+ * @param {boolean} options.debug - If true, show network request/response data; if false, hide it
  * @returns {string} Formatted markdown
  */
 export function formatResultAsMarkdown(result, options = {}) {
@@ -406,7 +435,7 @@ export function formatResultAsMarkdown(result, options = {}) {
     return `## 🔍 Raw Result\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
   }
 
-  const { identifier } = options
+  const { identifier, debug = false } = options
 
   // Detect if this is a test run (has end_test events)
   const isTestRun = result.some(e => e.type === 'end_test')
@@ -417,6 +446,10 @@ export function formatResultAsMarkdown(result, options = {}) {
   if (isTestRun && identifier) {
     sections.push(`# 🧪 Test Execution: ${identifier}\n`)
   }
+
+  // Errors first - most important for debugging
+  const errorSection = formatErrors(result)
+  if (errorSection) sections.push(errorSection)
 
   // Test results (for test runs only)
   const testResultsSection = formatTestResults(result)
@@ -435,7 +468,7 @@ export function formatResultAsMarkdown(result, options = {}) {
   if (elementsSection) sections.push(elementsSection)
 
   // Browser activity (OpenReplay events)
-  const browserActivitySection = formatOpenReplayEvents(result)
+  const browserActivitySection = formatOpenReplayEvents(result, debug)
   if (browserActivitySection) sections.push(browserActivitySection)
 
   // Next steps (for test runs only)
