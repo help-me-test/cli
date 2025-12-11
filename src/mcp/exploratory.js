@@ -329,7 +329,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
-import { openSessionInBrowser } from './interactive.js'
+import { openSessionInBrowser, openBrowserOnce } from './interactive.js'
 
 /**
  * Priority levels for testing
@@ -996,12 +996,64 @@ Result: User successfully authenticated and sees their account
    **If you hit a blocker:** STOP and ASK USER what to do
 
 4. **When you encounter blockers:**
-   - OAuth/external auth without real credentials
-   - Payment forms requiring real card
-   - Email verification requiring real inbox
-   - SMS/2FA requiring real phone
+   - OAuth/external auth without real credentials → STOP and ASK
+   - Payment forms requiring real card → STOP and ASK
+   - Email verification requiring real inbox → **USE FAKEMAIL** (see below)
+   - SMS/2FA requiring real phone → STOP and ASK
 
-   **STOP and ASK:** "I've reached [blocker]. I cannot complete the full user workflow without [what's needed]. Options:
+   **✅ FOR EMAIL VERIFICATION - USE FAKEMAIL:**
+
+   The FakeMail library allows you to handle email verification flows without stopping.
+   **DO NOT treat email verification as a blocker** - you have the tools to complete the flow!
+
+   **Available Keywords:**
+   - \`Create Fake Email\` - generates fake email address
+   - \`Create Email And Fill    selector\` - creates email AND fills it into form field
+   - \`Get Email Verification Code    email    timeout=15\` - extracts verification code from email
+   - \`Enter Verification Code    email    selector    submit_selector\` - extracts code AND fills into field
+
+   **Method 1: Manual approach (full control)**
+   \`\`\`robot
+   \${email}=    Create Fake Email
+   Fill Text    input#email    \${email}
+   Click    button[type="submit"]
+
+   # Wait for email and extract code
+   \${code}=    Get Email Verification Code    \${email}    timeout=15
+   Fill Text    input#code    \${code}
+   Click    button#verify
+
+   # Validate login succeeded
+   Get Url    contains    /dashboard
+   \`\`\`
+
+   **Method 2: Convenience keywords (RECOMMENDED)**
+   \`\`\`robot
+   # Create email and fill in one step
+   \${email}=    Create Email And Fill    input#email
+   Click    button[type="submit"]
+
+   # Extract code and fill in one step (with optional submit)
+   Enter Verification Code    \${email}    input#code    submit_selector=button#verify
+
+   # Validate login succeeded
+   Get Url    contains    /dashboard
+   \`\`\`
+
+   **Multi-field codes (one digit per field):**
+   FakeMail uses the PASTE approach - fill the entire code into the FIRST field:
+   \`\`\`robot
+   \${email}=    Create Fake Email
+   Fill Text    input#email    \${email}
+   Click    button[type="submit"]
+
+   # Paste entire code into first field - browser auto-distributes digits
+   Enter Verification Code    \${email}    input[name='passcode_0']    submit_selector=button#verify
+   \`\`\`
+
+   **🚨 FOR OTHER BLOCKERS (OAuth, Payment, SMS) - STOP and ASK:**
+
+   "I've reached [blocker]. I cannot complete the full user workflow without [what's needed]. Options:
    1. Provide test credentials/data
    2. Document this limitation and move to next test
    3. Record partial flow with clear note this is NOT a complete test"
@@ -1237,7 +1289,11 @@ ${summary}`,
     }
 
     // First time - start new session
-    // Open browser automatically on first exploratory session
+    // Open artifact in browser first (only once per artifact)
+    const artifactUrl = `${userInfo.dashboardBaseUrl}/artifacts/${artifact.id}`
+    await openBrowserOnce(artifactUrl, `artifact:${artifact.id}`, `artifact ${artifact.id}`)
+
+    // Then open interactive session browser
     await openSessionInBrowser(userInfo.dashboardBaseUrl, sessionTimestamp)
 
     // Navigate to page and get all the data

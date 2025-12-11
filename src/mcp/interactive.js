@@ -9,8 +9,34 @@ import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 import open from 'open'
 
-// Track sessions that have been opened in browser
-const openedSessions = new Set()
+// Track URLs that have been opened in browser (by identifier)
+const openedUrls = new Set()
+
+/**
+ * Generic function to open URL in browser once per identifier
+ * @param {string} url - Full URL to open
+ * @param {string} identifier - Unique identifier to track if already opened
+ * @param {string} description - Human-readable description for logging
+ * @returns {Object} Result with opened status and URL
+ */
+export async function openBrowserOnce(url, identifier, description = 'URL') {
+  if (!openedUrls.has(identifier)) {
+    openedUrls.add(identifier)
+    console.log(`🌐 Opening browser for ${description}: ${url}`)
+    try {
+      await open(url)
+      debug(config, `✅ Browser opened successfully: ${url}`)
+      return { opened: true, url, alreadyOpen: false }
+    } catch (error) {
+      console.error(`❌ Failed to open browser: ${error.message}`)
+      debug(config, `Failed to open browser for ${description}: ${error.message}`)
+      return { opened: false, url, error: error.message, alreadyOpen: false }
+    }
+  } else {
+    console.log(`ℹ️ ${description} already opened, skipping`)
+    return { opened: false, url, alreadyOpen: true }
+  }
+}
 
 /**
  * Open browser for session if not already opened
@@ -20,23 +46,7 @@ const openedSessions = new Set()
  */
 export async function openSessionInBrowser(dashboardBaseUrl, timestamp) {
   const sessionUrl = `${dashboardBaseUrl}/interactive/${timestamp}`
-
-  if (!openedSessions.has(timestamp)) {
-    openedSessions.add(timestamp)
-    console.log(`🌐 Opening browser for session: ${sessionUrl}`)
-    try {
-      await open(sessionUrl)
-      debug(config, `✅ Browser opened successfully: ${sessionUrl}`)
-      return { opened: true, url: sessionUrl, alreadyOpen: false }
-    } catch (error) {
-      console.error(`❌ Failed to open browser: ${error.message}`)
-      debug(config, `Failed to open browser for session: ${error.message}`)
-      return { opened: false, url: sessionUrl, error: error.message, alreadyOpen: false }
-    }
-  } else {
-    console.log(`ℹ️ Session ${timestamp} already opened, skipping`)
-    return { opened: false, url: sessionUrl, alreadyOpen: true }
-  }
+  return openBrowserOnce(sessionUrl, `session:${timestamp}`, `session ${timestamp}`)
 }
 
 /**
