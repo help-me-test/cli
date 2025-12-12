@@ -6,7 +6,7 @@
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
-import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
+import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
 import open from 'open'
 
 // Track URLs that have been opened in browser (by identifier)
@@ -219,13 +219,33 @@ ${JSON.stringify(result, null, 2)}
 
 **Session:** ${sessionUrl}`
 
+    // Extract screenshots from result (including automatic screenshots from server)
+    const screenshots = extractScreenshots(result)
+
+    const contentItems = [
+      {
+        type: 'text',
+        text: responseText,
+      }
+    ]
+
+    // Add screenshot images to content with proper MCP format
+    for (const screenshot of screenshots) {
+      // Strip any data URI prefix to get raw base64
+      let base64Data = screenshot.base64
+      if (base64Data.startsWith('data:image/')) {
+        base64Data = base64Data.split(',')[1]
+      }
+
+      contentItems.push({
+        type: 'image',
+        data: base64Data,
+        mimeType: 'image/png'
+      })
+    }
+
     return {
-      content: [
-        {
-          type: 'text',
-          text: responseText,
-        },
-      ],
+      content: contentItems,
       isError: !isSuccess,
     }
     
@@ -314,12 +334,16 @@ IMPORTANT: Interactive sessions maintain browser state between commands. You can
 5. BE METHODICAL - test one thing at a time
 6. If something fails, debug it before moving forward
 7. Sessions remain active - continue testing until you have a complete working flow
+8. **ALWAYS describe the screenshot** - Every response includes an automatic screenshot. You MUST provide a detailed visual description of what you see in the screenshot, including layout, colors, UI elements, text, buttons, forms, and overall design. This helps understand the page state and identify interactive elements.
 
 Example:
 "Now I'll test clicking the login button to see if it navigates to the dashboard:"
 [call tool with "Click button#login"]
 [Analyze response carefully]
-"❌ The login button click failed with error: 'Element not found'. I need to find the correct selector before proceeding."`,
+"❌ The login button click failed with error: 'Element not found'. I need to find the correct selector before proceeding."
+
+Screenshot Description Example:
+"Based on the screenshot, I can see a modern web application with a purple gradient background. The main content area shows a centered white modal dialog with the heading 'Welcome to VibeDocs!' and a purple 'Start working' button. The left sidebar is visible but collapsed, and there's a BETA badge in the top-right corner."`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
