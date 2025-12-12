@@ -342,21 +342,13 @@ Example:
 [Analyze response carefully]
 "❌ The login button click failed with error: 'Element not found'. I need to find the correct selector before proceeding."
 
-Screenshot Description Example:
-"**Cookie Consent Modal (Center):**
-- 'Accept All Cookies' button - allows all tracking
-- 'Reject All' button - declines all non-essential cookies
-- 'Manage Preferences' link - opens detailed cookie settings
-
-**Header (Behind Modal):**
-- Main navigation menu with sections: Groceries, George (clothing), Stores
-- Search bar for product search
-- Shopping cart icon and account login link
-
-**Main Content:**
-- Hero banner promoting grocery delivery
-- Category tiles for: Fresh Food, Frozen, Bakery, Drinks
-- 'Shop Now' buttons for each category"`,
+Screenshot Description Guidelines:
+Structure your description by page sections (modals, headers, main content, footers, etc.) and for each section describe:
+- Interactive elements (buttons, links, inputs, forms, dropdowns)
+- What each element does or where it leads
+- Navigation options and their purposes
+- What actions can be taken
+Focus on what can be done on the page, not how it looks. Avoid subjective aesthetic descriptions."`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
