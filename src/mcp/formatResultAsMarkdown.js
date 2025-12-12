@@ -106,10 +106,16 @@ function formatKeywordExecution(events, isTestRun = false) {
 
     lines.push(kwLine)
 
-    // Add return value on next line if available
+    // Add return value on next line if available (skip for screenshots - they'll be shown separately)
     const kwResult = keywordResults.find(r => r.keyword === keyword)
     if (kwResult && kwResult.value !== null && kwResult.value !== undefined) {
-      lines.push(`  → ${JSON.stringify(kwResult.value)}`)
+      // Check if this is a screenshot (base64 string)
+      const isScreenshot = keyword === 'Take Screenshot' && typeof kwResult.value === 'string' && kwResult.value.length > 100
+      if (!isScreenshot) {
+        lines.push(`  → ${JSON.stringify(kwResult.value)}`)
+      } else {
+        lines.push(`  → Screenshot captured (see below)`)
+      }
     }
 
     // Add error details if failed
@@ -419,6 +425,45 @@ function formatNextSteps(events) {
   }
 
   return lines.join('\n') + '\n'
+}
+
+/**
+ * Extract screenshots from Robot Framework result
+ * @param {Array} result - Raw result from interactive command or test run
+ * @returns {Array} Array of screenshot objects with base64 data
+ */
+export function extractScreenshots(result) {
+  if (!Array.isArray(result)) {
+    return []
+  }
+
+  const screenshots = []
+
+  // Extract from keyword_result events (user-called Take Screenshot commands)
+  const keywordResults = result.filter(e => e.type === 'keyword_result')
+  for (const kwResult of keywordResults) {
+    if (kwResult.keyword === 'Take Screenshot' && kwResult.value && typeof kwResult.value === 'string' && kwResult.value.length > 100) {
+      screenshots.push({
+        keyword: kwResult.keyword,
+        line: kwResult.line,
+        base64: kwResult.value
+      })
+    }
+  }
+
+  // Extract from TakeScreenshot events (automatic screenshots from listener)
+  const takeScreenshotEvents = result.filter(e => e.type === 'TakeScreenshot')
+  for (const event of takeScreenshotEvents) {
+    if (event.value && typeof event.value === 'string' && event.value.length > 100) {
+      screenshots.push({
+        keyword: 'Take Screenshot',
+        line: event.line,
+        base64: event.value
+      })
+    }
+  }
+
+  return screenshots
 }
 
 /**

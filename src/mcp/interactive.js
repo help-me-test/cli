@@ -334,7 +334,7 @@ IMPORTANT: Interactive sessions maintain browser state between commands. You can
 5. BE METHODICAL - test one thing at a time
 6. If something fails, debug it before moving forward
 7. Sessions remain active - continue testing until you have a complete working flow
-8. **ALWAYS describe the screenshot** - Every response includes an automatic screenshot. You MUST provide a detailed visual description of what you see in the screenshot, including layout, colors, UI elements, text, buttons, forms, and overall design. This helps understand the page state and identify interactive elements.
+8. **ALWAYS describe the screenshot** - Every response includes an automatic screenshot. You MUST describe what can be done on the page, what interactive elements are present, and what the page is about. Structure your description by page sections and focus on actionable elements. DO NOT describe colors, design aesthetics, or decorative elements.
 
 Example:
 "Now I'll test clicking the login button to see if it navigates to the dashboard:"
@@ -343,7 +343,20 @@ Example:
 "❌ The login button click failed with error: 'Element not found'. I need to find the correct selector before proceeding."
 
 Screenshot Description Example:
-"Based on the screenshot, I can see a modern web application with a purple gradient background. The main content area shows a centered white modal dialog with the heading 'Welcome to VibeDocs!' and a purple 'Start working' button. The left sidebar is visible but collapsed, and there's a BETA badge in the top-right corner."`,
+"**Cookie Consent Modal (Center):**
+- 'Accept All Cookies' button - allows all tracking
+- 'Reject All' button - declines all non-essential cookies
+- 'Manage Preferences' link - opens detailed cookie settings
+
+**Header (Behind Modal):**
+- Main navigation menu with sections: Groceries, George (clothing), Stores
+- Search bar for product search
+- Shopping cart icon and account login link
+
+**Main Content:**
+- Hero banner promoting grocery delivery
+- Category tiles for: Fresh Food, Frozen, Bakery, Drinks
+- 'Shop Now' buttons for each category"`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
