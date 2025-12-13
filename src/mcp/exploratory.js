@@ -1058,7 +1058,146 @@ Result: User successfully authenticated and sees their account
    2. Document this limitation and move to next test
    3. Record partial flow with clear note this is NOT a complete test"
 
-### Step 7: Record Results (MANDATORY)
+### Step 6.5: MANDATORY VALIDATION - Run Commands as Complete Test
+
+**🚨 CRITICAL: YOU MUST VALIDATE BEFORE RECORDING TO ARTIFACT**
+
+After completing interactive testing (Step 6), you MUST validate the complete sequence works as a BATCH TEST. This catches missing preconditions (cookie popups, modals), timing issues, and validates commands work as a unit.
+
+**Why This Is MANDATORY:**
+1. **Missing Preconditions**: Interactive session might have handled popups/modals not in your command list
+2. **Timing Issues**: Commands might work individually but fail when run as a batch
+3. **Wrong Format**: Commands might have single space instead of required double spaces
+4. **Tests Real Behavior**: Running as a batch simulates how the actual test will execute
+
+**Validation Process (FOLLOW EXACTLY):**
+
+6.5. **Create temp test and run as batch to validate complete sequence**
+
+   **Step 1: Collect ALL Commands from Interactive Testing**
+
+   List EVERY command you executed in Step 6, in order:
+   - ✅ ALL precondition steps (cookie popups, modals, etc.)
+   - ✅ ALL navigation steps
+   - ✅ ALL interaction steps (clicks, fills)
+   - ✅ ALL validation assertions
+
+   **Example command list:**
+   \`\`\`
+   Go To  https://example.com/login
+   Click  button#cookie-accept
+   Fill Text  input[name='email']  test@example.com
+   Fill Text  input[name='password']  password123
+   Click  button[type='submit']
+   Wait For Elements State  .dashboard-header  visible  timeout=10s
+   Get Url  contains  /dashboard
+   \`\`\`
+
+   **Step 2: Create Temporary Test with All Commands**
+
+   \`\`\`javascript
+   helpmetest_create_test({
+     name: "TEMP - Validate <UseCase>",
+     description: "Temporary test to validate command sequence works as a batch",
+     tags: ["type:smoke", "priority:low", "status:temp"],
+     content: "Go To  https://example.com/login\\nClick  button#cookie-accept\\nFill Text  input[name='email']  test@example.com\\nFill Text  input[name='password']  password123\\nClick  button[type='submit']\\nWait For Elements State  .dashboard-header  visible  timeout=10s\\nGet Url  contains  /dashboard"
+   })
+   \`\`\`
+
+   **CRITICAL FORMAT:**
+   - Use \\n for line breaks (newlines)
+   - Use TWO SPACES between keyword and arguments
+   - Example: \`Go To  https://...\` NOT \`Go To https://...\`
+
+   **Step 3: Run the Temp Test**
+
+   \`\`\`javascript
+   helpmetest_run_test({ identifier: "<test-id-from-create-response>" })
+   \`\`\`
+
+   **This runs ALL commands as a batch in a fresh browser session** - exactly how a real test executes.
+
+   **Step 4: Analyze Results**
+
+   **IF TEST PASSES:**
+   - ✅ Validation successful
+   - ✅ Commands work as a complete batch
+   - ✅ Delete temp test: \`helpmetest_delete_test({ identifier: "<test-id>" })\`
+   - ✅ Proceed to Step 7 (Record to Artifact)
+
+   **IF TEST FAILS:**
+   - ❌ Validation failed
+   - ❌ Analyze the error from test run
+   - ❌ DO NOT record to artifact yet
+   - ❌ Debug the failure:
+
+   **Common Failure Reasons:**
+   1. **Missing Precondition**: Forgot cookie popup, modal close, etc.
+      - **Fix**: Add missing command at the beginning
+      - **Delete temp test**: \`helpmetest_delete_test\`
+      - **Re-run**: Step 2 with updated command list
+
+   2. **Timing Issue**: Element not ready when batch runs
+      - **Fix**: Add \`Wait For Elements State\` before interaction
+      - **Delete temp test**: \`helpmetest_delete_test\`
+      - **Re-run**: Step 2 with wait added
+
+   3. **Wrong Selector**: Selector doesn't work in batch
+      - **Fix**: Update selector to be more specific
+      - **Delete temp test**: \`helpmetest_delete_test\`
+      - **Re-run**: Step 2 with corrected selector
+
+   4. **Wrong Format**: Single space instead of double space
+      - **Fix**: Use TWO SPACES between keyword and arguments
+      - **Delete temp test**: \`helpmetest_delete_test\`
+      - **Re-run**: Step 2 with corrected format
+
+   5. **Commands Work Individually But Not as Batch**: This is the key issue this step catches!
+      - **Fix**: Add waits, update selectors, ensure proper state transitions
+      - **Delete temp test**: \`helpmetest_delete_test\`
+      - **Re-run**: Step 2 with fixes
+
+   **REPEAT VALIDATION UNTIL TEST PASSES**
+
+   You MUST keep debugging and re-validating until the batch test passes.
+
+**Complete Example:**
+
+\`\`\`javascript
+// Step 1: Collect commands from interactive testing
+// 1. Go To  https://example.com/login
+// 2. Click  button#cookie-accept
+// 3. Fill Text  input[name='email']  test@example.com
+// 4. Fill Text  input[name='password']  password123
+// 5. Click  button[type='submit']
+// 6. Wait For Elements State  .dashboard  visible  timeout=10s
+// 7. Get Url  contains  /dashboard
+
+// Step 2: Create temp test
+helpmetest_create_test({
+  name: "TEMP - Validate Login Flow",
+  description: "Temporary test to validate login command sequence",
+  tags: ["temp", "validation"],
+  content: "Go To  https://example.com/login\\nClick  button#cookie-accept\\nFill Text  input[name='email']  test@example.com\\nFill Text  input[name='password']  password123\\nClick  button[type='submit']\\nWait For Elements State  .dashboard  visible  timeout=10s\\nGet Url  contains  /dashboard"
+})
+
+// Step 3: Run temp test (gets test ID from response)
+helpmetest_run_test({ identifier: "temp-validate-login-flow" })
+
+// Step 4: If test passes
+helpmetest_delete_test({ identifier: "temp-validate-login-flow" })
+// Now proceed to Step 7 (Record to Artifact)
+
+// Step 4: If test fails
+// - Analyze error message from test run
+// - Fix the commands (add waits, fix selectors, etc.)
+// - Delete temp test: helpmetest_delete_test({ identifier: "temp-validate-login-flow" })
+// - Go back to Step 2 with fixed commands
+\`\`\`
+
+**ONLY AFTER BATCH TEST PASSES AND TEMP TEST DELETED** → Proceed to Step 7 (Record to Artifact)
+
+### Step 7: Record Results to Artifact (MANDATORY)
 7. **Record** results to artifact using \`helpmetest_partial_update_artifact\`
 
    **IMPORTANT:** Always update artifact after completing interactive testing!
@@ -1111,35 +1250,7 @@ Result: User successfully authenticated and sees their account
    })
    \`\`\`
 
-### Step 7.5: Verify Recorded Commands (MANDATORY)
-7.5. **Create and run temporary test** to verify recorded commands actually work
-
-   **Why:** Artifact should only contain working, verified test flows
-
-   **Process:**
-   \`\`\`javascript
-   // 1. Create temporary test with recorded commands
-   helpmetest_create_test({
-     name: "TEMP - Verify <UseCase>",
-     description: "Temporary test to verify recorded commands",
-     tags: ["temp", "verification"],
-     content: "<commands-from-artifact>"
-   })
-
-   // 2. Run the test
-   helpmetest_run_test({ identifier: "<test-id>" })
-
-   // 3. If test passes: Delete temp test, recorded commands are good
-   helpmetest_delete_test({ identifier: "<test-id>" })
-
-   // 4. If test fails: Fix commands, update artifact, run again
-   \`\`\`
-
-   **If verification fails:**
-   - Debug what's wrong (spacing, selectors, assertions)
-   - Fix the commands
-   - Update artifact with corrected commands
-   - Run verification again until it passes
+   **Note:** Validation happened at Step 6.5, so these recorded commands are already verified to work from clean browser state.
 
 ### Step 8: Create Permanent Test (OPTIONAL - ASK USER FIRST)
 8. **Ask user:** "Should I save this as a permanent test?"
@@ -1158,21 +1269,22 @@ Result: User successfully authenticated and sees their account
      name: "Login - Valid Credentials",
      description: "Tests successful login with valid username and password",
      tags: ["feature:auth", "type:smoke", "priority:critical"],
-     content: "Go To https://example.com/login\\nFill Text input#username  testuser\\n..."
+     content: "Go To  https://example.com/login\\nFill Text  input#username  testuser\\n..."
    })
    \`\`\`
 
-   **CRITICAL - After creating test:**
+   **Note:** Since validation happened at Step 6.5, the commands are already verified. Creating a test should work immediately.
+
+   **OPTIONAL - Verify test creation worked:**
    \`\`\`javascript
-   // Immediately run the test you just created to verify it works
+   // Run the created test to verify formatting was correct
    helpmetest_run_test({ identifier: "<test-id-from-create-response>" })
    \`\`\`
 
-   **If test fails:**
-   - Debug the issue (wrong selector, timing, etc.)
+   **If test fails (rare - commands were validated at Step 6.5):**
+   - Check formatting (double spaces, line breaks)
    - Fix using \`helpmetest_update_test\`
    - Run again to verify fix works
-   - Repeat until test passes
 
    **If user says NO or doesn't respond:** Skip test creation, results already saved to artifact.
 
