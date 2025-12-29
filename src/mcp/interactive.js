@@ -140,6 +140,7 @@ function extractContentFromResult(result) {
  * @returns {Object} Interactive command result
  */
 async function handleRunInteractiveCommand(args) {
+  const startTime = Date.now()
   const { command, explanation, line = 0, debug: debugMode = false } = args
 
   debug(config, `Running interactive command: ${command} (${explanation})`)
@@ -214,10 +215,13 @@ ${JSON.stringify(result, null, 2)}
     }
 
     const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
+    const totalElapsedMs = Date.now() - startTime
+    const totalElapsedSec = (totalElapsedMs / 1000).toFixed(3)
 
     responseText += `
 
-**Session:** ${sessionUrl}`
+**Session:** ${sessionUrl}
+**Total Time:** ${totalElapsedSec}s`
 
     // Extract screenshots from result (including automatic screenshots from server)
     const screenshots = extractScreenshots(result)
@@ -355,7 +359,21 @@ Then structure your description by page sections (modals, headers, main content,
 - What each element does or where it leads
 - Navigation options and their purposes
 - What actions can be taken
-Focus on what can be done on the page, not how it looks. Avoid subjective aesthetic descriptions."`,
+Focus on what can be done on the page, not how it looks. Avoid subjective aesthetic descriptions.
+
+**CRITICAL: Failure Analysis**
+If something fails or doesn't work as expected, you MUST analyze WHY by examining:
+- Network requests visible in the response (401/403/500 errors indicate auth/permission issues)
+- Error messages displayed on the page in the screenshot
+- Failed login attempts (wrong credentials, blocked account)
+- Missing elements (selector issues, page not loaded)
+- Timeout errors (element not appearing, slow page load)
+- JavaScript errors or console messages in the response
+
+Example failure analysis:
+"❌ The login failed. Looking at the response, I can see a 401 Unauthorized error in the network requests, which indicates the credentials are incorrect or the session has expired. The screenshot shows an error message 'Invalid username or password' confirming this is an authentication issue, not a selector problem."
+
+Do NOT just say "it failed" - explain the ROOT CAUSE based on visible evidence."`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),

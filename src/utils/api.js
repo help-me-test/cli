@@ -107,9 +107,9 @@ const handleApiError = (error, requestInfo = {}) => {
     )
   } else {
     // Something else happened
-    const message = error.message || 'Unknown error occurred'
+    const message = error.message
     debug(config, `Request Error: ${message}`)
-    
+
     return new ApiError(
       message,
       null,
