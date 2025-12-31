@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
+import { getPendingMessages, sendToUI } from './command-queue.js'
 import open from 'open'
 
 // Track URLs that have been opened in browser (by identifier)
@@ -141,13 +142,22 @@ function extractContentFromResult(result) {
  */
 async function handleRunInteractiveCommand(args) {
   const startTime = Date.now()
-  const { command, explanation, line = 0, debug: debugMode = false } = args
+  const { command, explanation, line = 0, debug: debugMode = false, timeout = 30000 } = args
 
-  debug(config, `Running interactive command: ${command} (${explanation})`)
+  debug(config, `Running interactive command: ${command} (${explanation}) [timeout: ${timeout}ms]`)
 
   try {
     // Get user info (memoized - will call detectApiAndAuth if not cached)
     const userInfo = await detectApiAndAuth()
+
+    // Send command notification to UI with full details
+    if (explanation || command) {
+      try {
+        await sendToUI({ command, explanation }, 'command')
+      } catch (err) {
+        debug(config, `Failed to send command notification to AIChat: ${err.message}`)
+      }
+    }
 
     // Open browser automatically on first command of new session
     const browserResult = await openSessionInBrowser(userInfo.dashboardBaseUrl, userInfo.interactiveTimestamp)
@@ -159,7 +169,8 @@ async function handleRunInteractiveCommand(args) {
       command,
       explanation,
       line,
-      debug: debugMode
+      debug: debugMode,
+      timeout
     })
 
     debug(config, `Interactive command result: ${JSON.stringify(result)}`)
@@ -222,6 +233,17 @@ ${JSON.stringify(result, null, 2)}
 
 **Session:** ${sessionUrl}
 **Total Time:** ${totalElapsedSec}s`
+
+    // Check for user messages sent via AIChat during execution
+    const userMessages = getPendingMessages()
+    if (userMessages.length > 0) {
+      responseText += `
+
+---
+
+**💬 User said during execution:**
+${userMessages.map(msg => `- ${msg.command}`).join('\n')}`
+    }
 
     // Extract screenshots from result (including automatic screenshots from server)
     const screenshots = extractScreenshots(result)
@@ -306,39 +328,62 @@ export function registerInteractiveTools(server) {
     'helpmetest_run_interactive_command',
     {
       title: 'Help Me Test: Interactive Command Tool',
-      description: `🚨 MANDATORY TOOL FOR TEST DEVELOPMENT - REQUIRED BEFORE CREATING/MODIFYING TESTS
+      description: `🚨 MANDATORY: CREATE TASK LIST FIRST - NO EXCEPTIONS!
 
-⚠️ WARNING: DO NOT CREATE OR MODIFY TESTS WITHOUT USING THIS TOOL FIRST
+⛔ ABSOLUTE REQUIREMENT - DO NOT USE THIS TOOL WITHOUT CREATING A TASK LIST FIRST ⛔
 
-This tool is ABSOLUTELY REQUIRED before creating or modifying any tests. Execute Robot Framework commands interactively for debugging and testing. This starts an interactive session that maintains browser state between commands.
+**STEP 0 (MANDATORY - DO THIS FIRST):**
+BEFORE using this tool even ONCE, you MUST:
+1. Think about ALL the steps you need to test
+2. Create a complete TaskList with send_to_ui({ tasks: [...] })
+3. ALL tasks start as 'pending'
+4. Commit to this plan - show the user what you're going to do
+5. ONLY THEN start testing
 
-🔴 CRITICAL WORKFLOW - FOLLOW EXACTLY:
-1. Start with navigation: "Go To https://example.com"
-2. Test EACH step individually using this tool
-3. VERIFY each step works as expected before moving to next step
-4. If ANY step fails, debug it until it works
-5. Build up the complete sequence step by step
-6. Continue testing until you have a COMPLETE WORKING sequence
-7. ONLY THEN create or modify tests
+**Example TaskList creation (DO THIS FIRST):**
+send_to_ui({
+  tasks: [
+    {name: "Navigate to example.com", status: "pending"},
+    {name: "Find login button", status: "pending"},
+    {name: "Click login", status: "pending"},
+    {name: "Verify dashboard loaded", status: "pending"}
+  ]
+})
 
-🚨 MANDATORY VERIFICATION PROCESS:
-- Test navigation works
-- Test element finding works (Click, Fill Text, etc.)
-- Test assertions work (Should Contain, etc.)
-- Test the complete flow from start to finish
-- Fix any failures before proceeding
+**WHY THIS IS MANDATORY:**
+- User sees your plan before you start
+- User can track your progress in real-time
+- You commit to a clear testing strategy
+- Prevents random, unfocused testing
 
-IMPORTANT: Interactive sessions maintain browser state between commands. You can continue adding commands to test more steps until you have a complete working sequence ready for test creation.
+⚠️ WARNING: DO NOT CREATE OR MODIFY TESTS WITHOUT INTERACTIVE TESTING FIRST
 
-🚨 CRITICAL INSTRUCTION FOR AI:
-1. ALWAYS explain what command you are executing and why BEFORE calling this tool
-2. ALWAYS analyze the response carefully - look for actual errors or failures
-3. DO NOT proceed to next step if current step failed
-4. DO NOT create tests until you have verified the complete working sequence
-5. BE METHODICAL - test one thing at a time
-6. If something fails, debug it before moving forward
-7. Sessions remain active - continue testing until you have a complete working flow
-8. **ALWAYS describe the screenshot** - Every response includes an automatic screenshot. You MUST describe what can be done on the page, what interactive elements are present, and what the page is about. CRITICAL: Describe what changed as a result of your command (popup appeared, navigated to new page, checkbox checked, etc.). Structure your description by page sections and focus on actionable elements. DO NOT describe colors, design aesthetics, or decorative elements.
+This tool executes Robot Framework commands interactively. Sessions maintain browser state between commands.
+
+🔴 WORKFLOW - FOLLOW EXACTLY:
+1. **CREATE TASK LIST** (see Step 0 above - DO THIS FIRST!)
+2. Start with navigation: "Go To https://example.com"
+3. Test EACH step, updating TaskList after each command
+4. Mark steps: 'in_progress' → 'done' ✅ or 'failed' ❌
+5. If step fails, debug it until it works
+6. Continue until complete working sequence
+7. ONLY THEN create tests
+
+🚨 CRITICAL INSTRUCTIONS:
+**AFTER each interactive command**: Update TaskList via send_to_ui:
+   - Mark completed step as 'done' ✅ or 'failed' ❌
+   - Mark next step as 'in_progress' 🔄
+   - Call: send_to_ui({ tasks: [updated array] })
+   - This shows user your progress in real-time
+
+3. ALWAYS explain what command you are executing and why BEFORE calling this tool
+4. ALWAYS analyze the response carefully - look for actual errors or failures
+5. DO NOT proceed to next step if current step failed
+6. DO NOT create tests until you have verified the complete working sequence
+7. BE METHODICAL - test one thing at a time
+8. If something fails, debug it before moving forward
+9. Sessions remain active - continue testing until you have a complete working flow
+10. **ALWAYS describe the screenshot** - Every response includes an automatic screenshot. You MUST describe what can be done on the page, what interactive elements are present, and what the page is about. CRITICAL: Describe what changed as a result of your command (popup appeared, navigated to new page, checkbox checked, etc.). Structure your description by page sections and focus on actionable elements. DO NOT describe colors, design aesthetics, or decorative elements.
 
 Example:
 "Now I'll test clicking the login button to see if it navigates to the dashboard:"
@@ -379,6 +424,7 @@ Do NOT just say "it failed" - explain the ROOT CAUSE based on visible evidence."
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
         debug: z.boolean().optional().default(false).describe('Enable debug mode to show network request/response bodies. When false (default), hides request/response data.'),
+        timeout: z.number().optional().default(30000).describe('Timeout in milliseconds for command execution (default: 30000ms / 30 seconds). Increase for slow-loading pages.'),
       },
     },
     async (args) => {

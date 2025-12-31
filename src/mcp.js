@@ -27,6 +27,8 @@ import { registerManagementTools } from './mcp/management.js'
 import { registerExploratoryTools } from './mcp/exploratory.js'
 import { registerArtifactTools } from './mcp/artifacts.js'
 import { registerDocumentationTools } from './mcp/documentation.js'
+import { registerBrowserTaskTools } from './mcp/browser-tasks.js'
+import { registerCommandQueueTools, startBackgroundListener } from './mcp/command-queue.js'
 
 /**
  * Log MCP messages to file for debugging
@@ -124,8 +126,36 @@ export function createMcpServer(options = {}) {
   debug(config, 'Registering Documentation tools...')
   registerDocumentationTools(server)
 
+  debug(config, 'Registering Browser Task tools...')
+  registerBrowserTaskTools(server)
+
+  debug(config, 'Registering Command Queue tools...')
+  registerCommandQueueTools(server)
+
   debug(config, 'All MCP tools registered successfully')
-  
+
+  // Send test notification on startup
+  setTimeout(() => {
+    try {
+      console.log('[MCP] Sending test notification...')
+      server.server.notification({
+        method: 'notifications/test',
+        params: {
+          message: 'MCP Server initialized!',
+          timestamp: new Date().toISOString()
+        }
+      })
+      console.log('[MCP] Test notification sent')
+    } catch (err) {
+      console.error('[MCP] Failed to send test notification:', err)
+    }
+  }, 1000)
+
+  // Start background listener for agent-UI communication (fire and forget)
+  startBackgroundListener().catch(err => {
+    console.error('[MCP] Failed to start background listener:', err)
+  })
+
   return server
 }
 
