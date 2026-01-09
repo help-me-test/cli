@@ -54,12 +54,18 @@ export async function startBackgroundListener() {
     try {
       console.log('[Queue] Starting background listener...')
 
+      const { detectApiAndAuth } = await import('../utils/api.js')
+      const userInfo = await detectApiAndAuth()
+      const runId = `${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}`
+
+      console.log(`[Queue] Subscribing to interactive session: ${runId}`)
+
       let buffer = ''
 
       await STREAM(
         config.apiBaseUrl,
-        '/api/agent/stream',
-        {},
+        '/api/stream/events',
+        { sessionId: runId },
         (chunk) => {
           buffer += chunk
           const events = buffer.split('\n\n')
@@ -71,21 +77,33 @@ export async function startBackgroundListener() {
             try {
               const data = JSON.parse(event.trim())
 
-              // Add message to queue with metadata
-              const message = {
-                id: ++messageIdCounter,
-                timestamp: Date.now(),
-                ...data
-              }
+              console.log('[Queue] Received event:', JSON.stringify(data).substring(0, 200))
 
-              // Check queue size limit
-              if (queue.length >= MAX_QUEUE_SIZE) {
-                const removed = queue.shift()
-                console.warn(`[Queue] Queue full (${MAX_QUEUE_SIZE}), removed oldest message:`, removed.id)
-              }
+              // Only add user messages to the queue
+              if (data.sender === 'user' && data.text) {
+                // Check for duplicate by messageId
+                const isDuplicate = queue.some(msg => msg.messageId === data.messageId)
 
-              queue.push(message)
-              console.log(`[Queue] Added message ${message.id}, queue size: ${queue.length}`)
+                if (isDuplicate) {
+                  console.log(`[Queue] Skipping duplicate message with messageId: ${data.messageId}`)
+                } else {
+                  const message = {
+                    id: ++messageIdCounter,
+                    timestamp: Date.now(),
+                    command: data.text,
+                    ...data
+                  }
+
+                  // Check queue size limit
+                  if (queue.length >= MAX_QUEUE_SIZE) {
+                    const removed = queue.shift()
+                    console.warn(`[Queue] Queue full (${MAX_QUEUE_SIZE}), removed oldest message:`, removed.id)
+                  }
+
+                  queue.push(message)
+                  console.log(`[Queue] Added user message ${message.id}: "${message.command}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
+                }
+              }
 
             } catch (e) {
               console.error('[Queue] Failed to parse message:', e)
@@ -194,86 +212,33 @@ async function handleGetPendingCommands() {
  * Handle send to UI
  */
 /**
- * Send message to UI via agent response channel
- * @param {string} message - Message to send
- * @param {string} type - Message type: text, error, data, explanation
+ * Generic function to send message to ZMQ
+ * @param {string} topic - ZMQ topic
+ * @param {Object} message - Message object
+ * @param {string} key - Message key
  * @returns {Promise<Object>} Result object
  */
-export async function sendToUI(message, type = 'text') {
-  const validTypes = ['text', 'error', 'data', 'explanation', 'command']
-  if (!validTypes.includes(type)) {
-    throw new Error(`Invalid type "${type}". Must be one of: ${validTypes.join(', ')}`)
-  }
+export async function sendZMQ(topic, message, key) {
+  const messageId = message.messageId || String(Date.now())
 
-  // Map type to AIChat message format
-  const messageId = `msg-${Date.now()}`
-
-  let aiChatMessage
-  if (type === 'command') {
-    // Send command notification with command and explanation
-    // Expected message format: { command: "...", explanation: "..." }
-    const parsedMessage = typeof message === 'string' ? JSON.parse(message) : message
-    aiChatMessage = {
-      id: messageId,
-      _type_: ['CommandNotification'],
-      command: parsedMessage.command,
-      explanation: parsedMessage.explanation,
-      sender: 'ai'
-    }
-  } else if (type === 'explanation') {
-    // Send explanation as Status message with "working" status
-    aiChatMessage = {
-      id: messageId,
-      _type_: ['Status'],
-      status: 'working',
-      text: message,
-      sender: 'ai',
-      inProgress: false
-    }
-  } else if (type === 'error') {
-    // Send error as Status message with "error" status
-    aiChatMessage = {
-      id: messageId,
-      _type_: ['Status'],
-      status: 'error',
-      text: message,
-      sender: 'ai',
-      inProgress: false
-    }
-  } else if (type === 'data') {
-    // Parse message as JSON and merge with base structure
-    try {
-      const parsedData = JSON.parse(message)
-      aiChatMessage = {
-        id: messageId,
-        sender: 'ai',
-        ...parsedData
-      }
-    } catch (e) {
-      // If not valid JSON, send as plain text
-      aiChatMessage = {
-        id: messageId,
-        _type_: ['PLAIN'],
-        text: message,
-        sender: 'ai'
-      }
-    }
-  } else {
-    // Default: send as plain text message
-    aiChatMessage = {
-      id: messageId,
-      _type_: ['PLAIN'],
-      text: message,
-      sender: 'ai'
-    }
+  const fullMessage = {
+    id: topic,
+    timestamp: new Date().toISOString(),
+    sender: "ai",
+    ...message,
+    messageId  // Put messageId AFTER spread so it can't be overridden
   }
+  await POST(`${config.apiBaseUrl}/api/zmq/send`, { topic, message: fullMessage, key })
+  return { success: true }
+}
 
-  try {
-    const result = await POST(`${config.apiBaseUrl}/api/agent/response`, aiChatMessage)
-    return { success: true, result }
-  } catch (error) {
-    throw new Error(`Failed to send message to UI: ${error.message}`)
-  }
+export async function sendToUI(messageObj) {
+  const { detectApiAndAuth } = await import('../utils/api.js')
+  const userInfo = await detectApiAndAuth()
+
+  const runId = `${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}`
+
+  return sendZMQ(runId, messageObj, userInfo.activeCompany)
 }
 
 async function handleSendToUI(args) {
@@ -294,18 +259,21 @@ async function handleSendToUI(args) {
   }
 
   try {
-    // If tasks are provided, build TaskList message
+    // If tasks are provided, send TaskList message
     if (tasks) {
-      const taskListMessage = JSON.stringify({
-        id: 'tasklist-current', // Use consistent ID so TaskList updates instead of creating new messages
+      await sendToUI({
+        id: 'tasklist-current',
         _type_: ['TaskList'],
         status: 'working',
         inProgress: tasks.some(t => t.status === 'in_progress'),
         tasks
       })
-      await sendToUI(taskListMessage, 'data')
     } else {
-      await sendToUI(message, type)
+      // Send plain text message
+      await sendToUI({
+        _type_: ['PLAIN'],
+        text: message
+      })
     }
 
     // Get pending messages from user
@@ -355,12 +323,13 @@ export function registerCommandQueueTools(server) {
 
 Returns JSON array of all commands in queue with structure: [{id, command, timestamp}]
 
-🚨 INSTRUCTION FOR AI:
+🚨 CRITICAL INSTRUCTION FOR AI:
+- **CHECK THIS TOOL AS OFTEN AS POSSIBLE** - The user may send messages at any time
+- Call this tool after every few actions to see if the user has sent new messages
 - This tool returns ALL pending commands immediately
-- Agent should decide which commands to process
 - Commands are NOT removed from queue when you call this tool
-- Use this to check for new commands without waiting
-- After processing a command, you should remove it from the queue`,
+- After processing a command, you should remove it from the queue using the appropriate tool
+- If you find user messages, respond to them immediately using send_to_ui`,
       inputSchema: {}
     },
     async () => {
@@ -379,7 +348,7 @@ Returns JSON array of all commands in queue with structure: [{id, command, times
 1. **Be descriptive**: Don't just say "Done" or "Completed". Explain WHAT you did, WHAT you observed, and WHY
 2. **Show your reasoning**: Describe your thought process and decisions
 3. **Report observations**: Tell the user what you see, what worked, what didn't
-4. **Check userMessages**: ALWAYS check the response for pending user messages and respond to them immediately
+4. **CHECK userMessages AND RESPOND**: If the response contains userMessages array, you MUST respond to EACH message using send_to_ui again. This creates a conversation loop in the interactive session.
 
 **What to include in your message:**
 - What action you just took
@@ -395,8 +364,13 @@ Returns JSON array of all commands in queue with structure: [{id, command, times
 **Response:**
 {
   "success": true,
-  "userMessages": ["what user said"]  // ← CHECK THIS!
+  "userMessages": ["what user said"]  // ← CHECK THIS AND RESPOND TO EACH!
 }
+
+**MANDATORY: If userMessages is present and not empty:**
+1. Read each user message
+2. Call send_to_ui again to respond to the user's question/request
+3. Continue the conversation until user messages stop coming
 
 **Good examples:**
 ✅ "Navigated to login page. Found 3 input fields (email, password, remember me) and 1 submit button. The page title is 'Sign In'. Next I'll fill in the credentials."

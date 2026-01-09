@@ -59,28 +59,35 @@ function analyzeRobotFrameworkResult(result) {
   if (!Array.isArray(result) || result.length === 0) {
     return false
   }
-  
+
+  // Check for errors first
+  for (const event of result) {
+    if (event.error || (event.message && event.type === 'error')) {
+      return false
+    }
+  }
+
   // Look for keyword execution events - we want the final status
   let finalStatus = null
   let hasKeywordEvents = false
-  
+
   for (const event of result) {
     if (event.type === 'keyword' && event.keyword && event.status) {
       hasKeywordEvents = true
       finalStatus = event.status
-      
+
       // If we find a FAIL status, immediately return false
       if (event.status === 'FAIL') {
         return false
       }
     }
   }
-  
+
   // If we found keyword events, check the final status
   if (hasKeywordEvents) {
     return finalStatus === 'PASS' || finalStatus === 'NOT SET'
   }
-  
+
   // If no keyword events found, assume success (for informational commands)
   return true
 }
@@ -150,19 +157,24 @@ async function handleRunInteractiveCommand(args) {
     // Get user info (memoized - will call detectApiAndAuth if not cached)
     const userInfo = await detectApiAndAuth()
 
-    // Send command notification to UI with full details
-    if (explanation || command) {
-      try {
-        await sendToUI({ command, explanation }, 'command')
-      } catch (err) {
-        debug(config, `Failed to send command notification to AIChat: ${err.message}`)
-      }
-    }
+    const messageId = `cmd-${Date.now()}`
+
+    const sendNotification = (type) =>
+      sendToUI({
+        messageId,  // Keep same messageId for updates
+        _type_: ["CommandNotification"],
+        command,
+        explanation,
+        type
+      })
+
+    // Send initial "running" status
+    await sendNotification("running")
 
     // Open browser automatically on first command of new session
     const browserResult = await openSessionInBrowser(userInfo.dashboardBaseUrl, userInfo.interactiveTimestamp)
 
-    // Execute the command with the same timestamp for session persistence
+    // Execute the command
     const result = await runInteractiveCommand({
       test: 'interactive',
       timestamp: userInfo.interactiveTimestamp,
@@ -216,13 +228,30 @@ ${JSON.stringify(result, null, 2)}
     const isSuccess = analyzeRobotFrameworkResult(result)
     const extractedContent = extractContentFromResult(result)
 
+    // Update to final status based on actual result
+    const commandStatus = isSuccess ? "success" : "failed"
+    await sendNotification(commandStatus)
+
     // Format result as markdown with debug mode
     const formattedResult = formatResultAsMarkdown(result, { debug: debugMode })
 
     let responseText = formattedResult
 
     if (!isSuccess) {
-      responseText = `❌ **Command Failed**\n\n` + responseText
+      const errorDetails = extractContentFromResult(result)
+      const errorMessage = errorDetails.error || "Command execution failed"
+
+      responseText = `❌ **Command Failed**
+
+**Error:** ${errorMessage}
+
+${responseText}
+
+🚨 **CRITICAL: You MUST use send_to_ui to explain this failure to the user.**
+Analyze the error above and explain:
+- What went wrong
+- Why it failed
+- What should be done to fix it`
     }
 
     const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
@@ -277,44 +306,9 @@ ${userMessages.map(msg => `- ${msg.command}`).join('\n')}`
     
   } catch (error) {
     debug(config, `Error running interactive command: ${error.message}`)
-    
-    const errorResponse = {
-      error: true,
-      command,
-      message: error.message,
-      type: error.name || 'Error',
-      timestamp: new Date().toISOString(),
-      debug: {
-        apiUrl: config.apiBaseUrl,
-        hasToken: !!config.apiToken,
-        status: error.status || null,
-        line
-      }
-    }
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `❌ Interactive Command Failed
 
-**Command:** \`${command}\`
-**Error:** ${error.message}
-
-**Troubleshooting:**
-1. Check your API connection and credentials
-2. Verify the Robot Framework command syntax
-3. Ensure the browser session is active
-4. Try starting a new interactive session
-
-**Debug Information:**
-\`\`\`json
-${JSON.stringify(errorResponse, null, 2)}
-\`\`\``,
-        },
-      ],
-      isError: true,
-    }
+    // Just throw the error - no wrapping, no hiding
+    throw error
   }
 }
 
