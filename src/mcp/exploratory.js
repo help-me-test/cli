@@ -330,6 +330,7 @@ import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 import { openSessionInBrowser, openBrowserOnce } from './interactive.js'
+import { sendToUIPrompt, TASKLIST_REQUIREMENT } from './shared-prompts.js'
 
 /**
  * Priority levels for testing
@@ -1707,7 +1708,9 @@ Tracks all exploratory testing in structured JSON:
 - bugs: Identified issues with priority and reproduction steps
 - availableAreas: Test areas discovered on page (populated by AI analysis)
 - notes: Observations and limitations
-- coverage: Overall test coverage level (low/medium/high)`,
+- coverage: Overall test coverage level (low/medium/high)
+
+${sendToUIPrompt()}`,
       inputSchema: {
         url: z.string().describe('URL to explore and test'),
         session_state: z.string().optional().describe('Session state from previous exploration (optional - artifact tracks state)'),

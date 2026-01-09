@@ -219,7 +219,7 @@ async function handleGetPendingCommands() {
  * @returns {Promise<Object>} Result object
  */
 export async function sendZMQ(topic, message, key) {
-  const messageId = message.messageId || String(Date.now())
+  const messageId = message.messageId || message.id || String(Date.now())
 
   const fullMessage = {
     id: topic,

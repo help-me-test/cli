@@ -8,6 +8,7 @@ import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
 import { getPendingMessages, sendToUI } from './command-queue.js'
+import { sendToUIPrompt, TASKLIST_REQUIREMENT } from './shared-prompts.js'
 import open from 'open'
 
 // Track URLs that have been opened in browser (by identifier)
@@ -247,11 +248,13 @@ ${JSON.stringify(result, null, 2)}
 
 ${responseText}
 
-🚨 **CRITICAL: You MUST use send_to_ui to explain this failure to the user.**
-Analyze the error above and explain:
-- What went wrong
-- Why it failed
-- What should be done to fix it`
+${sendToUIPrompt()}`
+    } else {
+      responseText = `✅ **Command Succeeded**
+
+${responseText}
+
+${sendToUIPrompt()}`
     }
 
     const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
@@ -324,31 +327,7 @@ export function registerInteractiveTools(server) {
       title: 'Help Me Test: Interactive Command Tool',
       description: `🚨 MANDATORY: CREATE TASK LIST FIRST - NO EXCEPTIONS!
 
-⛔ ABSOLUTE REQUIREMENT - DO NOT USE THIS TOOL WITHOUT CREATING A TASK LIST FIRST ⛔
-
-**STEP 0 (MANDATORY - DO THIS FIRST):**
-BEFORE using this tool even ONCE, you MUST:
-1. Think about ALL the steps you need to test
-2. Create a complete TaskList with send_to_ui({ tasks: [...] })
-3. ALL tasks start as 'pending'
-4. Commit to this plan - show the user what you're going to do
-5. ONLY THEN start testing
-
-**Example TaskList creation (DO THIS FIRST):**
-send_to_ui({
-  tasks: [
-    {name: "Navigate to example.com", status: "pending"},
-    {name: "Find login button", status: "pending"},
-    {name: "Click login", status: "pending"},
-    {name: "Verify dashboard loaded", status: "pending"}
-  ]
-})
-
-**WHY THIS IS MANDATORY:**
-- User sees your plan before you start
-- User can track your progress in real-time
-- You commit to a clear testing strategy
-- Prevents random, unfocused testing
+${TASKLIST_REQUIREMENT}
 
 ⚠️ WARNING: DO NOT CREATE OR MODIFY TESTS WITHOUT INTERACTIVE TESTING FIRST
 
@@ -364,11 +343,13 @@ This tool executes Robot Framework commands interactively. Sessions maintain bro
 7. ONLY THEN create tests
 
 🚨 CRITICAL INSTRUCTIONS:
+${sendToUIPrompt()}
+
 **AFTER each interactive command**: Update TaskList via send_to_ui:
-   - Mark completed step as 'done' ✅ or 'failed' ❌
-   - Mark next step as 'in_progress' 🔄
-   - Call: send_to_ui({ tasks: [updated array] })
-   - This shows user your progress in real-time
+- Mark completed step as 'done' ✅ or 'failed' ❌
+- Mark next step as 'in_progress' 🔄
+- Call: send_to_ui({ tasks: [updated array] })
+- This shows user your progress in real-time
 
 3. ALWAYS explain what command you are executing and why BEFORE calling this tool
 4. ALWAYS analyze the response carefully - look for actual errors or failures
