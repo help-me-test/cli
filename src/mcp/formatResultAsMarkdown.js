@@ -255,8 +255,8 @@ function formatOpenReplayEvents(events, debug = false) {
         const [level, message] = args
         sections.debug.push(`ConsoleLog: level="${level}"`)
 
-        // Strip ANSI color codes (%c)
-        const cleanMessage = message?.replace(/%c/g, '') || ''
+        // Convert message to string (can be any type: string, object, array, etc.)
+        const cleanMessage = String(message || '')
 
         // Map level to emoji
         const emoji = {

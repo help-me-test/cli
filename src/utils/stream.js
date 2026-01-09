@@ -74,11 +74,11 @@ export const STREAM = (
       })}`)
       debug(config, `Request body: ${JSON.stringify(data)}`)
 
-      // Add connection timeout (30s) but allow stream to run indefinitely once connected
+      // Add connection timeout (120s) but allow stream to run indefinitely once connected
       connectionTimeoutId = setTimeout(() => {
-        debug(config, 'Connection timeout after 30s')
+        debug(config, 'Connection timeout after 120s')
         controller.abort('connection_timeout')
-      }, 30000)
+      }, 120000)
 
       const response = await fetch(fullUrl, {
         signal: controller.signal,

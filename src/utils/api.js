@@ -75,48 +75,24 @@ const createApiClient = (enableDebug = false, subdomain = null) => {
 }
 
 /**
- * Handle API errors and convert to structured format
+ * Handle API errors - just throw them, don't wrap them
  * @param {Error} error - Axios error object
  * @param {Object} requestInfo - Information about the request
- * @returns {ApiError} Structured API error
+ * @returns {Error} The original error
  */
 const handleApiError = (error, requestInfo = {}) => {
   if (error.response) {
-    // Server responded with error status
     const { status, data } = error.response
     const message = data?.message || data?.error || `HTTP ${status} error`
-    
     debug(config, `API Error ${status}: ${message}`)
-    
-    return new ApiError(
-      message,
-      status,
-      data,
-      requestInfo,
-    )
   } else if (error.request) {
-    // Request was made but no response received
-    const message = 'No response received from server'
-    debug(config, `Network Error: ${message}`)
-    
-    return new ApiError(
-      message,
-      null,
-      null,
-      requestInfo,
-    )
+    debug(config, `Network Error: No response received from server`)
   } else {
-    // Something else happened
-    const message = error.message
-    debug(config, `Request Error: ${message}`)
-
-    return new ApiError(
-      message,
-      null,
-      null,
-      requestInfo,
-    )
+    debug(config, `Request Error: ${error.message}`)
   }
+
+  // Just throw the original error, don't wrap it
+  return error
 }
 
 /**
