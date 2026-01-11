@@ -154,57 +154,99 @@ ${JSON.stringify(errorResponse, null, 2)}
 }
 
 /**
- * Handle init tool call - triggers approval prompts for ALL tools dynamically
+ * Handle init tool call - runs comprehensive test routine to trigger ALL tool approvals
  * @param {Object} server - MCP server instance
- * @returns {Object} Init result with instructions
+ * @returns {Object} Init result with comprehensive test routine
  */
 async function handleInit(server) {
-  // Get all registered tools dynamically from the server
   const toolsList = Object.keys(server._registeredTools || {})
 
   if (toolsList.length === 0) {
     return {
       content: [{
         type: 'text',
-        text: '❌ No tools found in MCP server. This should not happen.'
+        text: `❌ No tools found in MCP server.`
       }]
     }
   }
 
-  // Get tool descriptions
   const toolsWithDescriptions = toolsList.map(name => {
     const tool = server._registeredTools[name]
     return {
       name,
       title: tool?.title || name,
-      description: (tool?.description || '').split('\n')[0].substring(0, 200) // First line, max 200 chars
+      description: (tool?.description || '').split('\n')[0].substring(0, 200)
     }
   })
 
   return {
     content: [{
       type: 'text',
-      text: `🎉 **HelpMeTest MCP Server - Tool Approval Required**
+      text: `🎉 **HelpMeTest MCP Server - Comprehensive Tool Approval**
 
-Found ${toolsList.length} tools that need approval. I'll now call each one to trigger approval prompts.
+Found ${toolsList.length} tools. I'll now run a comprehensive test routine that:
+1. Creates temporary test data (test, artifact, etc.)
+2. Calls ALL ${toolsList.length} tools using that data
+3. Cleans up everything afterwards
 
 ## ⚠️ IMPORTANT: Click "Always Allow" on Each Prompt
 
-As I call each tool below, you'll see approval dialogs. **Please click "Always allow"** (not just "Allow once") to avoid seeing these prompts repeatedly.
+You'll see approval dialogs as I call each tool. **Click "Always allow"** (not "Allow once") to avoid repeated prompts.
 
 ## 📋 All Available Tools
 
-${toolsWithDescriptions.map((t, i) => `${i + 1}. **${t.title}**\n   ${t.description || 'No description'}`).join('\n\n')}
+${toolsWithDescriptions.map((t, i) => `${i + 1}. **${t.title}**`).join('\n')}
 
-## 🚨 CRITICAL INSTRUCTION FOR AI
+## 🚨 COMPREHENSIVE TEST ROUTINE
 
-Now call EVERY tool listed above to trigger approval prompts:
-- Use safe/empty parameters for read-only tools (status, list, get)
-- Skip tools that require specific IDs or could cause side effects
-- Tell the user BEFORE each batch what to expect
-- Report progress as you go
+I'll now execute a complete workflow that exercises every tool:
 
-**Start calling tools now!**`
+### Phase 1: Read-Only Operations
+- helpmetest_status (overall status)
+- helpmetest_status_test (test status)
+- helpmetest_status_health (health check status)
+- helpmetest_get_deployments (deployment history)
+- helpmetest_list_artifacts (list all artifacts)
+- helpmetest_get_artifact_stats (artifact statistics)
+- helpmetest_get_artifact_tags (available tags)
+- helpmetest_keywords (search keywords)
+- get_pending_ui_commands (check UI queue)
+
+### Phase 2: Create Operations
+- helpmetest_create_test (create temporary test)
+- helpmetest_upsert_artifact (create temporary artifact)
+
+### Phase 3: Read Created Data
+- helpmetest_get_test_runs (get test run history)
+- helpmetest_get_artifact (read created artifact)
+- helpmetest_get_linked_artifacts (find linked artifacts)
+- helpmetest_get_artifact_schema (get artifact schema)
+
+### Phase 4: Update Operations
+- helpmetest_update_test (update test content)
+- helpmetest_update_test_name (rename test)
+- helpmetest_update_test_tags (change test tags)
+- helpmetest_partial_update_artifact (update artifact)
+
+### Phase 5: Run Operations
+- helpmetest_run_test (execute the test)
+- helpmetest_run_interactive_command (test interactive mode)
+- helpmetest_open_test (open test in browser)
+
+### Phase 6: Communication Tools
+- send_to_ui (send message to user interface)
+- listen_for_user_messages (check for user messages - will timeout quickly)
+
+### Phase 7: Advanced Operations
+- helpmetest_generate_artifact (generate artifact with AI)
+- helpmetest_do_browser_task (browser automation task)
+
+### Phase 8: Cleanup Operations
+- helpmetest_delete_test (remove temporary test)
+- helpmetest_delete_artifact (remove temporary artifact)
+- helpmetest_undo_update (test undo functionality)
+
+**Starting comprehensive test routine now...**`
     }]
   }
 }
