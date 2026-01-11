@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
-import { getPendingMessages, sendToUI } from './command-queue.js'
+import { getPendingMessages, sendToUI, state } from './command-queue.js'
 import { sendToUIPrompt, TASKLIST_REQUIREMENT } from './shared-prompts.js'
 import open from 'open'
 
@@ -151,6 +151,11 @@ function extractContentFromResult(result) {
 async function handleRunInteractiveCommand(args) {
   const startTime = Date.now()
   const { command, explanation, line = 0, debug: debugMode = false, timeout = 30000 } = args
+
+  // Check if blocked - must call send_to_ui before running next interactive command
+  if (state.requiresSendToUI) {
+    throw new Error('Must call send_to_ui before running next interactive command. Please communicate the state, plan, and expectations from the previous command first.')
+  }
 
   debug(config, `Running interactive command: ${command} (${explanation}) [timeout: ${timeout}ms]`)
 
@@ -301,6 +306,9 @@ ${userMessages.map(msg => `- ${msg.command}`).join('\n')}`
         mimeType: 'image/png'
       })
     }
+
+    // Set blocking flag - next command will be blocked until send_to_ui is called
+    state.requiresSendToUI = true
 
     return {
       content: contentItems,

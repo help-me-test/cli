@@ -13,6 +13,11 @@ const MAX_QUEUE_SIZE = 100
 let queue = []
 let messageIdCounter = 0
 
+// State for interactive command flow control
+export const state = {
+  requiresSendToUI: false
+}
+
 /**
  * Get all pending messages and clear the queue
  * @returns {Array} All messages from the queue
@@ -275,6 +280,9 @@ async function handleSendToUI(args) {
         text: message
       })
     }
+
+    // Clear the blocking flag - send_to_ui has been called
+    state.requiresSendToUI = false
 
     // Get pending messages from user
     const userMessages = getPendingMessages()

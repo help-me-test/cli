@@ -140,6 +140,8 @@ export const POST = (uri, body) => {
       return x.text()
     } else if (contentType && contentType.includes("image/")) {
       return x.arrayBuffer()
+    } else if (!contentType) {
+      return x.text()
     } else {
       throw new Error("Unsupported content type: " + contentType)
     }
@@ -160,6 +162,8 @@ export const PUT = (uri, body) => {
     if (contentType && contentType.includes("application/json")) {
       return x.json()
     } else if (contentType && contentType.includes("text/plain")) {
+      return x.text()
+    } else if (!contentType) {
       return x.text()
     } else {
       throw new Error("Unsupported content type: " + contentType)
