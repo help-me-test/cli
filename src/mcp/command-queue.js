@@ -131,64 +131,22 @@ export async function startBackgroundListener() {
   }
 }
 
-async function waitForCommand(timeout = 60) {
-  return new Promise(async (resolve) => {
-    const timeoutId = setTimeout(() => resolve(null), timeout * 1000)
-
-    let buffer = ''
-    let resolved = false
-
-    try {
-      await STREAM(
-        config.apiBaseUrl,
-        '/api/agent/stream',
-        {},
-        (chunk) => {
-          if (resolved) return
-
-          buffer += chunk
-          const events = buffer.split('\n\n')
-          buffer = events.pop() || ''
-
-          for (const event of events) {
-            if (!event.trim()) continue
-            try {
-              const data = JSON.parse(event.trim())
-              if (data.command && !resolved) {
-                resolved = true
-                clearTimeout(timeoutId)
-                resolve(data.command)
-                throw new Error('ABORT_STREAM')
-              }
-            } catch (e) {
-              if (e.message === 'ABORT_STREAM') throw e
-            }
-          }
-        },
-        { 'Authorization': `Bearer ${config.apiToken}` }
-      )
-    } catch (err) {
-      if (err.message !== 'ABORT_STREAM') {
-        clearTimeout(timeoutId)
-        if (!resolved) resolve(null)
-      }
-    }
-  })
-}
 
 /**
- * Handle wait for command
+ * Handle get pending commands
  */
-async function handleWaitForCommand(args) {
-  const { timeout = 60 } = args
+async function handleGetPendingCommands() {
+  const hasMessages = queue.length > 0
 
-  const command = await waitForCommand(timeout)
-
-  if (command) {
+  if (hasMessages) {
     return {
       content: [{
         type: 'text',
-        text: command
+        text: `🔔 **User sent ${queue.length} message(s):**
+
+${queue.map((msg, i) => `${i + 1}. "${msg.command}"`).join('\n')}
+
+**What to do now:** Execute what the user asked. Read their messages and do what they want.`
       }]
     }
   }
@@ -196,19 +154,7 @@ async function handleWaitForCommand(args) {
   return {
     content: [{
       type: 'text',
-      text: `TIMEOUT: No command received in ${timeout} seconds`
-    }]
-  }
-}
-
-/**
- * Handle get pending commands
- */
-async function handleGetPendingCommands() {
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify(queue, null, 2)
+      text: 'No pending messages from user. Queue is empty.'
     }]
   }
 }
@@ -319,6 +265,59 @@ async function handleSendToUI(args) {
 }
 
 /**
+ * Format messages response
+ */
+function formatMessagesResponse(messages) {
+  return {
+    content: [{
+      type: 'text',
+      text: `🔔 **User sent ${messages.length} message(s):**
+
+${messages.map((msg, i) => `${i + 1}. "${msg.command}"`).join('\n')}
+
+**What to do now:** Execute what the user asked. Read their messages and do what they want.`
+    }]
+  }
+}
+
+/**
+ * Handle listen for messages (idle mode)
+ * Waits for messages to arrive in the queue (populated by background listener)
+ */
+async function handleListenForMessages(args) {
+  const { checkInterval = 500, maxWait = 300000 } = args
+  const startTime = Date.now()
+
+  console.log('[Queue] Entering listen mode, waiting for user messages...')
+
+  // Wait for messages to arrive (background listener populates the queue)
+  while (Date.now() - startTime < maxWait) {
+    // Check if messages exist or arrived
+    if (queue.length > 0) {
+      const messages = [...queue]
+      console.log(`[Queue] Found ${messages.length} message(s) in queue`)
+      return formatMessagesResponse(messages)
+    }
+
+    // Small sleep before next check
+    await new Promise(resolve => setTimeout(resolve, checkInterval))
+  }
+
+  console.log('[Queue] Listen mode timeout - no messages received')
+  return {
+    content: [{
+      type: 'text',
+      text: `⏱️ No user messages received after ${maxWait/1000}s.
+
+The queue remains empty. You can:
+1. Call listen_for_user_messages again to continue waiting
+2. Check if there are other tasks to work on
+3. Ask if there's anything else to help with`
+    }]
+  }
+}
+
+/**
  * Register command queue tools
  */
 export function registerCommandQueueTools(server) {
@@ -402,32 +401,44 @@ Returns JSON array of all commands in queue with structure: [{id, command, times
     }
   )
 
-  // Wait for UI command tool (blocking with timeout)
+  // Listen for user messages tool (waits for messages in queue)
   server.registerTool(
-    'wait_for_ui_command',
+    'listen_for_user_messages',
     {
-      title: 'Wait for Web UI Command',
-      description: `Wait for user to send command via web UI. Blocks until command arrives or timeout (default 60 seconds).
+      title: 'Listen for User Messages (Idle Mode)',
+      description: `Enter idle listening mode to wait for user messages.
 
-Commands are received via SSE stream from the server.
+This tool waits for messages to arrive in the queue (populated by the background listener).
+Returns immediately when messages are found. Use this when you've completed all tasks.
 
-🚨 INSTRUCTION FOR AI: When using this tool:
-1. EXPLAIN what you're doing: "Waiting for command from web UI..."
-2. AFTER receiving command, DESCRIBE it: "Received command: <command>"
-3. EXECUTE the command the user sent
-4. REPORT results clearly
+**How it works:**
+1. Checks if messages already exist in queue - returns immediately if found
+2. Waits for messages to arrive (background listener populates queue via SSE)
+3. Returns immediately when messages arrive
+4. Times out after 5 minutes by default (300 seconds)
 
-Example usage:
-- User in web UI types: "run tests on login page"
-- You call wait_for_ui_command
-- Tool returns: "run tests on login page"
-- You execute the tests and report results`,
+**When to use:**
+- After completing all tasks
+- When waiting for user input
+- When there's nothing else to do
+
+🚨 INSTRUCTION FOR AI:
+When you've completed all tasks and have nothing to do, call this tool to enter listening mode.
+This is better than just ending the conversation - it keeps you ready to help the user.
+
+**Example:**
+"I've completed all the exploration tasks. Now entering listening mode to wait for any further instructions from you..."
+[call listen_for_user_messages]
+
+If messages arrive, respond to them immediately using send_to_ui.
+If timeout occurs with no messages, you can call this tool again to continue listening.`,
       inputSchema: {
-        timeout: z.number().optional().default(60).describe('How long to wait in seconds (default: 60)')
+        checkInterval: z.number().optional().default(500).describe('How often to check queue in ms (default: 500ms)'),
+        maxWait: z.number().optional().default(300000).describe('Maximum time to wait in ms (default: 300000ms = 5 minutes)')
       }
     },
     async (args) => {
-      return await handleWaitForCommand(args)
+      return await handleListenForMessages(args)
     }
   )
 }

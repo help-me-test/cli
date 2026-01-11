@@ -278,8 +278,11 @@ ${sendToUIPrompt()}`
 
 ---
 
-**💬 User said during execution:**
-${userMessages.map(msg => `- ${msg.command}`).join('\n')}`
+🔔 **User sent ${userMessages.length} message(s) while you were working:**
+
+${userMessages.map((msg, i) => `${i + 1}. "${msg.command}"`).join('\n')}
+
+⚠️ **Handle these messages now** - Execute what the user asked before continuing with other tasks.`
     }
 
     // Extract screenshots from result (including automatic screenshots from server)
