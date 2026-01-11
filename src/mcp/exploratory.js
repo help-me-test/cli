@@ -328,9 +328,8 @@ Several 404 errors for Google static resources (t0.gstatic.com) during page load
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
-import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 import { openSessionInBrowser, openBrowserOnce } from './interactive.js'
-import { sendToUIPrompt, TASKLIST_REQUIREMENT } from './shared-prompts.js'
+import { sendToUIPrompt } from './shared-prompts.js'
 
 /**
  * Priority levels for testing
@@ -1409,73 +1408,9 @@ ${summary}`,
     // Then open interactive session browser
     await openSessionInBrowser(userInfo.dashboardBaseUrl, sessionTimestamp)
 
-    // Navigate to page and get all the data
-    const goToResult = await runInteractiveCommand({
-      test: 'interactive',
-      timestamp: sessionTimestamp,
-      command: `Go To    ${url}`,
-      line: 0
-    })
-
-    debug(config, `Navigation complete, got ${goToResult?.length || 0} events`)
-
-    // Truncate large content fields to avoid token limits
-    const truncateEventData = (events, maxStringLength = 200) => {
-      if (!Array.isArray(events)) return events
-
-      return events.map(event => {
-        if (!event || typeof event !== 'object') return event
-
-        const truncatedEvent = { ...event }
-
-        // Truncate specific large fields
-        if (truncatedEvent.events && Array.isArray(truncatedEvent.events)) {
-          truncatedEvent.events = `[${truncatedEvent.events.length} events - truncated]`
-        }
-
-        if (truncatedEvent.html && typeof truncatedEvent.html === 'string' && truncatedEvent.html.length > maxStringLength) {
-          truncatedEvent.html = truncatedEvent.html.substring(0, maxStringLength) + '...[Truncated]'
-        }
-
-        if (truncatedEvent.content && typeof truncatedEvent.content === 'string' && truncatedEvent.content.length > maxStringLength) {
-          truncatedEvent.content = truncatedEvent.content.substring(0, maxStringLength) + '...[Truncated]'
-        }
-
-        // Truncate logs arrays if they're huge
-        if (truncatedEvent.logs && Array.isArray(truncatedEvent.logs) && truncatedEvent.logs.length > 0) {
-          const logsStr = JSON.stringify(truncatedEvent.logs)
-          if (logsStr.length > maxStringLength * 2) {
-            truncatedEvent.logs = `[${truncatedEvent.logs.length} logs - truncated]`
-          }
-        }
-
-        // Truncate errors arrays if they're huge
-        if (truncatedEvent.errors && Array.isArray(truncatedEvent.errors) && truncatedEvent.errors.length > 0) {
-          const errorsStr = JSON.stringify(truncatedEvent.errors)
-          if (errorsStr.length > maxStringLength * 2) {
-            truncatedEvent.errors = `[${truncatedEvent.errors.length} errors - truncated]`
-          }
-        }
-
-        return truncatedEvent
-      })
-    }
-
-    const truncatedResult = truncateEventData(goToResult)
-
     // Fetch existing tests to avoid duplication
     const existingTests = await getExistingTests(url)
     debug(config, `Found ${existingTests.length} existing tests for this URL`)
-
-    // AI will analyze page and populate artifact with test areas
-    // This happens in Step 0 of the workflow (see instructions below)
-
-    // REMOVED: Auto-execution of test goals
-    // The tool should be generic - AI will analyze page data and decide what to test
-    // No hardcoded "Domain Uptime" or "SSL Check" logic here
-
-    // Format the page data as markdown for better readability
-    const formattedPageData = formatResultAsMarkdown(goToResult)
 
     // Generate exploratory instructions
     const instructions = generateExploratoryInstructions(artifact, existingTests, url)
@@ -1487,7 +1422,12 @@ ${summary}`,
       content: [
         {
           type: 'text',
-          text: `🔍 Exploratory Testing - Session Started
+          text: `🔍 Exploratory Testing Guide - ${url}
+
+**Artifact Created:** [View Artifact](${userInfo.dashboardBaseUrl}/artifacts/${artifact.id})
+**Interactive Session:** [Open Session](${userInfo.dashboardBaseUrl}/interactive/${sessionTimestamp})
+
+---
 
 ${instructions}
 
@@ -1505,31 +1445,30 @@ ${existingTests.length > 0 ?
 
 ---
 
-## 📋 Page Data
-
-${formattedPageData}
-
----
-
 ## 📊 Artifact Status
 
 **Coverage:** ${stopStatus.coverage}
 **Tested Use Cases:** ${artifact.content.testedUseCases?.length || 0}
 **Bugs Found:** ${artifact.content.bugs?.length || 0}
 
-**Artifact Link:** [${userInfo.dashboardBaseUrl}/artifacts/${artifact.id}](${userInfo.dashboardBaseUrl}/artifacts/${artifact.id})
-
 ---
 
-## ✅ Ready
+## 🎯 Your Next Steps
 
-Analyze the data above, propose the next test area, and wait for approval.`,
+This guide has provided the complete exploratory testing workflow. To begin:
+
+1. **Navigate** to ${url} using \`helpmetest_run_interactive_command\`
+2. **Analyze** the page data you receive (page content, interactive elements, network requests)
+3. **Identify** test areas and populate artifact's \`availableAreas\` (see Step 0 in workflow above)
+4. **Propose** your first test to the user and wait for approval
+5. **Follow** the workflow steps 1-9 above for systematic testing
+
+The artifact and interactive session are ready for your testing.`,
         },
       ],
       _meta: {
         artifactId: artifact.id,
         sessionTimestamp,
-        pageData: goToResult,
         initialState: JSON.stringify({
           sessionId,
           url,
