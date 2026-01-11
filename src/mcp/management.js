@@ -160,7 +160,7 @@ ${JSON.stringify(errorResponse, null, 2)}
  */
 async function handleInit(server) {
   // Get all registered tools dynamically from the server
-  const toolsList = Array.from(server._tools?.keys() || [])
+  const toolsList = Object.keys(server._registeredTools || {})
 
   if (toolsList.length === 0) {
     return {
@@ -173,7 +173,7 @@ async function handleInit(server) {
 
   // Get tool descriptions
   const toolsWithDescriptions = toolsList.map(name => {
-    const tool = server._tools.get(name)
+    const tool = server._registeredTools[name]
     return {
       name,
       title: tool?.title || name,
