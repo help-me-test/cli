@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { config } from '../utils/config.js'
 import { STREAM, POST } from '../utils.js'
+import { BATCH_OPERATION_REQUIREMENT } from './shared-prompts.js'
 
 // Module-level queue for storing messages (can be used bidirectionally)
 // Max 100 items to prevent memory issues
@@ -61,16 +62,16 @@ export async function startBackgroundListener() {
 
       const { detectApiAndAuth } = await import('../utils/api.js')
       const userInfo = await detectApiAndAuth()
-      const runId = `${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}`
+      const pattern = `${userInfo.activeCompany}__*`
 
-      console.log(`[Queue] Subscribing to interactive session: ${runId}`)
+      console.log(`[Queue] Subscribing to all company rooms: ${pattern}`)
 
       let buffer = ''
 
       await STREAM(
         config.apiBaseUrl,
         '/api/stream/events',
-        { sessionId: runId },
+        { room: pattern },
         (chunk) => {
           buffer += chunk
           const events = buffer.split('\n\n')
@@ -84,8 +85,19 @@ export async function startBackgroundListener() {
 
               console.log('[Queue] Received event:', JSON.stringify(data).substring(0, 200))
 
-              // Only add user messages to the queue
-              if (data.sender === 'user' && data.text) {
+              // Respond to PING messages immediately by marking them as processed
+              if (data._type_?.includes('__PING__') && data.room) {
+                console.log(`[Queue] Marking PING as processed from ${data.room}`)
+                sendToUI({
+                  ...data,
+                  status: 'processed'
+                }, data.room).catch(err => {
+                  console.error('[Queue] Failed to mark PING as processed:', err)
+                })
+              }
+
+              // Only add user messages to the queue that are still being processed (skip historical)
+              if (data.sender === 'user' && data.text && data.status === 'processing' && !data._historical) {
                 // Check for duplicate by messageId
                 const isDuplicate = queue.some(msg => msg.messageId === data.messageId)
 
@@ -95,7 +107,6 @@ export async function startBackgroundListener() {
                   const message = {
                     id: ++messageIdCounter,
                     timestamp: Date.now(),
-                    command: data.text,
                     ...data
                   }
 
@@ -106,7 +117,7 @@ export async function startBackgroundListener() {
                   }
 
                   queue.push(message)
-                  console.log(`[Queue] Added user message ${message.id}: "${message.command}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
+                  console.log(`[Queue] Added user message ${message.id}: "${message.text}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
                 }
               }
 
@@ -142,11 +153,7 @@ async function handleGetPendingCommands() {
     return {
       content: [{
         type: 'text',
-        text: `🔔 **User sent ${queue.length} message(s):**
-
-${queue.map((msg, i) => `${i + 1}. "${msg.command}"`).join('\n')}
-
-**What to do now:** Execute what the user asked. Read their messages and do what they want.`
+        text: formatUserMessages(queue)
       }]
     }
   }
@@ -164,36 +171,49 @@ ${queue.map((msg, i) => `${i + 1}. "${msg.command}"`).join('\n')}
  */
 /**
  * Generic function to send message to ZMQ
- * @param {string} topic - ZMQ topic
+ * @param {string} room - Room identifier
  * @param {Object} message - Message object
  * @param {string} key - Message key
  * @returns {Promise<Object>} Result object
  */
-export async function sendZMQ(topic, message, key) {
+export async function sendZMQ(room, message, key) {
   const messageId = message.messageId || message.id || String(Date.now())
 
   const fullMessage = {
-    id: topic,
+    room,
     timestamp: new Date().toISOString(),
-    sender: "ai",
+    sender: "ai",  // Default sender, but can be overridden by message
     ...message,
-    messageId  // Put messageId AFTER spread so it can't be overridden
+    id: messageId,  // Put AFTER spread so it doesn't get overridden
+    messageId  // Put AFTER spread so it doesn't get overridden
   }
-  await POST(`${config.apiBaseUrl}/api/zmq/send`, { topic, message: fullMessage, key })
+
+  // POST doesn't include auth, so use fetch directly with auth header
+  const response = await fetch(`${config.apiBaseUrl}/api/zmq/send`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.apiToken}`
+    },
+    body: JSON.stringify({ room, message: fullMessage, key })
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`)
+  }
+
   return { success: true }
 }
 
-export async function sendToUI(messageObj) {
+export async function sendToUI(messageObj, room) {
   const { detectApiAndAuth } = await import('../utils/api.js')
   const userInfo = await detectApiAndAuth()
 
-  const runId = `${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}`
-
-  return sendZMQ(runId, messageObj, userInfo.activeCompany)
+  return sendZMQ(room, messageObj, userInfo.activeCompany)
 }
 
 async function handleSendToUI(args) {
-  const { message, type = 'text', tasks } = args
+  const { message, type = 'text', tasks, room } = args
 
   // Validate that at least one of message or tasks is provided
   if (!message && !tasks) {
@@ -209,6 +229,19 @@ async function handleSendToUI(args) {
     }
   }
 
+  if (!room) {
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          success: false,
+          error: "Room parameter is required"
+        }, null, 2)
+      }],
+      isError: true
+    }
+  }
+
   try {
     // If tasks are provided, send TaskList message
     if (tasks) {
@@ -218,30 +251,22 @@ async function handleSendToUI(args) {
         status: 'working',
         inProgress: tasks.some(t => t.status === 'in_progress'),
         tasks
-      })
+      }, room)
     } else {
       // Send plain text message
       await sendToUI({
         _type_: ['PLAIN'],
         text: message
-      })
+      }, room)
     }
 
     // Clear the blocking flag - send_to_ui has been called
     state.requiresSendToUI = false
 
-    // Get pending messages from user
-    const userMessages = getPendingMessages()
-
     const response = {
       success: true,
       message: 'Message sent to UI',
       type: tasks ? 'tasklist' : type
-    }
-
-    // Include user messages if any
-    if (userMessages.length > 0) {
-      response.userMessages = userMessages.map(msg => msg.command)
     }
 
     return {
@@ -265,17 +290,45 @@ async function handleSendToUI(args) {
 }
 
 /**
+ * Format user messages for display (single source of truth for rendering)
+ */
+export function formatUserMessages(messages) {
+  if (!messages || messages.length === 0) {
+    return ''
+  }
+
+  return `
+
+---
+
+🔔 **User sent ${messages.length} message(s):**
+
+\`\`\`json
+${JSON.stringify(messages, null, 2)}
+\`\`\`
+
+⚠️ **MANDATORY: Respond IMMEDIATELY**
+
+FIRST, call send_to_ui to explain what you understood and what you'll do:
+
+**For simple requests:**
+- Send plain message: send_to_ui({ room: "...", message: "I'll check the logs for errors in the auth service" })
+
+**For multi-step tasks:**
+- Create TaskList showing all steps (see TASKLIST_REQUIREMENT prompt)
+- send_to_ui({ room: "...", tasks: [{ name: "Check logs", status: "pending" }, ...] })
+
+ONLY AFTER responding, start executing.`
+}
+
+/**
  * Format messages response
  */
 function formatMessagesResponse(messages) {
   return {
     content: [{
       type: 'text',
-      text: `🔔 **User sent ${messages.length} message(s):**
-
-${messages.map((msg, i) => `${i + 1}. "${msg.command}"`).join('\n')}
-
-**What to do now:** Execute what the user asked. Read their messages and do what they want.`
+      text: JSON.stringify(messages, null, 2)
     }]
   }
 }
@@ -294,8 +347,18 @@ async function handleListenForMessages(args) {
   while (Date.now() - startTime < maxWait) {
     // Check if messages exist or arrived
     if (queue.length > 0) {
-      const messages = [...queue]
-      console.log(`[Queue] Found ${messages.length} message(s) in queue`)
+      const messages = getPendingMessages()
+      console.log(`[Queue] Found ${messages.length} message(s) in queue, cleared queue`)
+
+      // Mark all messages as processed immediately
+      for (const msg of messages) {
+        if (msg.messageId && msg.room) {
+          msg.status = 'processed'
+          await sendToUI(msg, msg.room)
+          console.log(`[Queue] Marked message ${msg.messageId} as processed`)
+        }
+      }
+
       return formatMessagesResponse(messages)
     }
 
@@ -367,6 +430,7 @@ Returns JSON array of all commands in queue with structure: [{id, command, times
 - message: Text to send (use with type parameter)
 - type: 'text' (default), 'error', or 'explanation'
 - tasks: Array of {name, status} for progress tracking
+- room: Room identifier to send message to (required)
 
 **Response:**
 {
@@ -386,14 +450,17 @@ Returns JSON array of all commands in queue with structure: [{id, command, times
 **Bad examples:**
 ❌ "Done"
 ❌ "Completed successfully"
-❌ "Navigated to page"`,
+❌ "Navigated to page"
+
+${BATCH_OPERATION_REQUIREMENT}`,
       inputSchema: {
         message: z.string().optional().describe('Text message to send'),
         type: z.enum(['text', 'error', 'explanation']).optional().default('text').describe('Message type'),
         tasks: z.array(z.object({
           name: z.string().describe('Task name'),
           status: z.enum(['pending', 'in_progress', 'done', 'failed']).describe('Task status')
-        })).optional().describe('Progress tasks (statuses: pending, in_progress, done, failed)')
+        })).optional().describe('Progress tasks (statuses: pending, in_progress, done, failed)'),
+        room: z.string().describe('Room identifier to send message to (required)')
       }
     },
     async (args) => {
