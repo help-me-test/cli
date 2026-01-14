@@ -1369,8 +1369,8 @@ async function handleExplore(args) {
 
   try {
     const userInfo = await detectApiAndAuth()
-    const sessionTimestamp = userInfo.interactiveTimestamp
-    const sessionId = `${userInfo.activeCompany}__exploratory__${sessionTimestamp}`
+    const sessionTimestamp = new Date().toISOString()
+    const room = `${userInfo.activeCompany}__exploratory__${sessionTimestamp}`
 
     // Get or create artifact
     const artifact = await getOrCreateArtifact(url)
@@ -1470,7 +1470,7 @@ The artifact and interactive session are ready for your testing.`,
         artifactId: artifact.id,
         sessionTimestamp,
         initialState: JSON.stringify({
-          sessionId,
+          room,
           url,
           timestamp: sessionTimestamp,
           artifactId: artifact.id
