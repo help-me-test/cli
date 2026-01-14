@@ -5,7 +5,7 @@
 
 import { z } from 'zod'
 import { config } from '../utils/config.js'
-import { STREAM, POST } from '../utils.js'
+import { STREAM } from '../utils.js'
 import { BATCH_OPERATION_REQUIREMENT, IDLE_LISTENING_REQUIREMENT } from './shared-prompts.js'
 
 // Module-level queue for storing messages (can be used bidirectionally)
