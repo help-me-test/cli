@@ -7,12 +7,15 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
-import { getPendingMessages, sendToUI, state } from './command-queue.js'
+import { getPendingMessages, sendToUI, state, formatUserMessages } from './command-queue.js'
 import { sendToUIPrompt, TASKLIST_REQUIREMENT } from './shared-prompts.js'
 import open from 'open'
 
 // Track URLs that have been opened in browser (by identifier)
 const openedUrls = new Set()
+
+// Track current interactive session timestamp (persists across tool calls)
+let currentSessionTimestamp = null
 
 /**
  * Generic function to open URL in browser once per identifier
@@ -150,7 +153,7 @@ function extractContentFromResult(result) {
  */
 async function handleRunInteractiveCommand(args) {
   const startTime = Date.now()
-  const { command, explanation, line = 0, debug: debugMode = false, timeout = 30000 } = args
+  const { command, explanation, line = 0, debug: debugMode = false, timeout = 30000, timestamp: sessionTimestamp } = args
 
   // Check if blocked - must call send_to_ui before running next interactive command
   if (state.requiresSendToUI) {
@@ -163,6 +166,26 @@ async function handleRunInteractiveCommand(args) {
     // Get user info (memoized - will call detectApiAndAuth if not cached)
     const userInfo = await detectApiAndAuth()
 
+    // Determine which session timestamp to use:
+    // 1. Use provided timestamp parameter if given
+    // 2. Otherwise use current session timestamp if exists
+    // 3. Otherwise create new session timestamp
+    let timestamp
+    if (sessionTimestamp) {
+      timestamp = sessionTimestamp
+      currentSessionTimestamp = timestamp
+      console.log(`[Interactive] Using provided session timestamp: ${timestamp}`)
+    } else if (currentSessionTimestamp) {
+      timestamp = currentSessionTimestamp
+      console.log(`[Interactive] Continuing existing session: ${timestamp}`)
+    } else {
+      timestamp = new Date().toISOString()
+      currentSessionTimestamp = timestamp
+      console.log(`[Interactive] Created new session: ${timestamp}`)
+    }
+
+    const room = `${userInfo.activeCompany}__interactive__${timestamp}`
+
     const messageId = `cmd-${Date.now()}`
 
     const sendNotification = (type) =>
@@ -172,18 +195,18 @@ async function handleRunInteractiveCommand(args) {
         command,
         explanation,
         type
-      })
+      }, room)
 
     // Send initial "running" status
     await sendNotification("running")
 
     // Open browser automatically on first command of new session
-    const browserResult = await openSessionInBrowser(userInfo.dashboardBaseUrl, userInfo.interactiveTimestamp)
+    const browserResult = await openSessionInBrowser(userInfo.dashboardBaseUrl, timestamp)
 
     // Execute the command
     const result = await runInteractiveCommand({
       test: 'interactive',
-      timestamp: userInfo.interactiveTimestamp,
+      timestamp,
       command,
       explanation,
       line,
@@ -201,7 +224,7 @@ async function handleRunInteractiveCommand(args) {
             type: 'text',
             text: `🏁 Interactive Session Ended
 
-**Run ID:** ${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}
+**Run ID:** ${userInfo.activeCompany}__interactive__${timestamp}
 **Status:** Successfully terminated
 
 The interactive debugging session has been closed. All browser state and session data have been cleared.
@@ -221,7 +244,7 @@ ${JSON.stringify(result, null, 2)}
 
     // Format the response for better readability
     const response = {
-      runId: `${userInfo.activeCompany}__interactive__${userInfo.interactiveTimestamp}`,
+      runId: `${userInfo.activeCompany}__interactive__${timestamp}`,
       command,
       line,
       result,
@@ -262,7 +285,7 @@ ${responseText}
 ${sendToUIPrompt()}`
     }
 
-    const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${userInfo.interactiveTimestamp}`
+    const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${timestamp}`
     const totalElapsedMs = Date.now() - startTime
     const totalElapsedSec = (totalElapsedMs / 1000).toFixed(3)
 
@@ -273,16 +296,9 @@ ${sendToUIPrompt()}`
 
     // Check for user messages sent via AIChat during execution
     const userMessages = getPendingMessages()
+
     if (userMessages.length > 0) {
-      responseText += `
-
----
-
-🔔 **User sent ${userMessages.length} message(s) while you were working:**
-
-${userMessages.map((msg, i) => `${i + 1}. "${msg.command}"`).join('\n')}
-
-⚠️ **Handle these messages now** - Execute what the user asked before continuing with other tasks.`
+      responseText += formatUserMessages(userMessages)
     }
 
     // Extract screenshots from result (including automatic screenshots from server)
@@ -411,6 +427,7 @@ Do NOT just say "it failed" - explain the ROOT CAUSE based on visible evidence."
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
         debug: z.boolean().optional().default(false).describe('Enable debug mode to show network request/response bodies. When false (default), hides request/response data.'),
         timeout: z.number().optional().default(30000).describe('Timeout in milliseconds for command execution (default: 30000ms / 30 seconds). Increase for slow-loading pages.'),
+        timestamp: z.string().optional().describe('Optional session timestamp to continue an existing interactive session (e.g., "2026-01-12T14:46:55.830Z"). If not provided, creates a new session.'),
       },
     },
     async (args) => {
