@@ -6,7 +6,7 @@
 import { z } from 'zod'
 import { config } from '../utils/config.js'
 import { STREAM, POST } from '../utils.js'
-import { BATCH_OPERATION_REQUIREMENT } from './shared-prompts.js'
+import { BATCH_OPERATION_REQUIREMENT, IDLE_LISTENING_REQUIREMENT } from './shared-prompts.js'
 
 // Module-level queue for storing messages (can be used bidirectionally)
 // Max 100 items to prevent memory issues
@@ -144,26 +144,56 @@ export async function startBackgroundListener() {
 
 
 /**
- * Handle get pending commands
+ * Handle get messages - waits up to {wait}ms for messages
+ * @param {number} wait - Maximum wait time in ms (default: 500ms)
  */
-async function handleGetPendingCommands() {
-  const hasMessages = queue.length > 0
+async function handleGetMessages({ wait = 500 }) {
+  return new Promise((resolve) => {
+    const checkMessages = () => {
+      if (queue.length === 0) return false
 
-  if (hasMessages) {
-    return {
-      content: [{
-        type: 'text',
-        text: formatUserMessages(queue)
-      }]
+      const messages = getPendingMessages()
+      console.log(`[Queue] Found ${messages.length} message(s) in queue, cleared queue`)
+
+      // Mark all messages as processed
+      for (const msg of messages) {
+        if (msg.messageId && msg.room) {
+          msg.status = 'processed'
+          sendToUI(msg, msg.room)
+          console.log(`[Queue] Marked message ${msg.messageId} as processed`)
+        }
+      }
+
+      resolve({
+        content: [{
+          type: 'text',
+          text: formatUserMessages(messages)
+        }]
+      })
+      return true
     }
-  }
 
-  return {
-    content: [{
-      type: 'text',
-      text: 'No pending messages from user. Queue is empty.'
-    }]
-  }
+    // Check immediately
+    if (checkMessages()) return
+
+    // Set up polling and timeout
+    const interval = setInterval(() => {
+      if (checkMessages()) clearInterval(interval)
+    }, 500)
+
+    setTimeout(() => {
+      clearInterval(interval)
+      if (queue.length === 0) {
+        console.log(`[Queue] Timeout after ${wait}ms - no messages received`)
+        resolve({
+          content: [{
+            type: 'text',
+            text: 'No pending messages from user. Queue is empty.'
+          }]
+        })
+      }
+    }, wait)
+  })
 }
 
 /**
@@ -321,89 +351,36 @@ FIRST, call send_to_ui to explain what you understood and what you'll do:
 ONLY AFTER responding, start executing.`
 }
 
-/**
- * Format messages response
- */
-function formatMessagesResponse(messages) {
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify(messages, null, 2)
-    }]
-  }
-}
-
-/**
- * Handle listen for messages (idle mode)
- * Waits for messages to arrive in the queue (populated by background listener)
- */
-async function handleListenForMessages(args) {
-  const { checkInterval = 500, maxWait = 300000 } = args
-  const startTime = Date.now()
-
-  console.log('[Queue] Entering listen mode, waiting for user messages...')
-
-  // Wait for messages to arrive (background listener populates the queue)
-  while (Date.now() - startTime < maxWait) {
-    // Check if messages exist or arrived
-    if (queue.length > 0) {
-      const messages = getPendingMessages()
-      console.log(`[Queue] Found ${messages.length} message(s) in queue, cleared queue`)
-
-      // Mark all messages as processed immediately
-      for (const msg of messages) {
-        if (msg.messageId && msg.room) {
-          msg.status = 'processed'
-          await sendToUI(msg, msg.room)
-          console.log(`[Queue] Marked message ${msg.messageId} as processed`)
-        }
-      }
-
-      return formatMessagesResponse(messages)
-    }
-
-    // Small sleep before next check
-    await new Promise(resolve => setTimeout(resolve, checkInterval))
-  }
-
-  console.log('[Queue] Listen mode timeout - no messages received')
-  return {
-    content: [{
-      type: 'text',
-      text: `⏱️ No user messages received after ${maxWait/1000}s.
-
-The queue remains empty. You can:
-1. Call listen_for_user_messages again to continue waiting
-2. Check if there are other tasks to work on
-3. Ask if there's anything else to help with`
-    }]
-  }
-}
 
 /**
  * Register command queue tools
  */
 export function registerCommandQueueTools(server) {
-  // Get pending UI commands tool (non-blocking)
+  // Get user messages tool
   server.registerTool(
-    'get_pending_ui_commands',
+    'get_user_messages',
     {
-      title: 'Get Pending UI Commands',
-      description: `Returns all pending UI commands without blocking or removing them from the queue.
+      title: 'Get User Messages',
+      description: `Get messages from user sent through the frontend chat interface.
 
-Returns JSON array of all commands in queue with structure: [{id, command, timestamp}]
+Waits up to {wait}ms for messages to arrive:
+- Small wait (500ms default): Returns almost instantly, good for periodic polling
+- Large wait (300000ms = 5 minutes): Listens for extended time, good for idle mode
 
-🚨 CRITICAL INSTRUCTION FOR AI:
-- **CHECK THIS TOOL AS OFTEN AS POSSIBLE** - The user may send messages at any time
-- Call this tool after every few actions to see if the user has sent new messages
-- This tool returns ALL pending commands immediately
-- Commands are NOT removed from queue when you call this tool
-- After processing a command, you should remove it from the queue using the appropriate tool
-- If you find user messages, respond to them immediately using send_to_ui`,
-      inputSchema: {}
+Always includes the prompt with TaskList requirements.
+
+🚨 CRITICAL: When messages arrive, you MUST respond immediately using send_to_ui.
+
+**Parameters:**
+- wait: Maximum wait time in ms (default: 500ms)
+
+${IDLE_LISTENING_REQUIREMENT}`,
+      inputSchema: {
+        wait: z.number().optional().default(500).describe('Maximum wait time in ms (default: 500ms)')
+      }
     },
-    async () => {
-      return await handleGetPendingCommands()
+    async (args) => {
+      return await handleGetMessages(args)
     }
   )
 
@@ -465,47 +442,6 @@ ${BATCH_OPERATION_REQUIREMENT}`,
     },
     async (args) => {
       return await handleSendToUI(args)
-    }
-  )
-
-  // Listen for user messages tool (waits for messages in queue)
-  server.registerTool(
-    'listen_for_user_messages',
-    {
-      title: 'Listen for User Messages (Idle Mode)',
-      description: `Enter idle listening mode to wait for user messages.
-
-This tool waits for messages to arrive in the queue (populated by the background listener).
-Returns immediately when messages are found. Use this when you've completed all tasks.
-
-**How it works:**
-1. Checks if messages already exist in queue - returns immediately if found
-2. Waits for messages to arrive (background listener populates queue via SSE)
-3. Returns immediately when messages arrive
-4. Times out after 5 minutes by default (300 seconds)
-
-**When to use:**
-- After completing all tasks
-- When waiting for user input
-- When there's nothing else to do
-
-🚨 INSTRUCTION FOR AI:
-When you've completed all tasks and have nothing to do, call this tool to enter listening mode.
-This is better than just ending the conversation - it keeps you ready to help the user.
-
-**Example:**
-"I've completed all the exploration tasks. Now entering listening mode to wait for any further instructions from you..."
-[call listen_for_user_messages]
-
-If messages arrive, respond to them immediately using send_to_ui.
-If timeout occurs with no messages, you can call this tool again to continue listening.`,
-      inputSchema: {
-        checkInterval: z.number().optional().default(500).describe('How often to check queue in ms (default: 500ms)'),
-        maxWait: z.number().optional().default(300000).describe('Maximum time to wait in ms (default: 300000ms = 5 minutes)')
-      }
-    },
-    async (args) => {
-      return await handleListenForMessages(args)
     }
   )
 }

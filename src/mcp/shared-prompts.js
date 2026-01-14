@@ -99,3 +99,75 @@ send_to_ui({
 - Mark next step as 'in_progress' 🔄
 - Call: send_to_ui({ tasks: [updated array] })
 - This shows user your progress in real-time`
+
+/**
+ * Requirement for batch operations to use TaskList
+ *
+ * When processing multiple items (delete all tests, create multiple items, etc.),
+ * agent must create TaskList with one task per item and update status as each is processed.
+ */
+export const BATCH_OPERATION_REQUIREMENT = `🚨 **CRITICAL: BATCH OPERATIONS REQUIRE TASKLIST**
+
+When user asks to process MULTIPLE items (e.g., "delete all tests", "create 10 tests", "update all artifacts"):
+
+1. **FIRST**: Create TaskList with ONE task per item
+2. **THEN**: Process items ONE BY ONE, updating status after each
+3. **NEVER**: Process all items silently without showing progress
+
+**Example - User says "delete all tests":**
+
+First, create TaskList:
+send_to_ui({
+  room: <room>,
+  tasks: [
+    {name: "Delete test: Login Flow", status: "pending"},
+    {name: "Delete test: User Registration", status: "pending"},
+    {name: "Delete test: Password Reset", status: "pending"}
+  ]
+})
+
+Then process each item:
+send_to_ui({ room: <room>, tasks: [{name: "Delete test: Login Flow", status: "in_progress"}, ...] })
+[delete test]
+send_to_ui({ room: <room>, tasks: [{name: "Delete test: Login Flow", status: "done"}, {name: "Delete test: User Registration", status: "in_progress"}, ...] })
+[delete test]
+...and so on
+
+**This applies to:**
+- Deleting multiple items
+- Creating multiple items
+- Updating multiple records
+- Running multiple tests
+- Any operation on 2+ items
+
+**This does NOT apply to:**
+- Single question answering ("what is X?")
+- Single command execution (already has progress indicator)
+- Operations on exactly 1 item`
+
+/**
+ * Idle mode requirement - agent should listen for user messages when idle
+ *
+ * When agent completes all tasks, it should enter listening mode and stay there
+ * by repeatedly calling get_user_messages until user sends messages.
+ */
+export const IDLE_LISTENING_REQUIREMENT = `🚨 **WHEN IDLE: LISTEN FOR USER MESSAGES**
+
+When you complete all tasks and have nothing else to do:
+
+1. Call get_user_messages with wait=300000 (5 minutes)
+2. When it returns with no messages, call it again immediately
+3. Stay in this loop until user sends messages
+4. When messages arrive, respond and execute, then return to listening
+
+**Example:**
+"I've completed deleting all duplicate tests. Now entering listening mode..."
+[call get_user_messages with wait=300000]
+[if no messages, call again]
+[if messages arrive, respond with send_to_ui and execute]
+[after completing new task, return to listening mode]
+
+**DO NOT:**
+- End the conversation when tasks are done
+- Wait for user to manually ask you to listen
+- Leave listening mode unless explicitly told to stop`
