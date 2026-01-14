@@ -479,9 +479,6 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
       url.hostname = `${userInfo.subdomain}.${url.hostname}`
       userInfo.dashboardBaseUrl = url.toString().replace(/\/$/, '')
 
-      // Set interactive timestamp BEFORE caching
-      userInfo.interactiveTimestamp = new Date().toISOString()
-
       cachedUserInfo = userInfo
       authInitialized = true
       return cachedUserInfo
