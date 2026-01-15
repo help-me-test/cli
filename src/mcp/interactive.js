@@ -191,10 +191,9 @@ async function handleRunInteractiveCommand(args) {
     const sendNotification = (type) =>
       sendToUI({
         messageId,  // Keep same messageId for updates
-        _type_: ["CommandNotification"],
+        _type_: ["CommandNotification", type],
         command,
-        explanation,
-        type
+        explanation
       }, room)
 
     // Send initial "running" status
