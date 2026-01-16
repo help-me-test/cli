@@ -14,9 +14,59 @@ const MAX_QUEUE_SIZE = 100
 let queue = []
 let messageIdCounter = 0
 
+// Track active interactive sessions created in this MCP session
+const activeInteractiveSessions = new Set()
+
 // State for interactive command flow control
 export const state = {
   requiresSendToUI: false
+}
+
+/**
+ * Register an interactive session as active
+ * @param {string} timestamp - Session timestamp
+ */
+export function registerInteractiveSession(timestamp) {
+  activeInteractiveSessions.add(timestamp)
+  console.log(`[Session] Registered interactive session: ${timestamp}`)
+}
+
+/**
+ * Check if a room is valid (either company__chat or active interactive session)
+ * @param {string} room - Room identifier
+ * @param {string} company - Company ID
+ * @returns {boolean} True if room is valid
+ */
+export function isValidRoom(room, company) {
+  // Allow company__chat format
+  if (room === `${company}__chat`) {
+    return true
+  }
+
+  // Check if it's an interactive session that was created in this session
+  const roomParts = room.split('__')
+  if (roomParts.length === 3 && roomParts[0] === company && roomParts[1] === 'interactive') {
+    const timestamp = roomParts[2]
+    return activeInteractiveSessions.has(timestamp)
+  }
+
+  return false
+}
+
+/**
+ * Get all available rooms for a company
+ * @param {string} company - Company ID
+ * @returns {Array<string>} Array of available room identifiers
+ */
+export function getAvailableRooms(company) {
+  const rooms = [`${company}__chat`]
+
+  // Add all active interactive sessions
+  for (const timestamp of activeInteractiveSessions) {
+    rooms.push(`${company}__interactive__${timestamp}`)
+  }
+
+  return rooms
 }
 
 /**
@@ -266,6 +316,27 @@ async function handleSendToUI(args) {
         text: JSON.stringify({
           success: false,
           error: "Room parameter is required"
+        }, null, 2)
+      }],
+      isError: true
+    }
+  }
+
+  // Get user info to validate room
+  const { detectApiAndAuth } = await import('../utils/api.js')
+  const userInfo = await detectApiAndAuth()
+
+  // Validate room is either company__chat or an active interactive session
+  if (!isValidRoom(room, userInfo.activeCompany)) {
+    const availableRooms = getAvailableRooms(userInfo.activeCompany)
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          success: false,
+          error: `Invalid room: "${room}".`,
+          availableRooms: availableRooms,
+          message: `Choose one of the available rooms above. Use "${userInfo.activeCompany}__chat" for company chat or one of the interactive session rooms.`
         }, null, 2)
       }],
       isError: true

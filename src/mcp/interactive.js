@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
-import { getPendingMessages, sendToUI, state, formatUserMessages } from './command-queue.js'
+import { getPendingMessages, sendToUI, state, formatUserMessages, registerInteractiveSession } from './command-queue.js'
 import { sendToUIPrompt, TASKLIST_REQUIREMENT } from './shared-prompts.js'
 import open from 'open'
 
@@ -175,6 +175,7 @@ async function handleRunInteractiveCommand(args) {
       timestamp = sessionTimestamp
       currentSessionTimestamp = timestamp
       console.log(`[Interactive] Using provided session timestamp: ${timestamp}`)
+      registerInteractiveSession(timestamp)
     } else if (currentSessionTimestamp) {
       timestamp = currentSessionTimestamp
       console.log(`[Interactive] Continuing existing session: ${timestamp}`)
@@ -182,6 +183,7 @@ async function handleRunInteractiveCommand(args) {
       timestamp = new Date().toISOString()
       currentSessionTimestamp = timestamp
       console.log(`[Interactive] Created new session: ${timestamp}`)
+      registerInteractiveSession(timestamp)
     }
 
     const room = `${userInfo.activeCompany}__interactive__${timestamp}`
