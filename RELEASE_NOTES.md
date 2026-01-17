@@ -1,5 +1,33 @@
 # Release Notes
 
+## v1.21.0 (2026-01-17)
+
+### New Features
+
+- **Bidirectional Agent-UI Messaging**: Real-time ZMQ-based communication between AI assistants and users enables interactive workflows with immediate feedback. AI assistants can now send messages to users and receive responses during test execution, creating truly conversational testing experiences.
+- **Batch MCP Tool Approval**: New init tool streamlines initial setup by triggering approval prompts for all MCP tools at once. Eliminates repetitive approval dialogs and gets you testing faster with a single "Always allow" for each tool category.
+- **Idle Listening Mode**: AI assistants now wait for user messages when idle instead of ending conversations. Enables continuous back-and-forth collaboration without restarting sessions, perfect for iterative test development and debugging workflows.
+- **Parallel Interactive Sessions**: Session-specific timestamp tracking allows multiple interactive debugging sessions to run simultaneously. Each session maintains its own state and can be resumed independently using timestamp parameters.
+- **Network Request Debugging**: New debug parameter in interactive commands controls network request/response body visibility. When enabled, shows complete HTTP payloads for debugging API interactions and troubleshooting integration issues.
+- **FakeMail Testing Documentation**: Comprehensive FakeMail documentation now auto-opens in artifacts during exploratory testing, providing ready-to-use patterns for email verification flows and temporary inbox testing.
+
+### Improvements
+
+- **Session Message Routing**: Room validation with session tracking prevents messages from being delivered to wrong sessions. Each interactive session gets isolated message routing for reliable multi-user and parallel session support.
+- **Efficient Message Retrieval**: Replaced polling with wait-based message retrieval that blocks until messages arrive. Dramatically reduces unnecessary API calls while maintaining instant responsiveness when messages are sent.
+- **Reliable Stream Processing**: Simplified error handling with increased timeout (from 30s to 180s) for stream processing, preventing premature timeouts during long-running test executions and large artifact operations.
+- **Consistent AI Prompts**: Extracted shared prompt constants into reusable function ensuring AI assistants receive consistent instructions across different MCP tools. Improves response quality and reduces prompt drift.
+- **Better Code Organization**: Moved keywords tool to documentation.js module for cleaner separation of concerns and easier maintenance of documentation-related functionality.
+- **Enhanced Test Validation**: Improved validation guidance in exploratory and interactive testing modes helps AI assistants create more reliable tests with fewer syntax errors and better Robot Framework compliance.
+
+### Bug Fixes
+
+- **Interactive Status Display**: Fixed CommandNotification status display that was showing incorrect execution state during interactive sessions, now properly reflects command success/failure.
+- **Session Naming Consistency**: Exploratory mode now uses room naming convention consistent with interactive mode, eliminating confusion and ensuring proper message routing across all testing workflows.
+- **Tool Registration**: Fixed init tool to use _registeredTools for proper MCP tool registration instead of incorrect property access that was causing initialization failures.
+- **Error Reporting**: Removed defensive error fallback that was hiding actual error messages, now lets errors surface cleanly for easier debugging and faster issue resolution.
+- **Message Metadata**: Added company field to ZMQ messages for consistency with other message types, ensuring complete context is always available for message routing and filtering.
+
 ## v1.20.0 (2025-12-05)
 
 ### New Features

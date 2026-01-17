@@ -263,6 +263,7 @@ export async function sendZMQ(room, message, key) {
     room,
     timestamp: new Date().toISOString(),
     sender: "ai",  // Default sender, but can be overridden by message
+    company: key,  // Add company field for consistency
     ...message,
     id: messageId,  // Put AFTER spread so it doesn't get overridden
     messageId  // Put AFTER spread so it doesn't get overridden
