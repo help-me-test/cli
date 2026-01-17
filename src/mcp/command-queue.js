@@ -32,21 +32,21 @@ export function registerInteractiveSession(timestamp) {
 }
 
 /**
- * Check if a room is valid (either company__chat or active interactive session)
+ * Check if a room is valid (either chat.{company} or active interactive session)
  * @param {string} room - Room identifier
  * @param {string} company - Company ID
  * @returns {boolean} True if room is valid
  */
 export function isValidRoom(room, company) {
-  // Allow company__chat format
-  if (room === `${company}__chat`) {
+  // Allow chat.{company} format
+  if (room === `chat.${company}`) {
     return true
   }
 
   // Check if it's an interactive session that was created in this session
-  const roomParts = room.split('__')
-  if (roomParts.length === 3 && roomParts[0] === company && roomParts[1] === 'interactive') {
-    const timestamp = roomParts[2]
+  // Format: {company}__interactive__{timestamp}
+  if (room.startsWith(`${company}__interactive__`)) {
+    const timestamp = room.split('__')[2]
     return activeInteractiveSessions.has(timestamp)
   }
 
@@ -59,7 +59,7 @@ export function isValidRoom(room, company) {
  * @returns {Array<string>} Array of available room identifiers
  */
 export function getAvailableRooms(company) {
-  const rooms = [`${company}__chat`]
+  const rooms = [`chat.${company}`]
 
   // Add all active interactive sessions
   for (const timestamp of activeInteractiveSessions) {
