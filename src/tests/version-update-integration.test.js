@@ -94,23 +94,23 @@ describe('Version and Update Integration Tests', () => {
     expect(versions[0]).toMatch(/^\d+\.\d+\.\d+/)
   }, 15000)
 
-  test('install script analysis - should be bash script', async () => {
+  test.skip('install script analysis - should be bash script', async () => {
     // Test that we can fetch the install script (basic connectivity test)
     const fetch = (await import('node-fetch')).default
-    
+
     try {
       const response = await fetch('https://helpmetest.com/install', {
         method: 'HEAD',
         timeout: 5000
       })
-      
+
       // Should be accessible
       expect(response.status).toBe(200)
-      
+
       // Should be a script (text content)
       const contentType = response.headers.get('content-type')
       expect(contentType).toMatch(/text|script|plain/)
-      
+
     } catch (error) {
       // If network is unavailable, skip this test
       console.warn('Skipping install script connectivity test:', error.message)
