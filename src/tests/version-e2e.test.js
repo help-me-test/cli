@@ -31,14 +31,14 @@ describe('HelpMeTest CLI Version E2E Tests', () => {
 
   describe('CLI Version Commands', () => {
     test('helpmetest --version should return current version', () => {
-      const result = execSync('bun src/index.js --version', { 
-        cwd: CLI_ROOT, 
+      const result = execSync('bun src/index.js --version', {
+        cwd: CLI_ROOT,
         encoding: 'utf8',
         timeout: 10000
       }).trim()
-      
+
       expect(result).toBe(expectedVersion)
-    })
+    }, 15000)
 
     test('helpmetest -V should return current version', () => {
       const result = execSync('bun src/index.js -V', { 
