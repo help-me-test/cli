@@ -348,11 +348,11 @@ async function handleSendToUI(args) {
     // If tasks are provided, send TaskList message
     if (tasks) {
       await sendToUI({
+        ...args,
         id: 'tasklist-current',
         _type_: ['TaskList'],
         status: 'working',
-        inProgress: tasks.some(t => t.status === 'in_progress'),
-        tasks
+        inProgress: tasks.some(t => t.status === 'in_progress')
       }, room)
     } else {
       // Send plain text message
