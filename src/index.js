@@ -23,6 +23,7 @@ import deployCommand from './commands/deploy.js'
 import versionCommand from './commands/version.js'
 import updateCommand from './commands/update.js'
 import installCommand, { getCliCommand } from './commands/install.js'
+import proxyCommand from './commands/proxy.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
 
@@ -501,6 +502,79 @@ ${colors.subtitle('Use Cases:')}
     await deployCommand(app, options)
   })
 
+// Register the proxy command with subcommands
+const proxyCommandGroup = program
+  .command('proxy')
+  .description('Proxy public URLs to localhost for local development')
+
+// proxy start subcommand
+proxyCommandGroup
+  .command('start [target]')
+  .description('Start proxying a domain to localhost')
+  .option('--domain <domain>', 'Domain to proxy (e.g., dev.local, helpmetest.com)')
+  .option('--port <port>', 'Local port to forward to (e.g., 3000)', parseInt)
+  .option('--name <name>', 'Name for this proxy instance (defaults to hostname)')
+  .addHelpText('after', `
+${colors.subtitle('Short Syntax Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy start')} ${colors.argument(':3000')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy start')} ${colors.argument('dev.local:3000')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy start')} ${colors.argument(':8080')} ${colors.option('--name mydev')}
+
+${colors.subtitle('Long Syntax Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy start')} ${colors.option('--domain dev.local --port 3000')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy start')} ${colors.option('--domain helpmetest.com --port 8080 --name mydev')}
+
+${colors.subtitle('What it does:')}
+  ${colors.dim('•')} Establishes persistent tunnel from proxy server to your machine
+  ${colors.dim('•')} Routes test traffic for specified domain to your localhost
+  ${colors.dim('•')} Automatically handles reconnection if connection drops
+  ${colors.dim('•')} Isolated per company - only your tests can use your tunnel
+
+${colors.subtitle('Use Cases:')}
+  ${colors.dim('•')} Test local development server with robot tests
+  ${colors.dim('•')} Debug issues with live traffic
+  ${colors.dim('•')} Develop features that require integration testing
+`)
+  .action(proxyCommand.start)
+
+// proxy list subcommand
+proxyCommandGroup
+  .command('list')
+  .description('List active proxy tunnels for your company')
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy list')}
+
+${colors.subtitle('What it shows:')}
+  ${colors.dim('•')} All active tunnels for your company
+  ${colors.dim('•')} Domain, machine name, local port for each tunnel
+  ${colors.dim('•')} How long each tunnel has been active
+`)
+  .action(proxyCommand.list)
+
+// proxy run-fake-server subcommand
+proxyCommandGroup
+  .command('run-fake-server')
+  .description('Run a fake HTTP server for testing tutorials')
+  .option('--port <port>', 'Port to run the server on (defaults to 3000)', parseInt)
+  .addHelpText('after', `
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy run-fake-server')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy run-fake-server')} ${colors.option('--port 8080')}
+
+${colors.subtitle('What it does:')}
+  ${colors.dim('•')} Starts a simple HTTP server on localhost
+  ${colors.dim('•')} Serves a demo page for testing purposes
+  ${colors.dim('•')} Perfect for tutorials and learning Robot Framework
+  ${colors.dim('•')} Press Ctrl+C to stop the server
+
+${colors.subtitle('Use Cases:')}
+  ${colors.dim('•')} Test local development workflows
+  ${colors.dim('•')} Practice writing Robot Framework tests
+  ${colors.dim('•')} Tutorial exercises and demos
+`)
+  .action(proxyCommand['run-fake-server'])
+
 // Register the version command
 program
   .command('version')
@@ -596,7 +670,7 @@ const args = process.argv.slice(2)
 const command = args[0]
 
 // Commands that don't need authentication
-const noAuthCommands = ['version', 'update', 'install', 'metrics', '--version', '-V', '--help', '-h']
+const noAuthCommands = ['version', 'update', 'install', 'metrics', 'proxy', '--version', '-V', '--help', '-h']
 const needsAuth = command && !noAuthCommands.includes(command)
 
 if (process.env.HELPMETEST_DEBUG) {

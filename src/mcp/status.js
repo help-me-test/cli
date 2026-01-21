@@ -96,17 +96,19 @@ async function handleTestRuns(args) {
   debug(config, `Getting test runs with filters: ${JSON.stringify(args)}`)
   
   try {
-    const testRuns = await getTestRuns({
+    const response = await getTestRuns({
       tests,
       status,
       startDate,
       endDate,
       limit
     })
-    
-    debug(config, `Retrieved ${testRuns?.length || 0} test runs`)
-    
-    if (!testRuns?.length) {
+
+    const testRuns = response.runs || []
+
+    debug(config, `Retrieved ${testRuns.length} test runs`)
+
+    if (!testRuns.length) {
       return {
         content: [
           {
@@ -128,15 +130,16 @@ async function handleTestRuns(args) {
 
     // Format runs for analysis
     const formattedRuns = testRuns.map(run => ({
-      id: run.id,
-      testId: run.testId,
-      testName: run.testName,
+      id: `${run.test}-${run.timestamp}`,
+      testId: run.test,
+      testName: run.test,
       status: run.status,
-      startTime: run.startTime,
-      endTime: run.endTime,
-      duration: run.duration,
-      errorMessage: run.errorMessage || null,
-      tags: run.tags || []
+      startTime: run.timestamp,
+      endTime: null,
+      duration: run.elapsedTime,
+      errorMessage: run.errors?.length > 0 ? run.errors.map(e => e.message).join('; ') : null,
+      errors: run.errors || [],
+      tags: []
     }))
 
     // Calculate summary statistics
