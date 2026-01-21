@@ -234,7 +234,7 @@ export async function startProxy(target, options) {
  * Run a fake HTTP server for testing
  */
 export async function runFakeServer(options) {
-  const port = options.port || 3000
+  const port = options.port || 37331
   const http = await import('http')
 
   const server = http.createServer((req, res) => {
