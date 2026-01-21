@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.23.1 (2026-01-21)
+
+### Improvements
+
+- **Proxy Fake Server Port**: Changed default fake server port from 3000 to 37331 to avoid conflicts with common development servers. The tutorial testing server now starts on an uncommon high-order port, eliminating port collision issues when running alongside your application.
+
 ## v1.23.0 (2026-01-21)
 
 ### New Features
