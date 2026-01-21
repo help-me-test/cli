@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.23.0 (2026-01-21)
+
+### New Features
+
+- **Local Development Tunneling**: Test your localhost directly from robot tests with new `helpmetest proxy start` command. Tunnel public URLs to your local development server, enabling seamless integration testing without deploying to staging environments. Perfect for debugging production issues locally and iterating faster on features that require live testing.
+- **Tunnel Management**: List all active proxy tunnels for your company with `helpmetest proxy list`, showing which domains are forwarding to which machines and ports. Maintain visibility across your team's local testing environments.
+- **Tutorial Testing Server**: New `helpmetest proxy run-fake-server` launches a local demo server for learning and practicing Robot Framework tests. Great for tutorials, onboarding, and trying out testing workflows without needing a real application.
+
+### Bug Fixes
+
+- **Chat Message Display**: Fixed TaskList component to properly display messages below task lists in the interactive chat UI. Messages now render correctly with proper styling and spacing, improving communication clarity during interactive testing sessions.
+
 ## v1.22.1 (2026-01-18)
 
 ### Bug Fixes
