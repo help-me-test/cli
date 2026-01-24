@@ -27,7 +27,7 @@ let currentSessionTimestamp = null
 export async function openBrowserOnce(url, identifier, description = 'URL') {
   if (!openedUrls.has(identifier)) {
     openedUrls.add(identifier)
-    console.log(`🌐 Opening browser for ${description}: ${url}`)
+    console.error(`🌐 Opening browser for ${description}: ${url}`)
     try {
       await open(url)
       debug(config, `✅ Browser opened successfully: ${url}`)
@@ -38,7 +38,7 @@ export async function openBrowserOnce(url, identifier, description = 'URL') {
       return { opened: false, url, error: error.message, alreadyOpen: false }
     }
   } else {
-    console.log(`ℹ️ ${description} already opened, skipping`)
+    console.error(`ℹ️ ${description} already opened, skipping`)
     return { opened: false, url, alreadyOpen: true }
   }
 }
@@ -174,15 +174,15 @@ async function handleRunInteractiveCommand(args) {
     if (sessionTimestamp) {
       timestamp = sessionTimestamp
       currentSessionTimestamp = timestamp
-      console.log(`[Interactive] Using provided session timestamp: ${timestamp}`)
+      console.error(`[Interactive] Using provided session timestamp: ${timestamp}`)
       registerInteractiveSession(timestamp)
     } else if (currentSessionTimestamp) {
       timestamp = currentSessionTimestamp
-      console.log(`[Interactive] Continuing existing session: ${timestamp}`)
+      console.error(`[Interactive] Continuing existing session: ${timestamp}`)
     } else {
       timestamp = new Date().toISOString()
       currentSessionTimestamp = timestamp
-      console.log(`[Interactive] Created new session: ${timestamp}`)
+      console.error(`[Interactive] Created new session: ${timestamp}`)
       registerInteractiveSession(timestamp)
     }
 

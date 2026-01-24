@@ -261,7 +261,7 @@ This could mean:
     // Debug: Save events to file for inspection
     const fs = await import('fs')
     await fs.promises.writeFile('/tmp/test-events-debug.json', JSON.stringify(events, null, 2))
-    console.log(`[DEBUG] Saved ${events.length} events to /tmp/test-events-debug.json`)
+    console.error(`[DEBUG] Saved ${events.length} events to /tmp/test-events-debug.json`)
 
     // Extract run ID from events to build URL
     const firstEvent = events.find(e => e.id)

@@ -28,7 +28,7 @@ export const state = {
  */
 export function registerInteractiveSession(timestamp) {
   activeInteractiveSessions.add(timestamp)
-  console.log(`[Session] Registered interactive session: ${timestamp}`)
+  console.error(`[Session] Registered interactive session: ${timestamp}`)
 }
 
 /**
@@ -90,7 +90,7 @@ export function removeMessage(messageId) {
   const removed = queue.length < initialLength
 
   if (removed) {
-    console.log(`[Queue] Removed message ${messageId}, queue size: ${queue.length}`)
+    console.error(`[Queue] Removed message ${messageId}, queue size: ${queue.length}`)
   } else {
     console.warn(`[Queue] Message ${messageId} not found in queue`)
   }
@@ -108,13 +108,13 @@ export async function startBackgroundListener() {
 
   while (true) {
     try {
-      console.log('[Queue] Starting background listener...')
+      console.error('[Queue] Starting background listener...')
 
       const { detectApiAndAuth } = await import('../utils/api.js')
       const userInfo = await detectApiAndAuth()
       const pattern = `${userInfo.activeCompany}__*`
 
-      console.log(`[Queue] Subscribing to all company rooms: ${pattern}`)
+      console.error(`[Queue] Subscribing to all company rooms: ${pattern}`)
 
       let buffer = ''
 
@@ -133,11 +133,11 @@ export async function startBackgroundListener() {
             try {
               const data = JSON.parse(event.trim())
 
-              console.log('[Queue] Received event:', JSON.stringify(data).substring(0, 200))
+              console.error('[Queue] Received event:', JSON.stringify(data).substring(0, 200))
 
               // Respond to PING messages immediately by marking them as processed
               if (data._type_?.includes('__PING__') && data.room) {
-                console.log(`[Queue] Marking PING as processed from ${data.room}`)
+                console.error(`[Queue] Marking PING as processed from ${data.room}`)
                 sendToUI({
                   ...data,
                   status: 'processed'
@@ -152,7 +152,7 @@ export async function startBackgroundListener() {
                 const isDuplicate = queue.some(msg => msg.messageId === data.messageId)
 
                 if (isDuplicate) {
-                  console.log(`[Queue] Skipping duplicate message with messageId: ${data.messageId}`)
+                  console.error(`[Queue] Skipping duplicate message with messageId: ${data.messageId}`)
                 } else {
                   const message = {
                     id: ++messageIdCounter,
@@ -167,7 +167,7 @@ export async function startBackgroundListener() {
                   }
 
                   queue.push(message)
-                  console.log(`[Queue] Added user message ${message.id}: "${message.text}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
+                  console.error(`[Queue] Added user message ${message.id}: "${message.text}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
                 }
               }
 
@@ -207,7 +207,7 @@ async function sendHeartbeat() {
       type: 'heartbeat'
     }, userInfo.activeCompany)
 
-    console.log('[Queue] Heartbeat sent')
+    console.error('[Queue] Heartbeat sent')
   } catch (error) {
     console.error('[Queue] Error sending heartbeat:', error)
   }
@@ -223,25 +223,32 @@ async function handleGetMessages({ wait = 500 }) {
 
   // Set up heartbeat interval (every 3 seconds while listening)
   const heartbeatInterval = setInterval(sendHeartbeat, 3000)
+  let interval = null
+  let timeout = null
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      if (interval) clearInterval(interval)
+      if (timeout) clearTimeout(timeout)
+      clearInterval(heartbeatInterval)
+    }
+
     const checkMessages = () => {
       if (queue.length === 0) return false
 
       const messages = getPendingMessages()
-      console.log(`[Queue] Found ${messages.length} message(s) in queue, cleared queue`)
+      console.error(`[Queue] Found ${messages.length} message(s) in queue, cleared queue`)
 
       // Mark all messages as processed
       for (const msg of messages) {
         if (msg.messageId && msg.room) {
           msg.status = 'processed'
           sendToUI(msg, msg.room)
-          console.log(`[Queue] Marked message ${msg.messageId} as processed`)
+          console.error(`[Queue] Marked message ${msg.messageId} as processed`)
         }
       }
 
-      // Stop heartbeats
-      clearInterval(heartbeatInterval)
+      cleanup()
 
       resolve({
         content: [{
@@ -256,16 +263,15 @@ async function handleGetMessages({ wait = 500 }) {
     if (checkMessages()) return
 
     // Set up polling and timeout
-    const interval = setInterval(() => {
+    interval = setInterval(() => {
       if (checkMessages()) clearInterval(interval)
     }, 500)
 
-    setTimeout(() => {
-      clearInterval(interval)
-      clearInterval(heartbeatInterval) // Stop heartbeats on timeout
+    timeout = setTimeout(() => {
+      cleanup()
 
       if (queue.length === 0) {
-        console.log(`[Queue] Timeout after ${wait}ms - no messages received`)
+        console.error(`[Queue] Timeout after ${wait}ms - no messages received`)
         resolve({
           content: [{
             type: 'text',
