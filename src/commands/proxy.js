@@ -120,10 +120,11 @@ export async function startProxy(target, options) {
 
   // Use public helpmetest proxy endpoint (works from anywhere)
   const serverAddr = 'proxy.helpmetest.com'
-  const serverPort = 30888
+  const registrationPort = 30889  // FastAPI registration endpoint
+  const serverPort = 30888        // Kept for backward compatibility (unused)
 
   output.info(`Starting tunnel: ${domain} -> localhost:${port}`)
-  output.info(`Connecting to ${serverAddr}:${serverPort}...`)
+  output.info(`Connecting to ${serverAddr}:${registrationPort}...`)
 
   // Check if port is listening
   const portIsListening = await isPortListening(port)
@@ -132,13 +133,13 @@ export async function startProxy(target, options) {
     output.warning(`Tunnel will be established, but requests will fail until you start a server on port ${port}`)
   }
 
-  // Use company-hostname format for name
-  const name = options.name || `${company}-${hostname()}`
+  // Use company-domain format for name - same domain = same proxy name
+  const name = options.name || `${company}-${domain.replace(/\./g, '-')}`
 
   // Register tunnel with proxy server first
   let frpToken, frpServerPort
   try {
-    const registration = await registerTunnel(serverAddr, serverPort, domain, name, port)
+    const registration = await registerTunnel(serverAddr, registrationPort, domain, name, port)
     frpToken = registration.frpToken
     frpServerPort = registration.frpServerPort
     output.success(`Proxying ${domain} -> localhost:${port}`)
@@ -147,43 +148,73 @@ export async function startProxy(target, options) {
     process.exit(1)
   }
 
-  // Spawn frpc using helper with unique token
-  const frpc = await spawnFrpc({
-    serverAddr,
-    serverPort: frpServerPort,
-    auth: {
-      method: 'token',
-      token: frpToken
-    },
-    proxies: [{
-      name,
-      type: 'http',
-      localIP: '127.0.0.1',
-      localPort: port,
-      customDomains: [domain]
-    }]
-  }, {
-    stdio: 'inherit'
-  })
+  // Spawn frpc with retry logic for router conflicts
+  let frpc
+  let retryCount = 0
+  const maxRetries = 3
 
-  frpc.on('error', (err) => {
-    output.error(`Failed to start frpc: ${err.message}`)
-    process.exit(1)
-  })
+  while (retryCount <= maxRetries) {
+    frpc = await spawnFrpc({
+      serverAddr,
+      serverPort: frpServerPort,
+      auth: {
+        method: 'token',
+        token: frpToken
+      },
+      proxies: [{
+        name,
+        type: 'http',
+        localIP: '127.0.0.1',
+        localPort: port,
+        customDomains: [domain]
+      }]
+    }, {
+      stdio: 'pipe'
+    })
 
-  frpc.on('exit', (code) => {
-    if (code !== 0) {
-      output.error(`frpc exited with code ${code}`)
-      process.exit(code)
+    let frpcOutput = ''
+    frpc.stdout.on('data', (data) => {
+      const str = data.toString()
+      frpcOutput += str
+      process.stdout.write(str)
+    })
+    frpc.stderr.on('data', (data) => {
+      const str = data.toString()
+      frpcOutput += str
+      process.stderr.write(str)
+    })
+
+    frpc.on('error', (err) => {
+      output.error(`Failed to start frpc: ${err.message}`)
+      process.exit(1)
+    })
+
+    const exitCode = await new Promise((resolve) => {
+      frpc.on('exit', (code) => resolve(code))
+    })
+
+    if (exitCode === 0) {
+      break
     }
-  })
+
+    // Check if it's a router config conflict
+    if (frpcOutput.includes('router config conflict') && retryCount < maxRetries) {
+      retryCount++
+      output.warning(`Router conflict detected, waiting for old proxy to disconnect... (attempt ${retryCount}/${maxRetries})`)
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      continue
+    }
+
+    output.error(`frpc exited with code ${exitCode}`)
+    process.exit(exitCode)
+  }
 
   // Deregister on exit
   const deregister = async () => {
     try {
       const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
       if (token) {
-        await fetch(`http://${serverAddr}:${serverPort}/tunnels/deregister?domain=${domain}`, {
+        await fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${domain}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       }
@@ -202,18 +233,12 @@ export async function startProxy(target, options) {
     output.info('Stopping tunnel...')
     frpc.kill('SIGTERM')
 
-    // Run deregister synchronously using a blocking approach
-    const { execSync } = require('child_process')
+    // Deregister synchronously - just call fetch and don't wait
     const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
     if (token) {
-      try {
-        execSync(`curl -s -X GET "http://${serverAddr}:${serverPort}/tunnels/deregister?domain=${domain}" -H "Authorization: Bearer ${token}"`, {
-          timeout: 5000,
-          stdio: 'ignore'
-        })
-      } catch (err) {
-        // Ignore deregistration errors
-      }
+      fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${domain}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).catch(() => {})
     }
   }
 
