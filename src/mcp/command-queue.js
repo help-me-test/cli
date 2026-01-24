@@ -194,10 +194,36 @@ export async function startBackgroundListener() {
 
 
 /**
+ * Send heartbeat to mcp-listening topic
+ */
+async function sendHeartbeat() {
+  try {
+    const { detectApiAndAuth } = await import('../utils/api.js')
+    const userInfo = await detectApiAndAuth()
+
+    await sendZMQ(`mcp-listening.${userInfo.activeCompany}`, {
+      company: userInfo.activeCompany,
+      timestamp: Date.now(),
+      type: 'heartbeat'
+    }, userInfo.activeCompany)
+
+    console.log('[Queue] Heartbeat sent')
+  } catch (error) {
+    console.error('[Queue] Error sending heartbeat:', error)
+  }
+}
+
+/**
  * Handle get messages - waits up to {wait}ms for messages
  * @param {number} wait - Maximum wait time in ms (default: 500ms)
  */
 async function handleGetMessages({ wait = 500 }) {
+  // Send initial heartbeat
+  await sendHeartbeat()
+
+  // Set up heartbeat interval (every 3 seconds while listening)
+  const heartbeatInterval = setInterval(sendHeartbeat, 3000)
+
   return new Promise((resolve) => {
     const checkMessages = () => {
       if (queue.length === 0) return false
@@ -213,6 +239,9 @@ async function handleGetMessages({ wait = 500 }) {
           console.log(`[Queue] Marked message ${msg.messageId} as processed`)
         }
       }
+
+      // Stop heartbeats
+      clearInterval(heartbeatInterval)
 
       resolve({
         content: [{
@@ -233,6 +262,8 @@ async function handleGetMessages({ wait = 500 }) {
 
     setTimeout(() => {
       clearInterval(interval)
+      clearInterval(heartbeatInterval) // Stop heartbeats on timeout
+
       if (queue.length === 0) {
         console.log(`[Queue] Timeout after ${wait}ms - no messages received`)
         resolve({
