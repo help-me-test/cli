@@ -273,60 +273,76 @@ export async function runFakeServer(options) {
     body {
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+      background: #000000;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .container {
-      background: white;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
       border-radius: 16px;
       padding: 48px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
       max-width: 600px;
       text-align: center;
     }
     h1 {
-      color: #333;
+      color: rgba(255, 255, 255, 0.95);
       margin: 0 0 16px 0;
       font-size: 2.5em;
+      font-weight: 600;
     }
     p {
-      color: #666;
+      color: rgba(255, 255, 255, 0.7);
       font-size: 1.2em;
       margin: 0 0 32px 0;
+      font-weight: 400;
     }
     .badge {
       display: inline-block;
-      background: #667eea;
-      color: white;
+      background: rgba(90, 255, 40, 0.1);
+      color: #5aff28;
+      border: 1px solid rgba(90, 255, 40, 0.3);
       padding: 8px 16px;
       border-radius: 20px;
       font-size: 0.9em;
+      font-weight: 600;
       margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
     .button {
-      background: #667eea;
-      color: white;
+      background: #5aff28;
+      color: #000000;
       border: none;
       padding: 16px 32px;
       border-radius: 8px;
       font-size: 1.1em;
+      font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 20px rgba(90, 255, 40, 0.2);
     }
     .button:hover {
-      background: #5568d3;
+      background: #4ee620;
+      box-shadow: 0 0 30px rgba(90, 255, 40, 0.4);
+      transform: scale(1.02);
     }
     .info {
       margin-top: 32px;
       padding: 16px;
-      background: #f7fafc;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       font-size: 0.9em;
-      color: #666;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .info strong {
+      color: rgba(255, 255, 255, 0.9);
     }
   </style>
 </head>
