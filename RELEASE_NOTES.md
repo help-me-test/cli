@@ -1,5 +1,21 @@
 # Release Notes
 
+## v1.24.0 (2026-01-25)
+
+### New Features
+
+- **MCP Heartbeat Mechanism**: Added active listening indicator that proves AI assistants are actively waiting for user messages. Heartbeat messages sent every 30 seconds during idle listening show real-time connection status, eliminating uncertainty about whether the assistant is still responsive.
+- **Proxy Connection Retry Logic**: Enhanced proxy tunnel resilience with automatic retry on connection failures. Retries up to 3 times with exponential backoff when frpc client fails to start, dramatically improving tunnel stability on flaky networks.
+
+### Improvements
+
+- **Enhanced Fake Server Design**: Updated proxy fake server UI to match helpmetest.com aesthetic with black backgrounds, glassmorphism effects, green accents (#5aff28), and SF Pro Text typography. Creates a cohesive brand experience across all HelpMeTest interfaces.
+
+### Bug Fixes
+
+- **JSON-RPC Protocol Compliance**: Fixed critical stdout pollution bug where non-JSON output was breaking MCP protocol communication. MCP server now properly routes all logs to stderr, ensuring clean JSON-RPC messages on stdout for reliable AI assistant integration.
+- **Proxy Port Configuration**: Corrected port configuration validation to properly use PROXY_PORT environment variable instead of hardcoded values, fixing tunnel connectivity issues when custom ports are specified.
+
 ## v1.23.1 (2026-01-21)
 
 ### Improvements
