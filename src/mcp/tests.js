@@ -230,25 +230,13 @@ async function handleRunTest(args) {
     const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
 
     if (testResults.length === 0) {
+      // No end_test event - format what we have
+      const formattedResult = formatResultAsMarkdown(events, { identifier })
       return {
         content: [
           {
             type: 'text',
-            text: `❌ No test results found for "${identifier}"
-
-This could mean:
-• Test doesn't exist
-• Test execution failed to start
-• Test identifier is incorrect
-
-**Debug Information:**
-\`\`\`json
-{
-  "identifier": "${identifier}",
-  "totalEvents": ${events.length},
-  "events": ${JSON.stringify(events.slice(0, 3), null, 2)}
-}
-\`\`\``,
+            text: formattedResult,
           },
         ],
         isError: true,
