@@ -5,9 +5,8 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import { runTest, createTest, deleteTest, getAllTests, detectApiAndAuth } from '../utils/api.js'
+import { runTestMarkdown, createTest, deleteTest, getAllTests, detectApiAndAuth } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
-import { formatResultAsMarkdown } from './formatResultAsMarkdown.js'
 import open from 'open'
 
 /**
@@ -217,85 +216,22 @@ async function handleRunTest(args) {
   debug(config, `Running test with identifier: ${identifier}`)
 
   try {
-    // Collect all events from the test run
-    const events = []
+    const markdownOutput = await runTestMarkdown(identifier)
 
-    await runTest(identifier, (event) => {
-      if (event) {
-        events.push(event)
-      }
-    })
-
-    // Check if we got any results
-    const testResults = events.filter(e => e.type === 'end_test' && e.attrs?.status)
-
-    if (testResults.length === 0) {
-      // No end_test event - format what we have
-      const formattedResult = formatResultAsMarkdown(events, { identifier })
-      return {
-        content: [
-          {
-            type: 'text',
-            text: formattedResult,
-          },
-        ],
-        isError: true,
-      }
-    }
-
-    // Determine overall success
-    const hasFailures = testResults.some(r => r.attrs?.status === 'FAIL')
-
-    // Debug: Save events to file for inspection
-    const fs = await import('fs')
-    await fs.promises.writeFile('/tmp/test-events-debug.json', JSON.stringify(events, null, 2))
-    console.error(`[DEBUG] Saved ${events.length} events to /tmp/test-events-debug.json`)
-
-    // Extract run ID from events to build URL
-    const firstEvent = events.find(e => e.id)
-    let runUrl = null
-    if (firstEvent?.id) {
-      const [company, testId, timestamp] = firstEvent.id.split('__')
-      if (company && testId && timestamp) {
-        // Get user info to build URL with subdomain
-        const { detectApiAndAuth } = await import('../utils/api.js')
-        const userInfo = await detectApiAndAuth()
-        runUrl = `${userInfo.dashboardBaseUrl}/test/${testId}/${timestamp}`
-      }
-    }
-
-    // Format result as markdown using unified formatter
-    let formattedResult = formatResultAsMarkdown(events, { identifier })
-
-    // Add run URL at the end if available
-    if (runUrl) {
-      formattedResult += `\n\n---\n\n**View Execution:** [${runUrl}](${runUrl})\n`
-    }
+    // Check if output indicates failure
+    const hasFailures = markdownOutput.includes('❌') || markdownOutput.includes('FAIL')
 
     return {
       content: [
         {
           type: 'text',
-          text: formattedResult,
+          text: markdownOutput,
         },
       ],
       isError: hasFailures,
     }
   } catch (error) {
     debug(config, `Error running test: ${error.message}`)
-
-    const errorResponse = {
-      error: true,
-      identifier,
-      message: error.message,
-      type: error.name || 'Error',
-      timestamp: new Date().toISOString(),
-      debug: {
-        apiUrl: config.apiBaseUrl,
-        hasToken: !!config.apiToken,
-        status: error.status || null
-      }
-    }
 
     return {
       content: [
@@ -309,12 +245,7 @@ async function handleRunTest(args) {
 **Troubleshooting:**
 1. Verify the test exists using \`helpmetest_status_test\`
 2. Check your API connection and credentials
-3. Try running a different test to isolate the issue
-
-**Debug Information:**
-\`\`\`json
-${JSON.stringify(errorResponse, null, 2)}
-\`\`\``,
+3. Try running a different test to isolate the issue`,
         },
       ],
       isError: true,

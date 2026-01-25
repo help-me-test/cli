@@ -336,7 +336,7 @@ const apiStreamPost = async (endpoint, data = {}, onEvent = () => {}, debugMessa
 }
 
 /**
- * Run a test by name, tag, or ID with real-time streaming
+ * Run a test by name, tag, or ID with real-time streaming (JSON events)
  * @param {string} identifier - Test name, tag (with tag: prefix), or ID
  * @param {Function} onEvent - Callback for each streaming event
  * @returns {Promise<Array>} Array of all streaming events
@@ -344,20 +344,20 @@ const apiStreamPost = async (endpoint, data = {}, onEvent = () => {}, debugMessa
 const runTest = async (identifier, onEvent = () => {}) => {
   // For names, we need to resolve to ID first
   let resolvedIdentifier = identifier
-  
+
   if (!identifier.startsWith('tag:') && (identifier.length < 15 || identifier.includes(' '))) {
     // Treat as name - look up the test first
     const tests = await getAllTests()
-    const matchingTest = tests.find(test => 
-      test.name === identifier || 
+    const matchingTest = tests.find(test =>
+      test.name === identifier ||
       test.doc === identifier ||
       test.id === identifier
     )
-    
+
     if (!matchingTest) {
       throw new ApiError(`Test not found: ${identifier}`, 404)
     }
-    
+
     resolvedIdentifier = matchingTest.id
   }
 
@@ -374,6 +374,44 @@ const runTest = async (identifier, onEvent = () => {}) => {
   try {
     const events = await apiStreamPost(endpoint, {}, onEvent, `Running test: ${identifier}`)
     return events
+  } catch (error) {
+    throw handleApiError(error, { identifier, resolvedIdentifier, endpoint })
+  }
+}
+
+/**
+ * Run a test and get formatted markdown output
+ * @param {string} identifier - Test name, tag (with tag: prefix), or ID
+ * @returns {Promise<string>} Markdown formatted test output
+ */
+const runTestMarkdown = async (identifier) => {
+  // For names, we need to resolve to ID first
+  let resolvedIdentifier = identifier
+
+  if (!identifier.startsWith('tag:') && (identifier.length < 15 || identifier.includes(' '))) {
+    // Treat as name - look up the test first
+    const tests = await getAllTests()
+    const matchingTest = tests.find(test =>
+      test.name === identifier ||
+      test.doc === identifier ||
+      test.id === identifier
+    )
+
+    if (!matchingTest) {
+      throw new ApiError(`Test not found: ${identifier}`, 404)
+    }
+
+    resolvedIdentifier = matchingTest.id
+  }
+
+  // Use endpoint WITHOUT .json to get markdown output
+  const endpoint = `/api/run/${encodeURIComponent(resolvedIdentifier)}`
+
+  debug(config, `Running test (markdown): ${identifier} (resolved: ${resolvedIdentifier})`)
+
+  try {
+    const response = await apiPost(endpoint, {}, `Running test: ${identifier}`)
+    return response
   } catch (error) {
     throw handleApiError(error, { identifier, resolvedIdentifier, endpoint })
   }
@@ -749,6 +787,7 @@ export {
   getAllHealthChecks,
   getAllTests,
   runTest,
+  runTestMarkdown,
   getTestStatus,
   getTestRuns,
   getUserInfo,
