@@ -241,7 +241,10 @@ I'll now execute a complete workflow that exercises every tool:
 - helpmetest_generate_artifact (generate artifact with AI)
 - helpmetest_do_browser_task (browser automation task)
 
-### Phase 8: Cleanup Operations
+### Phase 8: Proxy Operations
+- helpmetest_proxy (manage proxy tunnels to localhost)
+
+### Phase 9: Cleanup Operations
 - helpmetest_delete_test (remove temporary test)
 - helpmetest_delete_artifact (remove temporary artifact)
 - helpmetest_undo_update (test undo functionality)
