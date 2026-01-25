@@ -1,5 +1,24 @@
 # Release Notes
 
+## v1.25.0 (2026-01-25)
+
+### New Features
+
+- **Unified Event Queue**: AI assistants can now monitor both user messages and test status changes from a single event queue. The new `listen_to_events` tool tracks test failures and recoveries in real-time, enabling self-healing agents that automatically detect and respond to test regressions without manual intervention.
+- **Test Detail Viewing**: View complete test content and metadata without executing tests using the new Detail Mode in `status_test` tool. Pass an `id` parameter to inspect test descriptions, Robot Framework keywords, and configuration before running, making test review and debugging faster.
+- **Proxy Lifecycle Management**: List all active proxy tunnels with `helpmetest proxy list` showing domain, port, and creation time. Stop individual tunnels by domain or all tunnels at once with `stop` and `stop_all` commands. Complete visibility and control over your local development tunnel infrastructure.
+
+### Improvements
+
+- **Reliable Process Cleanup**: Proxy tunnels now properly clean up frpc subprocesses when stopped. Switching from Node.js child_process to Bun.spawn with setInterval monitoring ensures frpc is always killed when the parent process receives SIGTERM/SIGINT, eliminating orphaned proxy processes.
+- **Event-Driven Testing**: Test status changes (PASS→FAIL regressions, FAIL→PASS recoveries) automatically flow to AI assistants through the event queue. Emojis (📉 REGRESSION, 📈 RECOVERY, 🔄 CHANGE) make status changes instantly recognizable, accelerating debugging and incident response.
+- **Better Error Context**: Interactive sessions now store the last used room, providing helpful hints in error messages when send_to_ui is required but missing. Reduces confusion during multi-step debugging workflows.
+
+### Bug Fixes
+
+- **Process Orphaning**: Fixed critical issue where frpc processes remained running as orphans after parent proxy process terminated. Now uses synchronous cleanup handler that kills frpc before parent exits, with setInterval keeping parent alive until frpc fully terminates.
+- **Test Result Formatting**: Fixed edge case where tests without end_test events would return raw result objects instead of formatted output. Now properly extracts and formats test results even when streaming events are incomplete.
+
 ## v1.24.0 (2026-01-25)
 
 ### New Features
