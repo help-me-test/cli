@@ -4,11 +4,13 @@
  */
 
 import { z } from 'zod'
-import { spawn } from 'child_process'
 import { config, debug } from '../utils/config.js'
-
-// Store active proxy processes
-const activeProxies = new Map()
+import {
+  listProxies as cliListProxies,
+  startProxy as cliStartProxy,
+  stopProxy as cliStopProxy,
+  stopAllProxies as cliStopAllProxies
+} from '../commands/proxy.js'
 
 /**
  * Handle proxy tool call
@@ -24,11 +26,11 @@ async function handleProxy(args) {
     case 'start':
       return await startProxy({ port, domain, name })
     case 'list':
-      return listProxies()
+      return await listProxies()
     case 'stop':
-      return stopProxy(name)
+      return await stopProxy(domain)
     case 'stop_all':
-      return stopAllProxies()
+      return await stopAllProxies()
     default:
       return {
         content: [{
@@ -51,62 +53,12 @@ async function startProxy({ port, domain, name }) {
     }
   }
 
-  const proxyKey = name || `${domain}:${port}`
-
-  if (activeProxies.has(proxyKey)) {
-    const existing = activeProxies.get(proxyKey)
-    return {
-      content: [{
-        type: 'text',
-        text: `⚠️ **Proxy Already Running**
-
-**Name:** ${proxyKey}
-**Public URL:** https://${existing.domain}
-**Local Port:** ${existing.port}
-
-Use action "stop" to stop it first.`
-      }]
-    }
-  }
-
   try {
-    const cmdArgs = ['proxy', 'start', `${domain}:${port}`]
-    if (name) cmdArgs.push('--name', name)
+    const target = `${domain}:${port}`
+    const options = { domain, port, background: true }
+    if (name) options.name = name
 
-    const proc = spawn('helpmetest', cmdArgs, {
-      stdio: 'pipe',
-      detached: true,
-      env: { ...process.env }
-    })
-
-    let stdout = ''
-    let stderr = ''
-
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString()
-      debug(config, `[proxy] ${data.toString()}`)
-    })
-
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString()
-      debug(config, `[proxy] ${data.toString()}`)
-    })
-
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    if (proc.exitCode !== null && proc.exitCode !== 0) {
-      throw new Error(`Proxy failed: ${stderr || stdout}`)
-    }
-
-    activeProxies.set(proxyKey, {
-      name: proxyKey,
-      domain,
-      port,
-      process: proc,
-      startedAt: new Date().toISOString()
-    })
-
-    proc.on('exit', () => activeProxies.delete(proxyKey))
+    const result = await cliStartProxy(target, options)
 
     return {
       content: [{
@@ -115,7 +67,7 @@ Use action "stop" to stop it first.`
 
 **Public URL:** https://${domain}
 **Local Server:** localhost:${port}
-**Name:** ${proxyKey}`
+**Name:** ${result.name}`
       }]
     }
   } catch (error) {
@@ -129,85 +81,93 @@ Use action "stop" to stop it first.`
   }
 }
 
-function listProxies() {
-  if (activeProxies.size === 0) {
+async function listProxies() {
+  try {
+    const tunnels = await cliListProxies({ returnData: true })
+
+    if (!tunnels || tunnels.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: `📋 **No Active Proxies**
+
+Use the helpmetest_proxy tool with action "start" to create a tunnel.`
+        }]
+      }
+    }
+
+    const tunnelList = tunnels.map((tunnel, i) =>
+      `${i + 1}. **${tunnel.domain}** → localhost:${tunnel.port}
+   Name: ${tunnel.name}${tunnel.created_at ? `
+   Created: ${new Date(tunnel.created_at).toLocaleString()}` : ''}`
+    ).join('\n\n')
+
     return {
       content: [{
         type: 'text',
-        text: `📋 **No Active Proxies**\n\nUse action "start" with port to create one.`
+        text: `✅ **Active Proxies (${tunnels.length})**
+
+${tunnelList}`
       }]
     }
-  }
-
-  const proxies = Array.from(activeProxies.values())
-  const list = proxies.map(p => `- **${p.name}**: https://${p.domain} → localhost:${p.port}`).join('\n')
-
-  return {
-    content: [{
-      type: 'text',
-      text: `📋 **Active Proxies (${proxies.length})**\n\n${list}`
-    }]
+  } catch (error) {
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ **Failed to List Proxies**\n\n${error.message}`
+      }],
+      isError: true
+    }
   }
 }
 
-function stopProxy(name) {
-  if (!name) {
+async function stopProxy(domain) {
+  if (!domain) {
     return {
       content: [{
         type: 'text',
-        text: `❌ **Name Required**\n\nProvide the proxy name to stop. Use action "list" to see names.`
+        text: `❌ **Domain Required**\n\nProvide the domain to stop (e.g., "dev.local"). Use action "list" to see active proxies.`
       }],
       isError: true
     }
   }
 
-  if (!activeProxies.has(name)) {
+  try {
+    await cliStopProxy(domain)
     return {
       content: [{
         type: 'text',
-        text: `❌ **Proxy Not Found:** ${name}\n\nUse action "list" to see active proxies.`
+        text: `✅ **Proxy Stopped:** ${domain}`
+      }]
+    }
+  } catch (error) {
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ **Failed to Stop Proxy**\n\n${error.message}`
       }],
       isError: true
     }
   }
-
-  const proxy = activeProxies.get(name)
-  if (proxy.process && !proxy.process.killed) {
-    proxy.process.kill('SIGTERM')
-  }
-  activeProxies.delete(name)
-
-  return {
-    content: [{
-      type: 'text',
-      text: `✅ **Proxy Stopped:** ${name}`
-    }]
-  }
 }
 
-function stopAllProxies() {
-  if (activeProxies.size === 0) {
+async function stopAllProxies() {
+  try {
+    await cliStopAllProxies()
     return {
       content: [{
         type: 'text',
-        text: `📋 **No Active Proxies**`
+        text: `✅ **All Proxies Stopped**`
       }]
     }
-  }
-
-  const count = activeProxies.size
-  for (const [, proxy] of activeProxies) {
-    if (proxy.process && !proxy.process.killed) {
-      proxy.process.kill('SIGTERM')
+  } catch (error) {
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ **Failed to Stop Proxies**\n\n${error.message}`
+      }],
+      isError: true
     }
-  }
-  activeProxies.clear()
-
-  return {
-    content: [{
-      type: 'text',
-      text: `✅ **Stopped ${count} Proxy(s)**`
-    }]
   }
 }
 
@@ -225,7 +185,7 @@ export function registerProxyTools(server) {
 **Actions:**
 - **start**: Start proxy (requires port, optional domain/name)
 - **list**: List active proxies
-- **stop**: Stop a proxy by name
+- **stop**: Stop a proxy by domain
 - **stop_all**: Stop all proxies
 
 **Example:** Start proxy for localhost:3000
@@ -237,8 +197,8 @@ export function registerProxyTools(server) {
       inputSchema: {
         action: z.enum(['start', 'list', 'stop', 'stop_all']).describe('Action to perform'),
         port: z.number().optional().describe('Local port to proxy (required for start)'),
-        domain: z.string().optional().default('dev.local').describe('Domain for public URL'),
-        name: z.string().optional().describe('Proxy name (for start/stop)')
+        domain: z.string().optional().default('dev.local').describe('Domain for public URL (required for stop)'),
+        name: z.string().optional().describe('Proxy name (optional for start)')
       },
     },
     async (args) => {

@@ -8,7 +8,6 @@
  * - helpmetest proxy list
  */
 
-import { hostname } from 'os'
 import { output } from '../utils/colors.js'
 import { spawnFrpc } from './frpc.js'
 import { config } from '../utils/config.js'
@@ -110,8 +109,9 @@ async function isPortListening(port) {
 /**
  * Start proxy tunnel using frpc
  */
-export async function startProxy(target, options) {
+export async function startProxy(target, options = {}) {
   const { domain, port } = parseProxyTarget(target, options)
+  const { background = false } = options
 
   // Get user info to extract company
   const { detectApiAndAuth } = await import('../utils/api.js')
@@ -147,6 +147,11 @@ export async function startProxy(target, options) {
   } catch (err) {
     output.error(`Failed to register tunnel: ${err?.message || err || 'Unknown error'}`)
     process.exit(1)
+  }
+
+  // If background mode, just return after registration
+  if (background) {
+    return { domain, port, name }
   }
 
   // Spawn frpc with retry logic for router conflicts
@@ -393,16 +398,155 @@ export async function runFakeServer(options) {
 /**
  * List active proxy tunnels
  */
-export async function listProxies() {
-  output.info('Listing active proxy tunnels...')
-  output.warning('List command not yet implemented')
-  // TODO: Call frps API to list tunnels for this token
+export async function listProxies(options = {}) {
+  const { returnData = false } = options
+  const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
+  if (!token) {
+    throw new Error('No API token found. Run: helpmetest login')
+  }
+
+  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
+  const registrationPort = 30889
+
+  if (!returnData) {
+    output.info('Listing active proxy tunnels...')
+  }
+
+  try {
+    const response = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/list`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || `HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (returnData) {
+      return data.tunnels || []
+    }
+
+    if (!data.tunnels || data.tunnels.length === 0) {
+      output.info('No active tunnels found')
+      return
+    }
+
+    output.success(`Found ${data.tunnels.length} active tunnel(s):\n`)
+
+    data.tunnels.forEach((tunnel, i) => {
+      console.log(`${i + 1}. ${tunnel.domain} -> localhost:${tunnel.port}`)
+      console.log(`   Name: ${tunnel.name}`)
+      if (tunnel.created_at) {
+        console.log(`   Created: ${new Date(tunnel.created_at).toLocaleString()}`)
+      }
+      console.log()
+    })
+  } catch (err) {
+    output.error(`Failed to list tunnels: ${err.message}`)
+    process.exit(1)
+  }
+}
+
+/**
+ * Stop a proxy tunnel by domain
+ */
+export async function stopProxy(domain) {
+  const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
+  if (!token) {
+    throw new Error('No API token found. Run: helpmetest login')
+  }
+
+  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
+  const registrationPort = 30889
+
+  output.info(`Stopping tunnel for ${domain}...`)
+
+  try {
+    const response = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${domain}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || `HTTP ${response.status}`)
+    }
+
+    output.success(`Stopped tunnel for ${domain}`)
+  } catch (err) {
+    output.error(`Failed to stop tunnel: ${err.message}`)
+    process.exit(1)
+  }
+}
+
+/**
+ * Stop all proxy tunnels
+ */
+export async function stopAllProxies() {
+  const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
+  if (!token) {
+    throw new Error('No API token found. Run: helpmetest login')
+  }
+
+  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
+  const registrationPort = 30889
+
+  output.info('Stopping all tunnels...')
+
+  try {
+    // First get list of active tunnels
+    const listResponse = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/list`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (!listResponse.ok) {
+      const error = await listResponse.json()
+      throw new Error(error.error || `HTTP ${listResponse.status}`)
+    }
+
+    const data = await listResponse.json()
+
+    if (!data.tunnels || data.tunnels.length === 0) {
+      output.info('No active tunnels to stop')
+      return
+    }
+
+    // Stop each tunnel
+    for (const tunnel of data.tunnels) {
+      const response = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${tunnel.domain}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        output.warning(`Failed to stop ${tunnel.domain}: ${error.error}`)
+      } else {
+        output.success(`Stopped ${tunnel.domain}`)
+      }
+    }
+
+    output.success(`Stopped ${data.tunnels.length} tunnel(s)`)
+  } catch (err) {
+    output.error(`Failed to stop tunnels: ${err.message}`)
+    process.exit(1)
+  }
 }
 
 // Export command object for CLI
 const proxyCommand = {
   start: startProxy,
   list: listProxies,
+  stop: stopProxy,
+  'stop-all': stopAllProxies,
   'run-fake-server': runFakeServer
 }
 
