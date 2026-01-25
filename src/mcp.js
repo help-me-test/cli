@@ -28,7 +28,7 @@ import { registerExploratoryTools } from './mcp/exploratory.js'
 import { registerArtifactTools } from './mcp/artifacts.js'
 import { registerDocumentationTools } from './mcp/documentation.js'
 import { registerBrowserTaskTools } from './mcp/browser-tasks.js'
-import { registerCommandQueueTools, startBackgroundListener } from './mcp/command-queue.js'
+import { registerCommandQueueTools } from './mcp/command-queue.js'
 import { registerProxyTools } from './mcp/proxy.js'
 
 /**
@@ -40,7 +40,7 @@ function logMcpMessage(direction, message) {
   const logFile = path.join(process.cwd(), 'mcp-debug.log')
   const timestamp = new Date().toISOString()
   const logEntry = `[${timestamp}] ${direction}: ${JSON.stringify(message, null, 2)}\n\n`
-  
+
   try {
     fs.appendFileSync(logFile, logEntry)
   } catch (error) {
@@ -57,7 +57,7 @@ function logMcpMessage(direction, message) {
 export function createMcpServer(options = {}) {
   const serverConfig = getMcpServerConfig(options)
   validateMcpConfig(serverConfig)
-  
+
   // Clear previous log file
   const logFile = path.join(process.cwd(), 'mcp-debug.log')
   try {
@@ -65,7 +65,7 @@ export function createMcpServer(options = {}) {
   } catch (error) {
     console.error(`Failed to initialize log file: ${error.message}`)
   }
-  
+
   const server = new McpServer({
     name: serverConfig.name,
     version: serverConfig.version,
@@ -82,7 +82,7 @@ export function createMcpServer(options = {}) {
    * 6. FOLLOW the mandatory interactive testing workflow
    * 7. DO NOT create/modify tests without interactive verification first
    * 8. STOP and debug when steps fail, don't continue blindly
-   * 
+   *
    * This prevents:
    * - Cryptic "Done" messages
    * - False celebrations of failures
@@ -105,16 +105,16 @@ export function createMcpServer(options = {}) {
   // Register all tool categories
   debug(config, 'Registering Health tools...')
   registerHealthTools(server)
-  
+
   debug(config, 'Registering Test tools...')
   registerTestTools(server)
-  
+
   debug(config, 'Registering Status tools...')
   registerStatusTools(server)
-  
+
   debug(config, 'Registering Interactive tools...')
   registerInteractiveTools(server)
-  
+
   debug(config, 'Registering Management tools...')
   registerManagementTools(server)
 
@@ -138,10 +138,8 @@ export function createMcpServer(options = {}) {
 
   debug(config, 'All MCP tools registered successfully')
 
-  // Start background listener for agent-UI communication (fire and forget)
-  startBackgroundListener().catch(err => {
-    console.error('[MCP] Failed to start background listener:', err)
-  })
+  // Background listener will be started lazily when first needed
+  // (when get_user_messages or send_to_ui is called)
 
   return server
 }
@@ -159,9 +157,9 @@ export async function startStdioServer(server) {
     process.stdin.resume()
     debug(config, 'Resumed stdin for Bun compatibility')
   }
-  
+
   const transport = new StdioServerTransport()
-  
+
   // Log transport-level messages
   const originalOnMessage = transport.onmessage
   if (originalOnMessage) {
@@ -170,7 +168,7 @@ export async function startStdioServer(server) {
       return originalOnMessage.call(transport, message)
     }
   }
-  
+
   // Try to intercept stdin data
   const originalStdin = process.stdin
   if (originalStdin && originalStdin.on) {
@@ -183,7 +181,7 @@ export async function startStdioServer(server) {
       }
     })
   }
-  
+
   // Try to intercept stdout data
   const originalWrite = process.stdout.write
   process.stdout.write = function(chunk, encoding, callback) {
@@ -195,7 +193,7 @@ export async function startStdioServer(server) {
     }
     return originalWrite.call(this, chunk, encoding, callback)
   }
-  
+
   await server.connect(transport)
   debug(config, 'MCP server started with stdio transport')
 }

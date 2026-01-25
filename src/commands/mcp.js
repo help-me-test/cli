@@ -41,9 +41,6 @@ export default async function mcpCommand(token, options) {
     debug(config, `  Token: ${config.apiToken ? config.apiToken.substring(0, 10) + '...' : 'none'}`)
     debug(config, `  Debug Mode: ${config.debug}`)
 
-    // Authentication is handled globally in index.js
-    debug(config, 'Starting MCP server (authentication already verified)')
-
     debug(config, `Starting MCP server with ${sse ? 'SSE' : 'stdio'} transport`)
 
     // Create MCP server instance
@@ -52,6 +49,20 @@ export default async function mcpCommand(token, options) {
       name: serverInfo.name,
       version: serverInfo.version,
     })
+
+    // Start authentication in background (don't block tool registration)
+    // If auth fails, server will exit with error
+    ;(async () => {
+      try {
+        const { detectApiAndAuth } = await import('../utils/api.js')
+        await detectApiAndAuth(false, true)
+        debug(config, 'Authentication verified in background')
+      } catch (error) {
+        output.error(`Authentication failed: ${error.message}`)
+        output.error('MCP server cannot function without valid authentication')
+        process.exit(1)
+      }
+    })()
 
     // Set up error handling
     server.onerror = (error) => {

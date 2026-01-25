@@ -669,43 +669,14 @@ program.on('command:*', function (operands) {
 const args = process.argv.slice(2)
 const command = args[0]
 
-// Commands that don't need authentication
-const noAuthCommands = ['version', 'update', 'install', 'metrics', 'proxy', '--version', '-V', '--help', '-h']
-const needsAuth = command && !noAuthCommands.includes(command)
-
 if (process.env.HELPMETEST_DEBUG) {
-  console.error(`[DEBUG] Command: ${command}, needsAuth: ${needsAuth}`)
+  console.error(`[DEBUG] Command: ${command}`)
 }
 
-// For MCP command, token is passed as argument - set it before auth check
+// For MCP command, token is passed as argument - set it in config
 if (command === 'mcp' && args[1] && args[1].startsWith('HELP-')) {
   const { config } = await import('./utils/config.js')
   config.apiToken = args[1]
-}
-
-// Authenticate once before executing any command that needs it
-if (needsAuth) {
-  const { detectApiAndAuth } = await import('./utils/api.js')
-  const { config } = await import('./utils/config.js')
-  try {
-    // Use fast-fail mode for CLI commands (3s timeout, no retries)
-    await detectApiAndAuth(false, true)
-    if (process.env.HELPMETEST_DEBUG) {
-      console.error(`[DEBUG] Global auth completed - API URL is now: ${config.apiBaseUrl}`)
-    }
-  } catch (error) {
-    // For health command, don't exit - let the command handle the error
-    if (command === 'health') {
-      // Continue to command execution - health command will handle this gracefully
-    } else {
-      output.error(`Authentication failed: ${error.message}`)
-      if (error.status === 401) {
-        output.info('Please check your HELPMETEST_API_TOKEN environment variable')
-        output.info('Get your token at https://helpmetest.com/settings')
-      }
-      process.exit(1)
-    }
-  }
 }
 
 // Parse command line arguments

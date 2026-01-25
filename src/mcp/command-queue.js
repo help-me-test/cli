@@ -17,6 +17,9 @@ let messageIdCounter = 0
 // Track active interactive sessions created in this MCP session
 const activeInteractiveSessions = new Set()
 
+// Track if background listener has been started
+let listenerStarted = false
+
 // State for interactive command flow control
 export const state = {
   requiresSendToUI: false
@@ -99,10 +102,22 @@ export function removeMessage(messageId) {
 }
 
 /**
+ * Ensure background listener is started (lazy initialization)
+ */
+function ensureListenerStarted() {
+  if (!listenerStarted) {
+    listenerStarted = true
+    startBackgroundListener().catch(() => {
+      listenerStarted = false // Allow retry on next call
+    })
+  }
+}
+
+/**
  * Start background listener that continuously receives messages from server
  * and adds them to queue. Runs indefinitely with auto-reconnect.
  */
-export async function startBackgroundListener() {
+async function startBackgroundListener() {
   let retryCount = 0
   const maxRetryDelay = 60000 // 60 seconds max
 
@@ -133,7 +148,11 @@ export async function startBackgroundListener() {
             try {
               const data = JSON.parse(event.trim())
 
-              console.error('[Queue] Received event:', JSON.stringify(data).substring(0, 200))
+              // Log events except healthcheck heartbeats (too noisy)
+              const isHealthcheckHeartbeat = data.type === 'heartbeat' && data.healthcheckName
+              if (!isHealthcheckHeartbeat) {
+                console.error('[Queue] Received event:', JSON.stringify(data).substring(0, 200))
+              }
 
               // Respond to PING messages immediately by marking them as processed
               if (data._type_?.includes('__PING__') && data.room) {
@@ -192,6 +211,8 @@ export async function startBackgroundListener() {
   }
 }
 
+export { startBackgroundListener }
+
 
 /**
  * Send heartbeat to mcp-listening topic
@@ -218,6 +239,9 @@ async function sendHeartbeat() {
  * @param {number} wait - Maximum wait time in ms (default: 500ms)
  */
 async function handleGetMessages({ wait = 500 }) {
+  // Ensure background listener is running
+  ensureListenerStarted()
+
   // Send initial heartbeat
   await sendHeartbeat()
 
@@ -331,6 +355,9 @@ export async function sendToUI(messageObj, room) {
 }
 
 async function handleSendToUI(args) {
+  // Ensure background listener is running
+  ensureListenerStarted()
+
   const { message, type = 'text', tasks, room } = args
 
   // Validate that at least one of message or tasks is provided
