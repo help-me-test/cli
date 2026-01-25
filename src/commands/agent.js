@@ -6,21 +6,27 @@
  */
 
 import { spawn } from 'child_process'
-import { readFileSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
 import { output } from '../utils/colors.js'
+import { apiGet, detectApiAndAuth } from '../utils/api.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+/**
+ * Fetch all instructions from server once
+ */
+async function fetchAllInstructions() {
+  await detectApiAndAuth()
+  const response = await apiGet('/api/prompts', {})
+  return response
+}
 
 /**
  * Launch Claude in self-healing mode with HelpMeTest tools
  */
 export async function claude() {
   try {
-    // Read the predefined prompt (in cli/prompts/, not src/prompts/)
-    const promptPath = join(__dirname, '../../prompts/loop.txt')
-    const prompt = readFileSync(promptPath, 'utf8')
+    // Fetch ALL instructions from server once
+    output.dim('📥 Fetching instructions from server...')
+    const prompts = await fetchAllInstructions()
+    const prompt = prompts.self_healing
 
     output.success('🤖 Launching Claude Agent with HelpMeTest tools enabled...')
     output.dim('🔧 Self-healing mode active - monitoring for test failures')
@@ -29,6 +35,7 @@ export async function claude() {
     // Spawn Claude with HelpMeTest tools enabled and custom prompt
     const args = [
       prompt,
+      '--model', 'sonnet',
       '--allowed-tools', 'mcp__HelpMeTest*',
       '--append-system-prompt', '\n\n🤖 HELPMETEST AGENT MODE: You have access to all HelpMeTest tools for autonomous test management and debugging.'
     ]

@@ -30,6 +30,7 @@ import { registerDocumentationTools } from './mcp/documentation.js'
 import { registerBrowserTaskTools } from './mcp/browser-tasks.js'
 import { registerCommandQueueTools } from './mcp/command-queue.js'
 import { registerProxyTools } from './mcp/proxy.js'
+import { registerInstructionTools } from './mcp/instructions.js'
 
 /**
  * Log MCP messages to file for debugging
@@ -135,6 +136,9 @@ export function createMcpServer(options = {}) {
 
   debug(config, 'Registering Proxy tools...')
   registerProxyTools(server)
+
+  debug(config, 'Registering Instruction tools...')
+  registerInstructionTools(server)
 
   debug(config, 'All MCP tools registered successfully')
 

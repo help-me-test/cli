@@ -14,6 +14,9 @@ const MAX_QUEUE_SIZE = 100
 let queue = []
 let eventIdCounter = 0
 
+// Track last processed event index to avoid re-processing
+let lastProcessedIndex = -1
+
 // Track active interactive sessions created in this MCP session
 const activeInteractiveSessions = new Set()
 
@@ -32,7 +35,6 @@ export const state = {
  */
 export function registerInteractiveSession(timestamp) {
   activeInteractiveSessions.add(timestamp)
-  console.error(`[Session] Registered interactive session: ${timestamp}`)
 }
 
 /**
@@ -100,12 +102,6 @@ export function removeMessage(messageId) {
   queue = queue.filter(msg => msg.id !== messageId)
   const removed = queue.length < initialLength
 
-  if (removed) {
-    console.error(`[Queue] Removed message ${messageId}, queue size: ${queue.length}`)
-  } else {
-    console.warn(`[Queue] Message ${messageId} not found in queue`)
-  }
-
   return removed
 }
 
@@ -131,20 +127,16 @@ async function startBackgroundListener() {
 
   while (true) {
     try {
-      console.error('[Queue] Starting background listener...')
-
       const { detectApiAndAuth } = await import('../utils/api.js')
       const userInfo = await detectApiAndAuth()
-      const pattern = `${userInfo.activeCompany}__*`
-
-      console.error(`[Queue] Subscribing to all company rooms: ${pattern}`)
+      const pattern = '-heartbeat'
 
       let buffer = ''
 
       await STREAM(
         config.apiBaseUrl,
-        '/api/stream/events',
-        { room: pattern },
+        `/api/stream/${pattern}`,
+        {},
         (chunk) => {
           buffer += chunk
           const events = buffer.split('\n\n')
@@ -156,31 +148,17 @@ async function startBackgroundListener() {
             try {
               const data = JSON.parse(event.trim())
 
-              // Log events except healthcheck heartbeats (too noisy)
-              const isHealthcheckHeartbeat = data.type === 'heartbeat' && data.healthcheckName
-              if (!isHealthcheckHeartbeat) {
-                console.error('[Queue] Received event:', JSON.stringify(data).substring(0, 200))
-              }
-
-              // Respond to PING messages immediately by marking them as processed
               if (data._type_?.includes('__PING__') && data.room) {
-                console.error(`[Queue] Marking PING as processed from ${data.room}`)
                 sendToUI({
                   ...data,
                   status: 'processed'
-                }, data.room).catch(err => {
-                  console.error('[Queue] Failed to mark PING as processed:', err)
-                })
+                }, data.room).catch(err => {})
               }
 
-              // Add user messages to unified queue (skip historical)
               if (data.sender === 'user' && data.text && data.status === 'processing' && !data._historical) {
-                // Check for duplicate by messageId
                 const isDuplicate = queue.some(msg => msg.messageId === data.messageId)
 
-                if (isDuplicate) {
-                  console.error(`[Queue] Skipping duplicate message with messageId: ${data.messageId}`)
-                } else {
+                if (!isDuplicate) {
                   const event = {
                     id: ++eventIdCounter,
                     timestamp: Date.now(),
@@ -188,18 +166,17 @@ async function startBackgroundListener() {
                     ...data
                   }
 
-                  // Check queue size limit
                   if (queue.length >= MAX_QUEUE_SIZE) {
-                    const removed = queue.shift()
-                    console.warn(`[Queue] Queue full (${MAX_QUEUE_SIZE}), removed oldest event:`, removed.id)
+                    queue.shift()
+                    if (lastProcessedIndex >= 0) {
+                      lastProcessedIndex--
+                    }
                   }
 
                   queue.push(event)
-                  console.error(`[Queue] Added user message ${event.id}: "${event.text}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
                 }
               }
 
-              // Add test status changes to unified queue
               if (data.type === 'test_status_change' && !data._historical) {
                 const event = {
                   id: ++eventIdCounter,
@@ -207,17 +184,17 @@ async function startBackgroundListener() {
                   ...data
                 }
 
-                // Check queue size limit
                 if (queue.length >= MAX_QUEUE_SIZE) {
                   queue.shift()
+                  if (lastProcessedIndex >= 0) {
+                    lastProcessedIndex--
+                  }
                 }
 
                 queue.push(event)
-                console.error(`[Queue] Added test status change event: ${event.test_name} ${event.previous_status} -> ${event.status}`)
               }
 
             } catch (e) {
-              console.error('[Queue] Failed to parse message:', e)
             }
           }
         },
@@ -231,7 +208,6 @@ async function startBackgroundListener() {
       // Exponential backoff on errors
       retryCount++
       const delay = Math.min(1000 * Math.pow(2, retryCount - 1), maxRetryDelay)
-      console.error(`[Queue] Connection error (retry ${retryCount} in ${delay}ms):`, err.message)
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
@@ -254,9 +230,7 @@ async function sendHeartbeat() {
       type: 'heartbeat'
     }, userInfo.activeCompany)
 
-    console.error('[Queue] Heartbeat sent')
   } catch (error) {
-    console.error('[Queue] Error sending heartbeat:', error)
   }
 }
 
@@ -290,14 +264,12 @@ async function handleGetMessages({ wait = 500 }) {
 
       // Remove user messages from queue
       queue = queue.filter(event => event.type !== 'user_message')
-      console.error(`[Queue] Found ${userMessages.length} user message(s), remaining in queue: ${queue.length}`)
 
       // Mark all messages as processed
       for (const msg of userMessages) {
         if (msg.messageId && msg.room) {
           msg.status = 'processed'
           sendToUI(msg, msg.room)
-          console.error(`[Queue] Marked message ${msg.messageId} as processed`)
         }
       }
 
@@ -324,7 +296,6 @@ async function handleGetMessages({ wait = 500 }) {
       cleanup()
 
       if (queue.length === 0) {
-        console.error(`[Queue] Timeout after ${wait}ms - no messages received`)
         resolve({
           content: [{
             type: 'text',
@@ -524,38 +495,51 @@ export function formatEvents(events) {
     return ''
   }
 
-  const eventDescriptions = events.map(event => {
-    if (event.type === 'test_status_change') {
+  const userMessages = events.filter(e => e.type === 'user_message')
+  const testEvents = events.filter(e => e.type === 'test_status_change')
+
+  let output = '\n\n---\n\n'
+
+  if (userMessages.length > 0) {
+    output += `💬 **User sent ${userMessages.length} message(s):**\n\n`
+    userMessages.forEach(msg => {
+      output += `**Message:** ${msg.text}\n`
+      output += `**Room:** ${msg.room}\n`
+      output += `**Time:** ${msg.timestamp}\n\n`
+    })
+    output += '⚠️ **MANDATORY: Respond IMMEDIATELY using send_to_ui**\n\n'
+  }
+
+  if (testEvents.length > 0) {
+    output += `🧪 **${testEvents.length} Test Status Change(s):**\n\n`
+    testEvents.forEach(event => {
       const emoji = event.status === 'FAIL' ? '❌' : event.status === 'PASS' ? '✅' : '⚠️'
       const direction = event.previous_status === 'PASS' && event.status === 'FAIL' ? '📉 REGRESSION' :
                        event.previous_status === 'FAIL' && event.status === 'PASS' ? '📈 RECOVERY' : '🔄 CHANGE'
-      return `${emoji} **${direction}**: Test "${event.test_name}" (${event.test_id})
-   Previous: ${event.previous_status} → Current: ${event.status}
-   Time: ${event.timestamp}
-   Duration: ${event.elapsed_time}s`
-    }
-    return `**${event.type}**: ${JSON.stringify(event, null, 2)}`
-  }).join('\n\n')
+      output += `${emoji} **${direction}**: Test "${event.test_name}" (${event.test_id})\n`
+      output += `   Previous: ${event.previous_status} → Current: ${event.status}\n`
+      output += `   Time: ${event.timestamp}\n`
+      output += `   Duration: ${event.elapsed_time}s\n\n`
+    })
+  }
 
-  return `
+  output += '---\n\n'
 
----
+  if (userMessages.length > 0) {
+    output += '**FIRST:** Call send_to_ui to respond to user messages\n'
+    output += '**THEN:** Handle test failures/recoveries if needed\n'
+  } else {
+    output += '**What to do:**\n'
+    output += '1. Investigate test failures/regressions\n'
+    output += '2. Acknowledge recoveries\n'
+    output += '3. Take corrective action if needed\n'
+  }
 
-🔔 **${events.length} Actionable Event(s) Detected:**
-
-${eventDescriptions}
-
----
-
-**What you should do:**
-1. Investigate test failures/regressions
-2. Acknowledge recoveries
-3. Take corrective action if needed
-`
+  return output
 }
 
 /**
- * Handle listen to events - waits for actionable events
+ * Handle listen to events - waits for actionable events (user messages + test status changes)
  */
 async function handleListenToEvents({ wait = 5000 }) {
   // Ensure background listener is running
@@ -571,20 +555,33 @@ async function handleListenToEvents({ wait = 5000 }) {
     }
 
     const checkEvents = () => {
-      // Filter for test status change events only
-      const testEvents = queue.filter(event => event.type === 'test_status_change')
-      if (testEvents.length === 0) return false
+      const newEvents = []
+      for (let i = lastProcessedIndex + 1; i < queue.length; i++) {
+        newEvents.push(queue[i])
+      }
 
-      // Remove test events from queue
-      queue = queue.filter(event => event.type !== 'test_status_change')
-      console.error(`[Queue] Found ${testEvents.length} test status change event(s), remaining in queue: ${queue.length}`)
+      if (newEvents.length === 0) return false
+
+      // Update lastProcessedIndex to the last event we're returning
+      const lastEventIndex = queue.indexOf(newEvents[newEvents.length - 1])
+      lastProcessedIndex = lastEventIndex
+
+
+      // Mark user messages as processed
+      const userMessages = newEvents.filter(e => e.type === 'user_message')
+      for (const msg of userMessages) {
+        if (msg.messageId && msg.room) {
+          msg.status = 'processed'
+          sendToUI(msg, msg.room)
+        }
+      }
 
       cleanup()
 
       resolve({
         content: [{
           type: 'text',
-          text: formatEvents(testEvents)
+          text: formatEvents(newEvents)
         }]
       })
       return true
@@ -601,20 +598,36 @@ async function handleListenToEvents({ wait = 5000 }) {
     timeout = setTimeout(() => {
       cleanup()
 
-      // Filter for test status change events
-      const testEvents = queue.filter(event => event.type === 'test_status_change')
+      // Get unprocessed actionable events
+      const newEvents = []
+      for (let i = lastProcessedIndex + 1; i < queue.length; i++) {
+        const event = queue[i]
+        if (event.type === 'user_message' || event.type === 'test_status_change') {
+          newEvents.push(event)
+        }
+      }
 
-      if (testEvents.length > 0) {
-        // Remove test events from queue
-        queue = queue.filter(event => event.type !== 'test_status_change')
+      if (newEvents.length > 0) {
+        // Update lastProcessedIndex
+        const lastEventIndex = queue.indexOf(newEvents[newEvents.length - 1])
+        lastProcessedIndex = lastEventIndex
+
+        // Mark user messages as processed
+        const userMessages = newEvents.filter(e => e.type === 'user_message')
+        for (const msg of userMessages) {
+          if (msg.messageId && msg.room) {
+            msg.status = 'processed'
+            sendToUI(msg, msg.room)
+          }
+        }
       }
 
       resolve({
         content: [{
           type: 'text',
-          text: testEvents.length === 0
+          text: newEvents.length === 0
             ? 'No actionable events. Queue is empty.'
-            : formatEvents(testEvents)
+            : formatEvents(newEvents)
         }]
       })
     }, wait)
@@ -626,65 +639,43 @@ async function handleListenToEvents({ wait = 5000 }) {
  * Register command queue tools
  */
 export function registerCommandQueueTools(server) {
-  // Get user messages tool
-  server.registerTool(
-    'get_user_messages',
-    {
-      title: 'Get User Messages',
-      description: `Get messages from user sent through the frontend chat interface.
-
-⚠️ **NOTE:** This tool shares a UNIFIED event queue with listen_to_events. All events (user messages + test status changes) flow through the same queue. This tool filters for user_message events only.
-
-Waits up to {wait}ms for messages to arrive:
-- Small wait (500ms default): Returns almost instantly, good for periodic polling
-- Large wait (300000ms = 5 minutes): Listens for extended time, good for idle mode
-
-Always includes the prompt with TaskList requirements.
-
-🚨 CRITICAL: When messages arrive, you MUST respond immediately using send_to_ui.
-
-**Parameters:**
-- wait: Maximum wait time in ms (default: 500ms)
-
-${IDLE_LISTENING_REQUIREMENT}`,
-      inputSchema: {
-        wait: z.number().optional().default(500).describe('Maximum wait time in ms (default: 500ms)')
-      }
-    },
-    async (args) => {
-      return await handleGetMessages(args)
-    }
-  )
-
   // Listen to actionable events tool
   server.registerTool(
     'listen_to_events',
     {
-      title: 'Listen to Actionable Events',
-      description: `Listen for actionable events like test status changes, failures, and recoveries.
+      title: 'Listen to All Events',
+      description: `Listen for all actionable events: user messages AND test status changes.
 
-⚠️ **NOTE:** This tool shares a UNIFIED event queue with get_user_messages. All events (user messages + test status changes) flow through the same queue. This tool filters for test_status_change events only. For self-healing loops, you can use ONLY this tool to get both user commands AND test failures from one queue.
+This is the UNIFIED event queue - all events flow through here.
 
 Waits up to {wait}ms for events to arrive:
 - Short wait (5000ms default): Returns quickly with any pending events
 - Long wait (300000ms = 5 minutes): Listens for extended time, good for monitoring mode
 
-**Event Types Monitored:**
-- test_status_change: Test status changed (PASS→FAIL, FAIL→PASS, etc.)
-  - 📉 REGRESSION: Test went from PASS to FAIL (needs attention!)
-  - 📈 RECOVERY: Test went from FAIL to PASS (acknowledge success)
-  - 🔄 OTHER CHANGES: Status changed in other ways
+**Event Types Returned:**
+1. **user_message**: Messages from user via frontend chat
+   - 💬 User sent a message
+   - ⚠️ You MUST respond immediately using send_to_ui
+
+2. **test_status_change**: Test status changed (PASS→FAIL, FAIL→PASS, etc.)
+   - 📉 REGRESSION: Test went from PASS to FAIL (needs attention!)
+   - 📈 RECOVERY: Test went from FAIL to PASS (acknowledge success)
+   - 🔄 OTHER CHANGES: Status changed in other ways
 
 **Parameters:**
 - wait: Maximum wait time in ms (default: 5000ms)
 
 **Use this tool to:**
+- Build self-healing loops that respond to test failures AND user commands
 - Monitor for test failures that need investigation
-- Track test recoveries
+- Respond to user messages in real-time
 - Stay aware of system health changes
-- Build self-healing loops (get all events from one queue)
 
-This is a passive monitoring tool - it shows you what's happening without requiring action.`,
+**When events arrive:**
+1. FIRST: Respond to user messages if any (using send_to_ui)
+2. THEN: Handle test failures/recoveries
+
+${IDLE_LISTENING_REQUIREMENT}`,
       inputSchema: {
         wait: z.number().optional().default(5000).describe('Maximum wait time in ms (default: 5000ms)')
       }

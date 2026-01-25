@@ -7,21 +7,8 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { apiGet, apiPost, apiDelete, detectApiAndAuth } from '../utils/api.js'
 
-/**
- * Valid artifact types
- */
-const ARTIFACT_TYPES = [
-  'business-analysis',
-  'sitemap',
-  'trd',
-  'page-description',
-  'page-analysis',
-  'user-personas',
-  'api-documentation',
-  'known-errors',
-  'tickets',
-  'exploratory-testing'
-]
+// NO hardcoded types - let the AI service validate
+// This way MCP never gets out of sync when new artifact types are added
 
 /**
  * List artifacts with optional filters
@@ -327,7 +314,7 @@ export function registerArtifactTools(server) {
     'helpmetest_list_artifacts',
     'List all artifacts with optional filters (type, tags, search). Use this to browse the knowledge base.',
     {
-      type: z.enum(ARTIFACT_TYPES).optional().describe('Filter by artifact type'),
+      type: z.string().optional().describe('Filter by artifact type (e.g., SelfHealing, ExploratoryTesting, BusinessAnalysis)'),
       tags: z.union([z.string(), z.array(z.string())]).optional().describe('Filter by tags (comma-separated string or array)'),
       search: z.string().optional().describe('Search term to filter artifacts by name, content, or tags'),
       matchAll: z.boolean().optional().describe('If true with tags filter, artifact must have ALL tags; if false, ANY tag')
@@ -353,7 +340,7 @@ export function registerArtifactTools(server) {
     {
       id: z.string().describe('Unique artifact ID (e.g., "login-page-selectors")'),
       name: z.string().describe('Human-readable artifact name'),
-      type: z.enum(ARTIFACT_TYPES).describe('Artifact type: business-analysis, sitemap, trd, page-description, page-analysis, user-personas, api-documentation, known-errors, tickets'),
+      type: z.string().describe('Artifact type matching backend class names (e.g., BusinessAnalysis, SelfHealing, ExploratoryTesting). Server validates valid types.'),
       content: z.union([z.string(), z.any()]).describe('Artifact content as JSON object or JSON string'),
       tags: z.array(z.string()).optional().describe('Tags for categorization and linking (e.g., ["page:login", "feature:auth"])')
     },
@@ -401,7 +388,7 @@ export function registerArtifactTools(server) {
     'helpmetest_get_artifact_schema',
     'Get the schema for an artifact type to know what fields exist and their validation rules. ALWAYS call this BEFORE making updates to understand the structure and use correct field names.',
     {
-      type: z.enum(ARTIFACT_TYPES).describe('Artifact type (e.g., exploratory-testing)')
+      type: z.string().describe('Artifact type (e.g., SelfHealing, ExploratoryTesting, BusinessAnalysis)')
     },
     getArtifactSchema
   )
