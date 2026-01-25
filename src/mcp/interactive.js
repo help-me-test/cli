@@ -153,7 +153,7 @@ function extractContentFromResult(result) {
  */
 async function handleRunInteractiveCommand(args) {
   const startTime = Date.now()
-  const { command, explanation, line = 0, debug: debugMode = false, timeout = 30000, timestamp: sessionTimestamp } = args
+  const { command, explanation, line = 0, debug: debugMode = false, timeout = 5000, timestamp: sessionTimestamp } = args
 
   // Check if blocked - must call send_to_ui before running next interactive command
   if (state.requiresSendToUI) {
@@ -431,7 +431,7 @@ Do NOT just say "it failed" - explain the ROOT CAUSE based on visible evidence."
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
         debug: z.boolean().optional().default(false).describe('Enable debug mode to show network request/response bodies. When false (default), hides request/response data.'),
-        timeout: z.number().optional().default(30000).describe('Timeout in milliseconds for command execution (default: 30000ms / 30 seconds). Increase for slow-loading pages.'),
+        timeout: z.number().optional().default(5000).describe('Timeout in milliseconds for command execution (default: 5000ms / 5 seconds). Increase for slow-loading pages.'),
         timestamp: z.string().optional().describe('Optional session timestamp to continue an existing interactive session (e.g., "2026-01-12T14:46:55.830Z"). If not provided, creates a new session.'),
       },
     },
