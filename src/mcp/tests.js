@@ -389,16 +389,18 @@ export function formatTestsAsTable(tests, options = {}) {
 /**
  * Handle test status tool call
  * @param {Object} args - Tool arguments
+ * @param {string} [args.id] - Optional test ID to show full details for specific test
  * @param {boolean} [args.verbose] - Enable verbose output
  * @returns {Object} Test status result
  */
 async function handleTestStatus(args) {
-  const { verbose = false } = args
+  const { id, verbose = false } = args
 
-  debug(config, 'Getting test status for MCP client')
+  debug(config, `Getting test status for MCP client${id ? ` (id: ${id})` : ''}`)
 
   try {
-    const statusData = await getFormattedStatusData({ verbose })
+    // Always fetch with verbose=true to get content/description
+    const statusData = await getFormattedStatusData({ verbose: true })
 
     // Filter to only include tests
     const filteredData = {
@@ -410,10 +412,72 @@ async function handleTestStatus(args) {
 
     debug(config, `Retrieved test status data: ${filteredData.total} tests`)
 
+    // If ID provided, show full details for that specific test
+    if (id) {
+      const test = filteredData.tests.find(t => t.id === id)
+
+      if (!test) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Test Not Found
+
+**ID:** ${id}
+
+**Available Tests:**
+${filteredData.tests.map(t => `- \`${t.id}\` - ${t.name}`).join('\n')}`,
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      // Format full test details
+      const statusEmoji = test.status === 'PASS' ? '✅' : test.status === 'FAIL' ? '❌' : '⚠️'
+      const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : 'none'
+
+      const output = `# ${statusEmoji} Test Details
+
+**Name:** ${test.name}
+**ID:** \`${test.id}\`
+**Status:** ${test.status || 'unknown'}
+**Last Run:** ${test.last_run || 'never'}
+**Duration:** ${test.duration || 'N/A'}
+**Tags:** ${tags}
+${test.description ? `**Description:** ${test.description}` : ''}
+
+## Test Content
+
+\`\`\`robotframework
+${test.content || 'No content'}
+\`\`\`
+
+## Actions
+
+- **Run:** Use \`helpmetest_run_test\` with identifier "${id}"
+- **Open:** Use \`helpmetest_open_test\` with id "${id}"
+- **Update:** Use \`helpmetest_update_test\` to modify content
+- **Rename:** Use \`helpmetest_update_test_name\` to change name
+- **Retag:** Use \`helpmetest_update_test_tags\` to modify tags`
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: output,
+          },
+        ],
+      }
+    }
+
+    // No ID provided - show table of all tests
     const output = `# 🧪 Test Status Report
 
 ${formatTestsAsTable(filteredData.tests, { includeHeader: false })}
-💡 Focus on ❌ failed tests - they need immediate attention`
+💡 Focus on ❌ failed tests - they need immediate attention
+
+**Tip:** Use \`id="test_id"\` parameter to see full test details including content and description`
 
     return {
       content: [
@@ -435,7 +499,8 @@ ${formatTestsAsTable(filteredData.tests, { includeHeader: false })}
         apiUrl: config.apiBaseUrl,
         hasToken: !!config.apiToken,
         status: error.status || null,
-        verbose
+        verbose,
+        id
       }
     }
 
@@ -1053,11 +1118,29 @@ export function registerTestTools(server) {
     'helpmetest_status_test',
     {
       title: 'Help Me Test: Test Status Tool',
-      description: `Get status of all tests in the helpmetest system. When verbose=true, includes full test content and descriptions.
+      description: `Get status of all tests in the helpmetest system, or show full details for a specific test.
 
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're checking. After getting results, summarize the test statuses in plain language - tell them how many tests passed/failed, which ones need attention, etc. Don't just say "Done".`,
+**Two Modes:**
+
+1. **List Mode** (no id parameter): Shows table of all tests with status, duration, tags
+2. **Detail Mode** (with id parameter): Shows FULL test details including:
+   - Test name, ID, status, last run, duration, tags, description
+   - Complete Robot Framework test content
+   - Available actions (run, open, update, etc.)
+
+**Use Detail Mode to:**
+- View test content without executing
+- Check test description
+- See what Robot Framework keywords a test uses
+- Verify test configuration before running
+
+🚨 INSTRUCTION FOR AI:
+- Use **Detail Mode** (\`id="test_id"\`) when you need to see test content/description without running it
+- Use **List Mode** (no id) to get overview of all tests
+- Always explain what you're checking and summarize results in plain language`,
       inputSchema: {
-        verbose: z.boolean().optional().default(false).describe('Enable verbose output with full test content, descriptions, and execution details'),
+        id: z.string().optional().describe('Optional test ID to show full details for specific test (including content and description)'),
+        verbose: z.boolean().optional().default(false).describe('Deprecated - content is always included when id is provided'),
       },
     },
     async (args) => {
