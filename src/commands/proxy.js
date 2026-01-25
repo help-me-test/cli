@@ -32,8 +32,8 @@ async function registerTunnel(serverAddr, serverPort, domain, name, port) {
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: response.statusText }))
-    throw new Error(error.error || `Registration failed: ${response.status}`)
+    const error = await response.json()
+    throw new Error(error.error)
   }
 
   const data = await response.json()
@@ -119,7 +119,8 @@ export async function startProxy(target, options) {
   const company = userInfo.activeCompany || userInfo.companyName
 
   // Use public helpmetest proxy endpoint (works from anywhere)
-  const serverAddr = 'proxy.helpmetest.com'
+  // Can be overridden with PROXY_HOST env var for k8s internal use
+  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
   const registrationPort = 30889  // FastAPI registration endpoint
   const serverPort = 30888        // Kept for backward compatibility (unused)
 
@@ -144,7 +145,7 @@ export async function startProxy(target, options) {
     frpServerPort = registration.frpServerPort
     output.success(`Proxying ${domain} -> localhost:${port}`)
   } catch (err) {
-    output.error(`Failed to register tunnel: ${err.message}`)
+    output.error(`Failed to register tunnel: ${err?.message || err || 'Unknown error'}`)
     process.exit(1)
   }
 
