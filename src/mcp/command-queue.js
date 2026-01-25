@@ -8,11 +8,11 @@ import { config } from '../utils/config.js'
 import { STREAM } from '../utils.js'
 import { BATCH_OPERATION_REQUIREMENT, IDLE_LISTENING_REQUIREMENT } from './shared-prompts.js'
 
-// Module-level queue for storing messages (can be used bidirectionally)
+// Module-level unified queue for ALL events (user messages, test status changes, etc.)
 // Max 100 items to prevent memory issues
 const MAX_QUEUE_SIZE = 100
 let queue = []
-let messageIdCounter = 0
+let eventIdCounter = 0
 
 // Track active interactive sessions created in this MCP session
 const activeInteractiveSessions = new Set()
@@ -22,7 +22,8 @@ let listenerStarted = false
 
 // State for interactive command flow control
 export const state = {
-  requiresSendToUI: false
+  requiresSendToUI: false,
+  lastRoom: null
 }
 
 /**
@@ -73,13 +74,20 @@ export function getAvailableRooms(company) {
 }
 
 /**
- * Get all pending messages and clear the queue
- * @returns {Array} All messages from the queue
+ * Get all pending events (user messages, test status changes, etc.) and clear the queue
+ * @returns {Array} All events from the queue
+ */
+export function getPendingEvents() {
+  const events = [...queue]
+  queue = []
+  return events
+}
+
+/**
+ * Alias for backwards compatibility
  */
 export function getPendingMessages() {
-  const messages = [...queue]
-  queue = []
-  return messages
+  return getPendingEvents()
 }
 
 /**
@@ -165,7 +173,7 @@ async function startBackgroundListener() {
                 })
               }
 
-              // Only add user messages to the queue that are still being processed (skip historical)
+              // Add user messages to unified queue (skip historical)
               if (data.sender === 'user' && data.text && data.status === 'processing' && !data._historical) {
                 // Check for duplicate by messageId
                 const isDuplicate = queue.some(msg => msg.messageId === data.messageId)
@@ -173,21 +181,39 @@ async function startBackgroundListener() {
                 if (isDuplicate) {
                   console.error(`[Queue] Skipping duplicate message with messageId: ${data.messageId}`)
                 } else {
-                  const message = {
-                    id: ++messageIdCounter,
+                  const event = {
+                    id: ++eventIdCounter,
                     timestamp: Date.now(),
+                    type: 'user_message',
                     ...data
                   }
 
                   // Check queue size limit
                   if (queue.length >= MAX_QUEUE_SIZE) {
                     const removed = queue.shift()
-                    console.warn(`[Queue] Queue full (${MAX_QUEUE_SIZE}), removed oldest message:`, removed.id)
+                    console.warn(`[Queue] Queue full (${MAX_QUEUE_SIZE}), removed oldest event:`, removed.id)
                   }
 
-                  queue.push(message)
-                  console.error(`[Queue] Added user message ${message.id}: "${message.text}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
+                  queue.push(event)
+                  console.error(`[Queue] Added user message ${event.id}: "${event.text}" (messageId: ${data.messageId}), queue size: ${queue.length}`)
                 }
+              }
+
+              // Add test status changes to unified queue
+              if (data.type === 'test_status_change' && !data._historical) {
+                const event = {
+                  id: ++eventIdCounter,
+                  timestamp: Date.now(),
+                  ...data
+                }
+
+                // Check queue size limit
+                if (queue.length >= MAX_QUEUE_SIZE) {
+                  queue.shift()
+                }
+
+                queue.push(event)
+                console.error(`[Queue] Added test status change event: ${event.test_name} ${event.previous_status} -> ${event.status}`)
               }
 
             } catch (e) {
@@ -258,13 +284,16 @@ async function handleGetMessages({ wait = 500 }) {
     }
 
     const checkMessages = () => {
-      if (queue.length === 0) return false
+      // Filter for user messages only
+      const userMessages = queue.filter(event => event.type === 'user_message')
+      if (userMessages.length === 0) return false
 
-      const messages = getPendingMessages()
-      console.error(`[Queue] Found ${messages.length} message(s) in queue, cleared queue`)
+      // Remove user messages from queue
+      queue = queue.filter(event => event.type !== 'user_message')
+      console.error(`[Queue] Found ${userMessages.length} user message(s), remaining in queue: ${queue.length}`)
 
       // Mark all messages as processed
-      for (const msg of messages) {
+      for (const msg of userMessages) {
         if (msg.messageId && msg.room) {
           msg.status = 'processed'
           sendToUI(msg, msg.room)
@@ -277,7 +306,7 @@ async function handleGetMessages({ wait = 500 }) {
       resolve({
         content: [{
           type: 'text',
-          text: formatUserMessages(messages)
+          text: formatUserMessages(userMessages)
         }]
       })
       return true
@@ -487,6 +516,111 @@ FIRST, call send_to_ui to explain what you understood and what you'll do:
 ONLY AFTER responding, start executing.`
 }
 
+/**
+ * Format actionable events for display
+ */
+export function formatEvents(events) {
+  if (!events || events.length === 0) {
+    return ''
+  }
+
+  const eventDescriptions = events.map(event => {
+    if (event.type === 'test_status_change') {
+      const emoji = event.status === 'FAIL' ? '❌' : event.status === 'PASS' ? '✅' : '⚠️'
+      const direction = event.previous_status === 'PASS' && event.status === 'FAIL' ? '📉 REGRESSION' :
+                       event.previous_status === 'FAIL' && event.status === 'PASS' ? '📈 RECOVERY' : '🔄 CHANGE'
+      return `${emoji} **${direction}**: Test "${event.test_name}" (${event.test_id})
+   Previous: ${event.previous_status} → Current: ${event.status}
+   Time: ${event.timestamp}
+   Duration: ${event.elapsed_time}s`
+    }
+    return `**${event.type}**: ${JSON.stringify(event, null, 2)}`
+  }).join('\n\n')
+
+  return `
+
+---
+
+🔔 **${events.length} Actionable Event(s) Detected:**
+
+${eventDescriptions}
+
+---
+
+**What you should do:**
+1. Investigate test failures/regressions
+2. Acknowledge recoveries
+3. Take corrective action if needed
+`
+}
+
+/**
+ * Handle listen to events - waits for actionable events
+ */
+async function handleListenToEvents({ wait = 5000 }) {
+  // Ensure background listener is running
+  ensureListenerStarted()
+
+  let interval = null
+  let timeout = null
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      if (interval) clearInterval(interval)
+      if (timeout) clearTimeout(timeout)
+    }
+
+    const checkEvents = () => {
+      // Filter for test status change events only
+      const testEvents = queue.filter(event => event.type === 'test_status_change')
+      if (testEvents.length === 0) return false
+
+      // Remove test events from queue
+      queue = queue.filter(event => event.type !== 'test_status_change')
+      console.error(`[Queue] Found ${testEvents.length} test status change event(s), remaining in queue: ${queue.length}`)
+
+      cleanup()
+
+      resolve({
+        content: [{
+          type: 'text',
+          text: formatEvents(testEvents)
+        }]
+      })
+      return true
+    }
+
+    // Check immediately
+    if (checkEvents()) return
+
+    // Set up polling and timeout
+    interval = setInterval(() => {
+      if (checkEvents()) clearInterval(interval)
+    }, 500)
+
+    timeout = setTimeout(() => {
+      cleanup()
+
+      // Filter for test status change events
+      const testEvents = queue.filter(event => event.type === 'test_status_change')
+
+      if (testEvents.length > 0) {
+        // Remove test events from queue
+        queue = queue.filter(event => event.type !== 'test_status_change')
+      }
+
+      resolve({
+        content: [{
+          type: 'text',
+          text: testEvents.length === 0
+            ? 'No actionable events. Queue is empty.'
+            : formatEvents(testEvents)
+        }]
+      })
+    }, wait)
+  })
+}
+
 
 /**
  * Register command queue tools
@@ -498,6 +632,8 @@ export function registerCommandQueueTools(server) {
     {
       title: 'Get User Messages',
       description: `Get messages from user sent through the frontend chat interface.
+
+⚠️ **NOTE:** This tool shares a UNIFIED event queue with listen_to_events. All events (user messages + test status changes) flow through the same queue. This tool filters for user_message events only.
 
 Waits up to {wait}ms for messages to arrive:
 - Small wait (500ms default): Returns almost instantly, good for periodic polling
@@ -517,6 +653,44 @@ ${IDLE_LISTENING_REQUIREMENT}`,
     },
     async (args) => {
       return await handleGetMessages(args)
+    }
+  )
+
+  // Listen to actionable events tool
+  server.registerTool(
+    'listen_to_events',
+    {
+      title: 'Listen to Actionable Events',
+      description: `Listen for actionable events like test status changes, failures, and recoveries.
+
+⚠️ **NOTE:** This tool shares a UNIFIED event queue with get_user_messages. All events (user messages + test status changes) flow through the same queue. This tool filters for test_status_change events only. For self-healing loops, you can use ONLY this tool to get both user commands AND test failures from one queue.
+
+Waits up to {wait}ms for events to arrive:
+- Short wait (5000ms default): Returns quickly with any pending events
+- Long wait (300000ms = 5 minutes): Listens for extended time, good for monitoring mode
+
+**Event Types Monitored:**
+- test_status_change: Test status changed (PASS→FAIL, FAIL→PASS, etc.)
+  - 📉 REGRESSION: Test went from PASS to FAIL (needs attention!)
+  - 📈 RECOVERY: Test went from FAIL to PASS (acknowledge success)
+  - 🔄 OTHER CHANGES: Status changed in other ways
+
+**Parameters:**
+- wait: Maximum wait time in ms (default: 5000ms)
+
+**Use this tool to:**
+- Monitor for test failures that need investigation
+- Track test recoveries
+- Stay aware of system health changes
+- Build self-healing loops (get all events from one queue)
+
+This is a passive monitoring tool - it shows you what's happening without requiring action.`,
+      inputSchema: {
+        wait: z.number().optional().default(5000).describe('Maximum wait time in ms (default: 5000ms)')
+      }
+    },
+    async (args) => {
+      return await handleListenToEvents(args)
     }
   )
 

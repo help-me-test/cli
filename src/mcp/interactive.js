@@ -157,7 +157,8 @@ async function handleRunInteractiveCommand(args) {
 
   // Check if blocked - must call send_to_ui before running next interactive command
   if (state.requiresSendToUI) {
-    throw new Error('Must call send_to_ui before running next interactive command. Please communicate the state, plan, and expectations from the previous command first.')
+    const roomHint = state.lastRoom ? `\n\nUse room: "${state.lastRoom}"` : ''
+    throw new Error(`Must call send_to_ui before running next interactive command. Please communicate the state, plan, and expectations from the previous command first.${roomHint}`)
   }
 
   debug(config, `Running interactive command: ${command} (${explanation}) [timeout: ${timeout}ms]`)
@@ -187,6 +188,9 @@ async function handleRunInteractiveCommand(args) {
     }
 
     const room = `${userInfo.activeCompany}__interactive__${timestamp}`
+
+    // Store room for error messages
+    state.lastRoom = room
 
     const messageId = `cmd-${Date.now()}`
 
