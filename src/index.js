@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 /**
  * HelpMeTest CLI - Main entry point
@@ -24,6 +24,7 @@ import versionCommand from './commands/version.js'
 import updateCommand from './commands/update.js'
 import installCommand, { getCliCommand } from './commands/install.js'
 import proxyCommand from './commands/proxy.js'
+import agentCommand from './commands/agent.js'
 import { colors, output } from './utils/colors.js'
 import packageJson from '../package.json' with { type: 'json' }
 
@@ -574,6 +575,42 @@ ${colors.subtitle('Use Cases:')}
   ${colors.dim('•')} Tutorial exercises and demos
 `)
   .action(proxyCommand['run-fake-server'])
+
+// Register the Agent command group
+const agentCommandGroup = program
+  .command('agent')
+  .description('Launch autonomous AI agents with HelpMeTest tools')
+
+// agent claude subcommand
+agentCommandGroup
+  .command('claude')
+  .description('🤖 Launch Claude Agent - autonomously monitor and fix test failures')
+  .addHelpText('after', `
+${colors.subtitle('What it does:')}
+  ${colors.dim('•')} Launches Claude Code in ${colors.success('HelpMeTest Agent Mode')}
+  ${colors.dim('•')} Enables all HelpMeTest MCP tools by default
+  ${colors.dim('•')} Continuously monitors test failures via listen_to_events
+  ${colors.dim('•')} Automatically investigates and fixes common issues:
+      - Broken selectors (finds working replacements)
+      - Syntax errors (corrects Robot Framework syntax)
+      - Timing issues (adds waits/retries)
+      - Proxy errors (restarts proxy if needed)
+  ${colors.dim('•')} Verifies all fixes before applying
+  ${colors.dim('•')} Creates artifacts documenting each fix
+  ${colors.dim('•')} Sends notifications for auto-fixes
+
+${colors.subtitle('Examples:')}
+  ${colors.dim('$')} ${colors.command('helpmetest agent claude')}                        ${colors.dim('# Launch Claude Agent in self-healing mode')}
+
+${colors.subtitle('To stop:')}
+  ${colors.dim('•')} Press ${colors.highlight('Ctrl+C')} to exit
+  ${colors.dim('•')} Send message "stop" or "exit" via Claude Code interface
+
+${colors.subtitle('Requirements:')}
+  ${colors.dim('•')} Claude Code must be installed: ${colors.highlight('npm install -g @anthropic-ai/claude-code')}
+  ${colors.dim('•')} HelpMeTest MCP server must be configured
+`)
+  .action(agentCommand.claude)
 
 // Register the version command
 program
