@@ -179,25 +179,29 @@ export async function startProxy(target, options = {}) {
     })
 
     let frpcOutput = ''
-    frpc.stdout.on('data', (data) => {
-      const str = data.toString()
-      frpcOutput += str
-      process.stdout.write(str)
-    })
-    frpc.stderr.on('data', (data) => {
-      const str = data.toString()
-      frpcOutput += str
-      process.stderr.write(str)
-    })
 
-    frpc.on('error', (err) => {
-      output.error(`Failed to start frpc: ${err.message}`)
-      process.exit(1)
-    })
+    // Pipe stdout/stderr to process and collect output
+    const collectOutput = async (stream, target) => {
+      const reader = stream.getReader()
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const str = new TextDecoder().decode(value)
+          frpcOutput += str
+          target.write(str)
+        }
+      } finally {
+        reader.releaseLock()
+      }
+    }
 
-    const exitCode = await new Promise((resolve) => {
-      frpc.on('exit', (code) => resolve(code))
-    })
+    // Start collecting output in background
+    collectOutput(frpc.stdout, process.stdout)
+    collectOutput(frpc.stderr, process.stderr)
+
+    // Wait for process to exit
+    const exitCode = await frpc.exited
 
     if (exitCode === 0) {
       break
@@ -215,20 +219,6 @@ export async function startProxy(target, options = {}) {
     process.exit(exitCode)
   }
 
-  // Deregister on exit
-  const deregister = async () => {
-    try {
-      const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
-      if (token) {
-        await fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${domain}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      }
-    } catch (err) {
-      // Ignore deregistration errors
-    }
-  }
-
   let isShuttingDown = false
 
   // Cleanup handler that runs synchronously
@@ -236,8 +226,10 @@ export async function startProxy(target, options = {}) {
     if (isShuttingDown) return
     isShuttingDown = true
 
+    console.error('[DEBUG] Cleanup called, killing frpc PID:', frpc.pid)
     output.info('Stopping tunnel...')
     frpc.kill('SIGTERM')
+    console.error('[DEBUG] frpc.kill() called')
 
     // Deregister synchronously - just call fetch and don't wait
     const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
@@ -250,15 +242,24 @@ export async function startProxy(target, options = {}) {
 
   // Handle Ctrl+C
   process.on('SIGINT', () => {
+    console.error('[DEBUG] SIGINT received')
     cleanup()
-    process.exit(0)
   })
 
   // Handle termination
   process.on('SIGTERM', () => {
+    console.error('[DEBUG] SIGTERM received')
     cleanup()
-    process.exit(0)
   })
+
+  // Keep parent alive and check frpc is running
+  const checkInterval = setInterval(() => {
+    if (frpc.exitCode !== null || frpc.killed) {
+      console.error('[DEBUG] frpc exited, stopping interval')
+      clearInterval(checkInterval)
+      process.exit(0)
+    }
+  }, 1000)
 }
 
 /**
@@ -455,31 +456,26 @@ export async function listProxies(options = {}) {
  * Stop a proxy tunnel by domain
  */
 export async function stopProxy(domain) {
-  const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
-  if (!token) {
-    throw new Error('No API token found. Run: helpmetest login')
-  }
-
-  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
-  const registrationPort = 30889
+  const fs = await import('fs')
+  const os = await import('os')
+  const pidFile = `${os.tmpdir()}/helpmetest-proxy-${domain.replace(/\./g, '-')}.pid`
 
   output.info(`Stopping tunnel for ${domain}...`)
 
+  // Kill the parent proxy process - its cleanup handler will kill frpc and deregister
   try {
-    const response = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${domain}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || `HTTP ${response.status}`)
-    }
-
-    output.success(`Stopped tunnel for ${domain}`)
+    const pid = parseInt(fs.readFileSync(pidFile, 'utf8'))
+    process.kill(pid, 'SIGTERM')
+    output.success(`Stopped proxy for ${domain}`)
   } catch (err) {
-    output.error(`Failed to stop tunnel: ${err.message}`)
+    if (err.code === 'ENOENT') {
+      output.error(`No proxy running for ${domain}`)
+    } else if (err.code === 'ESRCH') {
+      output.warning(`Proxy process not found, cleaning up PID file`)
+      try { fs.unlinkSync(pidFile) } catch {}
+    } else {
+      output.error(`Failed to stop proxy: ${err.message}`)
+    }
     process.exit(1)
   }
 }

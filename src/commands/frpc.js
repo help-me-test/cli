@@ -2,7 +2,8 @@
  * frpc helper - ensures frpc binary is available using stew
  */
 
-import { execSync, spawn } from 'child_process'
+import { execSync } from 'child_process'
+import { spawn } from 'bun'
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
@@ -133,14 +134,15 @@ export async function spawnFrpc(config, options = {}) {
     console.log('Config file:', configPath)
   }
 
-  // Spawn frpc
-  const frpc = spawn(frpcPath, ['-c', configPath], {
-    stdio: options.stdio || 'pipe',
-    ...options
+  // Spawn frpc using Bun.spawn
+  const { stdio, ...spawnOptions } = options
+  const frpc = spawn([frpcPath, '-c', configPath], {
+    ...spawnOptions,
+    stdio: stdio ? (Array.isArray(stdio) ? stdio : [stdio, stdio, stdio]) : ['pipe', 'pipe', 'pipe']
   })
 
   // Cleanup config file when process exits
-  frpc.on('exit', () => {
+  frpc.exited.then(() => {
     try {
       unlinkSync(configPath)
     } catch (err) {

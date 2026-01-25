@@ -5,12 +5,11 @@
 
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
-import {
-  listProxies as cliListProxies,
-  startProxy as cliStartProxy,
-  stopProxy as cliStopProxy,
-  stopAllProxies as cliStopAllProxies
-} from '../commands/proxy.js'
+import { spawn } from 'bun'
+import { listProxies as cliListProxies } from '../commands/proxy.js'
+
+// Store subprocess references by domain
+const activeProxies = new Map()
 
 /**
  * Handle proxy tool call
@@ -55,10 +54,15 @@ async function startProxy({ port, domain, name }) {
 
   try {
     const target = `${domain}:${port}`
-    const options = { domain, port, background: true }
-    if (name) options.name = name
+    const args = ['proxy', 'start', target]
+    if (name) args.push(name)
 
-    const result = await cliStartProxy(target, options)
+    const proc = spawn(['helpmetest', ...args], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+
+    // Store subprocess reference
+    activeProxies.set(domain, proc)
 
     return {
       content: [{
@@ -67,7 +71,7 @@ async function startProxy({ port, domain, name }) {
 
 **Public URL:** https://${domain}
 **Local Server:** localhost:${port}
-**Name:** ${result.name}`
+**Name:** ${name || 'auto-generated'}`
       }]
     }
   } catch (error) {
@@ -133,7 +137,21 @@ async function stopProxy(domain) {
   }
 
   try {
-    await cliStopProxy(domain)
+    const proc = activeProxies.get(domain)
+    if (!proc) {
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ **No Proxy Running:** ${domain}\n\nUse action "list" to see active proxies.`
+        }],
+        isError: true
+      }
+    }
+
+    // Kill the subprocess - its cleanup handler will kill frpc
+    proc.kill('SIGTERM')
+    activeProxies.delete(domain)
+
     return {
       content: [{
         type: 'text',
@@ -153,11 +171,25 @@ async function stopProxy(domain) {
 
 async function stopAllProxies() {
   try {
-    await cliStopAllProxies()
+    if (activeProxies.size === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: `📋 **No Active Proxies**`
+        }]
+      }
+    }
+
+    const count = activeProxies.size
+    for (const [domain, proc] of activeProxies) {
+      proc.kill('SIGTERM')
+    }
+    activeProxies.clear()
+
     return {
       content: [{
         type: 'text',
-        text: `✅ **All Proxies Stopped**`
+        text: `✅ **Stopped ${count} Proxy(ies)**`
       }]
     }
   } catch (error) {
