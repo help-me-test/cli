@@ -23,6 +23,9 @@ const activeInteractiveSessions = new Set()
 // Track if background listener has been started
 let listenerStarted = false
 
+// Track TaskList IDs per room for this MCP session
+const taskListIds = new Map()
+
 // State for interactive command flow control
 export const state = {
   requiresSendToUI: false,
@@ -411,12 +414,20 @@ async function handleSendToUI(args) {
   try {
     // If tasks are provided, send TaskList message
     if (tasks) {
+      // Get or create TaskList ID for this room
+      let taskListId = taskListIds.get(room)
+      if (!taskListId) {
+        taskListId = `tasklist-${Date.now()}`
+        taskListIds.set(room, taskListId)
+      }
+
       await sendToUI({
         ...args,
-        id: 'tasklist-current',
+        id: taskListId,
         _type_: ['TaskList'],
         status: 'working',
-        inProgress: tasks.some(t => t.status === 'in_progress')
+        inProgress: tasks.some(t => t.status === 'in_progress'),
+        updatedAt: Date.now()
       }, room)
     } else {
       // Send plain text message
