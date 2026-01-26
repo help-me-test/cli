@@ -416,6 +416,16 @@ const runTestMarkdown = async (identifier) => {
 
   try {
     const response = await apiPost(endpoint, {}, `Running test: ${identifier}`)
+
+    // API returns markdown string on success, JSON object on error
+    if (typeof response === 'object' && response.error) {
+      return `❌ Test Execution Failed
+
+**Error:** ${response.error}
+
+**Identifier:** ${identifier}`
+    }
+
     return response
   } catch (error) {
     throw handleApiError(error, { identifier, resolvedIdentifier, endpoint })
