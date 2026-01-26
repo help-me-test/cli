@@ -155,7 +155,7 @@ async function startBackgroundListener() {
                 }, data.room).catch(err => {})
               }
 
-              if (data.sender === 'user' && data.text && data.status === 'processing' && !data._historical) {
+              if (data.sender === 'user' && data.text && data.status === 'processing') {
                 const isDuplicate = queue.some(msg => msg.messageId === data.messageId)
 
                 if (!isDuplicate) {
@@ -177,7 +177,7 @@ async function startBackgroundListener() {
                 }
               }
 
-              if (data.type === 'test_status_change' && !data._historical) {
+              if (data.type === 'test_status_change') {
                 const event = {
                   id: ++eventIdCounter,
                   timestamp: Date.now(),
