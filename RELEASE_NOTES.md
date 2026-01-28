@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.25.1 (2026-01-28)
+
+### Bug Fixes
+
+- **Deploy Command Authentication**: Fixed critical issue where `helpmetest deploy` command failed with "Company ID required" error. The deploy command was missing API URL detection logic, causing it to always use production URL instead of falling back to development environment when needed. Now properly detects the correct API endpoint just like other commands.
+- **TaskList Stability**: Added stable IDs and updatedAt timestamps to TaskList items, preventing UI flicker and duplicate entries when tasks are updated frequently.
+- **Test Result Formatting**: Fixed error handling in test markdown output to properly return formatted error messages instead of JSON objects when tests fail.
+
+### Improvements
+
+- **Event Listener Heartbeat**: The `listen_to_events` MCP tool now sends heartbeat signals every 3 seconds while listening, providing real-time confirmation that the AI assistant is actively monitoring for user messages and test status changes.
+- **Interactive Session Timeouts**: Reduced default timeout for interactive commands from 5 seconds to 1 second for faster feedback. Commands requiring page navigation should specify longer timeouts (5-10 seconds) using the timeout parameter.
+- **Centralized Instructions**: AI agents now fetch behavioral instructions from the server, enabling dynamic updates to agent behavior without CLI releases. Instructions for self-healing loops, browser automation, and test workflows can now be updated independently.
+
 ## v1.25.0 (2026-01-25)
 
 ### New Features

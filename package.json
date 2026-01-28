@@ -1,6 +1,6 @@
 {
   "name": "helpmetest-cli",
-  "version": "1.25.0",
+  "version": "1.25.1",
   "description": "HelpMeTest CLI tool for health check monitoring",
   "main": "src/index.js",
   "type": "module",
