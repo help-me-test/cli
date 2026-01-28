@@ -556,6 +556,11 @@ async function handleListenToEvents({ wait = 5000 }) {
   // Ensure background listener is running
   ensureListenerStarted()
 
+  // Send initial heartbeat
+  await sendHeartbeat()
+
+  // Set up heartbeat interval (every 3 seconds while listening)
+  const heartbeatInterval = setInterval(sendHeartbeat, 3000)
   let interval = null
   let timeout = null
 
@@ -563,6 +568,7 @@ async function handleListenToEvents({ wait = 5000 }) {
     const cleanup = () => {
       if (interval) clearInterval(interval)
       if (timeout) clearTimeout(timeout)
+      clearInterval(heartbeatInterval)
     }
 
     const checkEvents = () => {

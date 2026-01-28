@@ -7,7 +7,7 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { colors, output } from '../utils/colors.js'
-import { apiPost } from '../utils/api.js'
+import { apiPost, detectApiAndAuth } from '../utils/api.js'
 
 const execAsync = promisify(exec)
 
@@ -82,6 +82,9 @@ export default async function deployCommand(app, options = {}) {
   }
 
   try {
+    // Detect correct API URL and authenticate
+    await detectApiAndAuth(options.verbose)
+
     output.info('Creating deployment update...')
 
     const result = await apiPost('/api/updates', {
