@@ -153,7 +153,7 @@ function extractContentFromResult(result) {
  */
 async function handleRunInteractiveCommand(args) {
   const startTime = Date.now()
-  const { command, explanation, line = 0, debug: debugMode = false, timeout = 5000, timestamp: sessionTimestamp } = args
+  const { command, explanation, line = 0, debug: debugMode = false, screenshot = false, timeout = 5000, timestamp: sessionTimestamp } = args
 
   // Check if blocked - must call send_to_ui before running next interactive command
   if (state.requiresSendToUI) {
@@ -216,6 +216,7 @@ async function handleRunInteractiveCommand(args) {
       explanation,
       line,
       debug: debugMode,
+      screenshot,
       timeout
     })
 
@@ -281,13 +282,13 @@ ${JSON.stringify(result, null, 2)}
 
 ${responseText}
 
-${sendToUIPrompt()}`
+⚠️ **Next:** Use send_to_ui to communicate what happened and your plan. See \`how_to({ type: "send_to_ui_instructions" })\` for format.`
     } else {
       responseText = `✅ **Command Succeeded**
 
 ${responseText}
 
-${sendToUIPrompt()}`
+⚠️ **Next:** Use send_to_ui to communicate state/plan/expectations. See \`how_to({ type: "send_to_ui_instructions" })\` for format.`
     }
 
     const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${timestamp}`
@@ -357,80 +358,30 @@ export function registerInteractiveTools(server) {
     'helpmetest_run_interactive_command',
     {
       title: 'Help Me Test: Interactive Command Tool',
-      description: `🚨 MANDATORY: CREATE TASK LIST FIRST - NO EXCEPTIONS!
+      description: `Execute Robot Framework commands interactively. Sessions maintain browser state between commands.
 
-${TASKLIST_REQUIREMENT}
+⚠️ **FIRST TIME USING THIS TOOL?** Call \`how_to({ type: "interactive_command_instructions" })\` for detailed workflow and requirements.
 
-⚠️ WARNING: DO NOT CREATE OR MODIFY TESTS WITHOUT INTERACTIVE TESTING FIRST
+**Quick Reminders:**
+- ⚠️ Create TaskList FIRST with send_to_ui before running any commands
+- ⚠️ Use send_to_ui to communicate state/plan/expectations after EACH command (see \`how_to({ type: "send_to_ui_instructions" })\`)
+- ⚠️ DO NOT create tests without testing the full sequence interactively first
+- ⚠️ Describe screenshots and analyze failures based on visible evidence
 
-This tool executes Robot Framework commands interactively. Sessions maintain browser state between commands.
+**Common Commands:**
+- Go To <url> - Navigate to a page
+- Click <selector> - Click element
+- Fill Text <selector> <text> - Input text
+- Get Text <selector> - Validate text
+- Exit - End session
 
-🔴 WORKFLOW - FOLLOW EXACTLY:
-1. **CREATE TASK LIST** (see Step 0 above - DO THIS FIRST!)
-2. Start with navigation: "Go To https://example.com"
-3. Test EACH step, updating TaskList after each command
-4. Mark steps: 'in_progress' → 'done' ✅ or 'failed' ❌
-5. If step fails, debug it until it works
-6. Continue until complete working sequence
-7. ONLY THEN create tests
-
-🚨 CRITICAL INSTRUCTIONS:
-${sendToUIPrompt()}
-
-**AFTER each interactive command**: Update TaskList via send_to_ui:
-- Mark completed step as 'done' ✅ or 'failed' ❌
-- Mark next step as 'in_progress' 🔄
-- Call: send_to_ui({ tasks: [updated array] })
-- This shows user your progress in real-time
-
-3. ALWAYS explain what command you are executing and why BEFORE calling this tool
-4. ALWAYS analyze the response carefully - look for actual errors or failures
-5. DO NOT proceed to next step if current step failed
-6. DO NOT create tests until you have verified the complete working sequence
-7. BE METHODICAL - test one thing at a time
-8. If something fails, debug it before moving forward
-9. Sessions remain active - continue testing until you have a complete working flow
-10. **ALWAYS describe the screenshot** - Every response includes an automatic screenshot. You MUST describe what can be done on the page, what interactive elements are present, and what the page is about. CRITICAL: Describe what changed as a result of your command (popup appeared, navigated to new page, checkbox checked, etc.). Structure your description by page sections and focus on actionable elements. DO NOT describe colors, design aesthetics, or decorative elements.
-
-Example:
-"Now I'll test clicking the login button to see if it navigates to the dashboard:"
-[call tool with "Click button#login"]
-[Analyze response carefully]
-"❌ The login button click failed with error: 'Element not found'. I need to find the correct selector before proceeding."
-
-Screenshot Description Guidelines:
-First, describe what changed as a result of the command:
-- Did a popup/modal appear?
-- Did the page navigate to a new URL?
-- Did form fields get filled?
-- Did elements appear/disappear?
-- Did the page scroll or change state?
-
-Then structure your description by page sections (modals, headers, main content, footers, etc.) and for each section describe:
-- Interactive elements (buttons, links, inputs, forms, dropdowns)
-- What each element does or where it leads
-- Navigation options and their purposes
-- What actions can be taken
-Focus on what can be done on the page, not how it looks. Avoid subjective aesthetic descriptions.
-
-**CRITICAL: Failure Analysis**
-If something fails or doesn't work as expected, you MUST analyze WHY by examining:
-- Network requests visible in the response (401/403/500 errors indicate auth/permission issues)
-- Error messages displayed on the page in the screenshot
-- Failed login attempts (wrong credentials, blocked account)
-- Missing elements (selector issues, page not loaded)
-- Timeout errors (element not appearing, slow page load)
-- JavaScript errors or console messages in the response
-
-Example failure analysis:
-"❌ The login failed. Looking at the response, I can see a 401 Unauthorized error in the network requests, which indicates the credentials are incorrect or the session has expired. The screenshot shows an error message 'Invalid username or password' confirming this is an authentication issue, not a selector problem."
-
-Do NOT just say "it failed" - explain the ROOT CAUSE based on visible evidence."`,
+**Sessions:** Provide timestamp parameter to continue existing session, or omit to create new session.`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
         line: z.number().optional().default(0).describe('Line number for debugging context (optional)'),
         debug: z.boolean().optional().default(false).describe('Enable debug mode to show network request/response bodies. When false (default), hides request/response data.'),
+        screenshot: z.boolean().optional().default(false).describe('Enable screenshot capture after command execution. When true, returns a screenshot of the page state after the command completes.'),
         timeout: z.number().optional().default(1000).describe('Timeout in milliseconds for command execution (default: 1000ms / 1 second). IMPORTANT: Increase timeout for "Go To" commands (recommend 5000-10000ms for page navigation) and slow-loading elements.'),
         timestamp: z.string().optional().describe('Optional session timestamp to continue an existing interactive session (e.g., "2026-01-12T14:46:55.830Z"). If not provided, creates a new session.'),
       },

@@ -692,7 +692,7 @@ Waits up to {wait}ms for events to arrive:
 1. FIRST: Respond to user messages if any (using send_to_ui)
 2. THEN: Handle test failures/recoveries
 
-${IDLE_LISTENING_REQUIREMENT}`,
+⚠️ **When idle:** Call \`how_to({ type: "idle_listening_instructions" })\` for guidance on staying in listening mode.`,
       inputSchema: {
         wait: z.number().optional().default(5000).describe('Maximum wait time in ms (default: 5000ms)')
       }
@@ -747,7 +747,8 @@ ${IDLE_LISTENING_REQUIREMENT}`,
 ❌ "Completed successfully"
 ❌ "Navigated to page"
 
-${BATCH_OPERATION_REQUIREMENT}`,
+⚠️ **For batch operations:** When processing multiple items, call \`how_to({ type: "batch_operations_instructions" })\` for TaskList requirements.
+⚠️ **Communication format:** Call \`how_to({ type: "send_to_ui_instructions" })\` for state/plan/expectations format.`,
       inputSchema: {
         message: z.string().optional().describe('Text message to send'),
         type: z.enum(['text', 'error', 'explanation']).optional().default('text').describe('Message type'),

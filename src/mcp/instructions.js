@@ -29,7 +29,7 @@ async function fetchAllInstructions() {
  */
 export function registerInstructionTools(server) {
   server.registerTool(
-    'helpmetest_get_instructions',
+    'how_to',
     {
       title: 'Get Agent Instructions',
       description: `Fetch centralized instruction prompts for agents.
