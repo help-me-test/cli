@@ -8,7 +8,6 @@ import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
 import { getPendingMessages, sendToUI, state, formatUserMessages, registerInteractiveSession } from './command-queue.js'
-import { sendToUIPrompt, TASKLIST_REQUIREMENT } from './shared-prompts.js'
 import open from 'open'
 
 // Track URLs that have been opened in browser (by identifier)

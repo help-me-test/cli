@@ -6,7 +6,6 @@
 import { z } from 'zod'
 import { config } from '../utils/config.js'
 import { STREAM } from '../utils.js'
-import { BATCH_OPERATION_REQUIREMENT, IDLE_LISTENING_REQUIREMENT } from './shared-prompts.js'
 
 // Module-level unified queue for ALL events (user messages, test status changes, etc.)
 // Max 100 items to prevent memory issues
