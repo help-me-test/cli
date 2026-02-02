@@ -356,6 +356,69 @@ export async function sendToUI(messageObj, room) {
   return sendZMQ(room, messageObj, userInfo.activeCompany)
 }
 
+/**
+ * Format and send any message type to UI with proper structure
+ * @param {Object} options - Options
+ * @param {string} options.room - Room identifier
+ * @param {string} [options.message] - Text message to send (for PLAIN or TaskList)
+ * @param {Array} [options.tasks] - Task list array (for TaskList)
+ * @param {string} [options.command] - Command text (for CommandNotification)
+ * @param {string} [options.explanation] - Command explanation (for CommandNotification)
+ * @param {string} [options.notificationType] - Notification type: running/success/failed (for CommandNotification)
+ * @param {string} [options.messageId] - Message ID (for CommandNotification)
+ * @returns {Promise<void>}
+ */
+export async function formatAndSendToUI({ message, tasks, command, explanation, notificationType, messageId, room }) {
+  // CommandNotification: when command/explanation/notificationType are provided
+  if (command !== undefined && notificationType !== undefined) {
+    await sendToUI({
+      messageId,
+      _type_: ["CommandNotification", notificationType],
+      command,
+      explanation
+    }, room)
+    return
+  }
+
+  // TaskList: when tasks array is provided
+  if (tasks) {
+    // Get or create TaskList ID for this room
+    let taskListId = taskListIds.get(room)
+    if (!taskListId) {
+      taskListId = `tasklist-${Date.now()}`
+      taskListIds.set(room, taskListId)
+    }
+
+    const payload = {
+      id: taskListId,
+      _type_: ['TaskList'],
+      status: 'working',
+      inProgress: tasks.some(t => t.status === 'in_progress'),
+      updatedAt: Date.now(),
+      tasks
+    }
+    if (message) payload.message = message
+
+    await sendToUI(payload, room)
+    // Clear the blocking flag for interactive commands
+    state.requiresSendToUI = false
+    return
+  }
+
+  // PLAIN: plain text message
+  if (message) {
+    await sendToUI({
+      _type_: ['PLAIN'],
+      text: message
+    }, room)
+    // Clear the blocking flag for interactive commands
+    state.requiresSendToUI = false
+    return
+  }
+
+  throw new Error('formatAndSendToUI: Must provide either tasks, message, or command/notificationType')
+}
+
 async function handleSendToUI(args) {
   // Ensure background listener is running
   ensureListenerStarted()
@@ -411,33 +474,8 @@ async function handleSendToUI(args) {
   }
 
   try {
-    // If tasks are provided, send TaskList message
-    if (tasks) {
-      // Get or create TaskList ID for this room
-      let taskListId = taskListIds.get(room)
-      if (!taskListId) {
-        taskListId = `tasklist-${Date.now()}`
-        taskListIds.set(room, taskListId)
-      }
-
-      await sendToUI({
-        ...args,
-        id: taskListId,
-        _type_: ['TaskList'],
-        status: 'working',
-        inProgress: tasks.some(t => t.status === 'in_progress'),
-        updatedAt: Date.now()
-      }, room)
-    } else {
-      // Send plain text message
-      await sendToUI({
-        _type_: ['PLAIN'],
-        text: message
-      }, room)
-    }
-
-    // Clear the blocking flag - send_to_ui has been called
-    state.requiresSendToUI = false
+    // Use shared formatting function
+    await formatAndSendToUI({ message, tasks, room })
 
     const response = {
       success: true,

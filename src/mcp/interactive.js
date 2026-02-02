@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
-import { getPendingMessages, sendToUI, state, formatUserMessages, registerInteractiveSession } from './command-queue.js'
+import { getPendingMessages, formatAndSendToUI, state, formatUserMessages, registerInteractiveSession } from './command-queue.js'
 import open from 'open'
 
 // Track URLs that have been opened in browser (by identifier)
@@ -152,13 +152,7 @@ function extractContentFromResult(result) {
  */
 async function handleRunInteractiveCommand(args) {
   const startTime = Date.now()
-  const { command, explanation, line = 0, debug: debugMode = false, screenshot = false, timeout = 5000, timestamp: sessionTimestamp } = args
-
-  // Check if blocked - must call send_to_ui before running next interactive command
-  if (state.requiresSendToUI) {
-    const roomHint = state.lastRoom ? `\n\nUse room: "${state.lastRoom}"` : ''
-    throw new Error(`Must call send_to_ui before running next interactive command. Please communicate the state, plan, and expectations from the previous command first.${roomHint}`)
-  }
+  const { command, explanation, line = 0, debug: debugMode = false, screenshot = false, timeout = 5000, timestamp: sessionTimestamp, message, tasks } = args
 
   debug(config, `Running interactive command: ${command} (${explanation}) [timeout: ${timeout}ms]`)
 
@@ -191,15 +185,29 @@ async function handleRunInteractiveCommand(args) {
     // Store room for error messages
     state.lastRoom = room
 
+    // If message or tasks provided, send properly formatted UI update to clear blocking flag
+    if (message || tasks) {
+      await formatAndSendToUI({ message, tasks, room })
+      console.error(`[Interactive] Sent UI update before command execution`)
+    }
+
+    // Check if blocked - must call send_to_ui before running next interactive command
+    // (only if message/tasks weren't just sent above)
+    if (state.requiresSendToUI && !message && !tasks) {
+      const roomHint = state.lastRoom ? `\n\nUse room: "${state.lastRoom}"` : ''
+      throw new Error(`Must call send_to_ui before running next interactive command. Please communicate the state, plan, and expectations from the previous command first.${roomHint}`)
+    }
+
     const messageId = `cmd-${Date.now()}`
 
     const sendNotification = (type) =>
-      sendToUI({
-        messageId,  // Keep same messageId for updates
-        _type_: ["CommandNotification", type],
+      formatAndSendToUI({
+        room,
+        messageId,
         command,
-        explanation
-      }, room)
+        explanation,
+        notificationType: type
+      })
 
     // Send initial "running" status
     await sendNotification("running")
@@ -362,10 +370,15 @@ export function registerInteractiveTools(server) {
 ⚠️ **FIRST TIME USING THIS TOOL?** Call \`how_to({ type: "interactive_command_instructions" })\` for detailed workflow and requirements.
 
 **Quick Reminders:**
-- ⚠️ Create TaskList FIRST with send_to_ui before running any commands
-- ⚠️ Use send_to_ui to communicate state/plan/expectations after EACH command (see \`how_to({ type: "send_to_ui_instructions" })\`)
+- ⚠️ Create TaskList FIRST before running any commands (use message/tasks parameters or send_to_ui)
+- ⚠️ Communicate state/plan/expectations after EACH command using message/tasks parameters (eliminates need for separate send_to_ui call!)
 - ⚠️ DO NOT create tests without testing the full sequence interactively first
 - ⚠️ Describe screenshots and analyze failures based on visible evidence
+
+**Efficient Usage:**
+Pass message or tasks parameters directly to this tool instead of calling send_to_ui separately:
+- message: "Navigating to login page to test authentication flow"
+- tasks: [{ name: "Login test", status: "in_progress" }]
 
 **Common Commands:**
 - Go To <url> - Navigate to a page
@@ -383,6 +396,11 @@ export function registerInteractiveTools(server) {
         screenshot: z.boolean().optional().default(false).describe('Enable screenshot capture after command execution. When true, returns a screenshot of the page state after the command completes.'),
         timeout: z.number().optional().default(1000).describe('Timeout in milliseconds for command execution (default: 1000ms / 1 second). IMPORTANT: Increase timeout for "Go To" commands (recommend 5000-10000ms for page navigation) and slow-loading elements.'),
         timestamp: z.string().optional().describe('Optional session timestamp to continue an existing interactive session (e.g., "2026-01-12T14:46:55.830Z"). If not provided, creates a new session.'),
+        message: z.string().optional().describe('Optional message to send to UI before executing command. This eliminates the need for separate send_to_ui call.'),
+        tasks: z.array(z.object({
+          name: z.string().describe('Task name'),
+          status: z.enum(['pending', 'in_progress', 'done', 'failed']).describe('Task status')
+        })).optional().describe('Optional task list to send to UI before executing command. This eliminates the need for separate send_to_ui call.'),
       },
     },
     async (args) => {
