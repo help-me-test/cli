@@ -35,7 +35,7 @@ export async function claude() {
     // Spawn Claude with HelpMeTest tools enabled and custom prompt
     const args = [
       prompt,
-      '--model', 'sonnet',
+      '--model', 'haiku',
       '--allowed-tools', 'mcp__HelpMeTest*',
       '--append-system-prompt', '\n\n🤖 HELPMETEST AGENT MODE: You have access to all HelpMeTest tools for autonomous test management and debugging.'
     ]
