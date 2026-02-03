@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.26.0 (2026-02-03)
+
+### New Features
+
+- **Dynamic Proxy Configuration**: Proxy commands now automatically use `proxyUrl` from user authentication instead of hardcoded server addresses. Your proxy tunnels connect to the correct endpoint based on your environment automatically.
+
+### Improvements
+
+- **Efficient MCP Tool Calls**: The `run_interactive_command` MCP tool now accepts messages and tasks directly, reducing the number of tool calls needed for interactive debugging workflows. AI assistants can send commands more efficiently.
+- **Server-Side MCP Instructions**: Verbose prompts for MCP tools moved to server-side with `how_to` references, enabling dynamic updates to AI agent behavior without CLI releases. Better instructions can be deployed independently.
+- **Faster Default Model**: Changed default AI model from Sonnet to Haiku for faster responses and lower costs in typical scenarios. You can still specify Sonnet when you need more advanced reasoning.
+- **Reliable Tunnel Cleanup**: Improved proxy tunnel cleanup with async signal handlers that properly deregister tunnels before exit. No more orphaned tunnel registrations when stopping proxies.
+
 ## v1.25.1 (2026-01-28)
 
 ### Bug Fixes
