@@ -532,6 +532,11 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
       url.hostname = `${userInfo.subdomain}.${url.hostname}`
       userInfo.dashboardBaseUrl = url.toString().replace(/\/$/, '')
 
+      // Build proxy URL
+      const proxyUrl = new URL(endpoint)
+      proxyUrl.hostname = `proxy.${proxyUrl.hostname}`
+      userInfo.proxyUrl = proxyUrl.toString().replace(/\/$/, '')
+
       cachedUserInfo = userInfo
       authInitialized = true
       return cachedUserInfo

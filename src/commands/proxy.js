@@ -16,13 +16,13 @@ import { config } from '../utils/config.js'
  * Register tunnel with proxy server via HTTP GET
  * Returns frp_token and frp_server_port for frpc connection
  */
-async function registerTunnel(serverAddr, serverPort, domain, name, port) {
+async function registerTunnel(proxyUrl, domain, name, port) {
   const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
   if (!token) {
     throw new Error('No API token found. Run: helpmetest login')
   }
 
-  const url = `http://${serverAddr}:${serverPort}/tunnels/register?domain=${domain}&name=${name}&port=${port}`
+  const url = `${proxyUrl}/tunnels/register?domain=${domain}&name=${name}&port=${port}`
 
   const response = await fetch(url, {
     headers: {
@@ -113,19 +113,15 @@ export async function startProxy(target, options = {}) {
   const { domain, port } = parseProxyTarget(target, options)
   const { background = false } = options
 
-  // Get user info to extract company
+  // Get user info to extract company and proxy URL
   const { detectApiAndAuth } = await import('../utils/api.js')
   const userInfo = await detectApiAndAuth()
   const company = userInfo.activeCompany || userInfo.companyName
-
-  // Use public helpmetest proxy endpoint (works from anywhere)
-  // Can be overridden with PROXY_HOST env var for k8s internal use
-  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
-  const registrationPort = 30889  // FastAPI registration endpoint
-  const serverPort = 30888        // Kept for backward compatibility (unused)
+  const proxyUrl = userInfo.proxyUrl
+  const serverAddr = new URL(proxyUrl).hostname
 
   output.info(`Starting tunnel: ${domain} -> localhost:${port}`)
-  output.info(`Connecting to ${serverAddr}:${registrationPort}...`)
+  output.info(`Connecting to ${proxyUrl}...`)
 
   // Check if port is listening
   const portIsListening = await isPortListening(port)
@@ -140,7 +136,7 @@ export async function startProxy(target, options = {}) {
   // Register tunnel with proxy server first
   let frpToken, frpServerPort
   try {
-    const registration = await registerTunnel(serverAddr, registrationPort, domain, name, port)
+    const registration = await registerTunnel(proxyUrl, domain, name, port)
     frpToken = registration.frpToken
     frpServerPort = registration.frpServerPort
     output.success(`Proxying ${domain} -> localhost:${port}`)
@@ -154,8 +150,53 @@ export async function startProxy(target, options = {}) {
     return { domain, port, name }
   }
 
-  // Spawn frpc with retry logic for router conflicts
+  let isShuttingDown = false
   let frpc
+
+  // Cleanup handler
+  const cleanup = async () => {
+    if (isShuttingDown) return
+    isShuttingDown = true
+
+    console.error('[DEBUG] Cleanup called')
+    output.info('Stopping tunnel...')
+
+    if (frpc) {
+      console.error('[DEBUG] Killing frpc PID:', frpc.pid)
+      frpc.kill('SIGTERM')
+    }
+
+    // Deregister
+    const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
+    if (token) {
+      console.error(`[DEBUG] Deregistering ${domain}`)
+      try {
+        await fetch(`${proxyUrl}/tunnels/deregister?domain=${domain}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        console.error('[DEBUG] Deregistered successfully')
+      } catch (err) {
+        console.error('[DEBUG] Deregister failed:', err.message)
+      }
+    }
+
+    process.exit(0)
+  }
+
+  // Register signal handlers BEFORE spawning frpc
+  process.on('SIGINT', () => {
+    console.error('[DEBUG] SIGINT received')
+    cleanup()
+  })
+
+  process.on('SIGTERM', () => {
+    console.error('[DEBUG] SIGTERM received')
+    cleanup()
+  })
+
+  console.error('[DEBUG] Signal handlers registered')
+
+  // Spawn frpc with retry logic for router conflicts
   let retryCount = 0
   const maxRetries = 3
 
@@ -204,6 +245,8 @@ export async function startProxy(target, options = {}) {
     const exitCode = await frpc.exited
 
     if (exitCode === 0) {
+      console.error('[DEBUG] frpc exited normally, cleaning up')
+      await cleanup()
       break
     }
 
@@ -216,50 +259,9 @@ export async function startProxy(target, options = {}) {
     }
 
     output.error(`frpc exited with code ${exitCode}`)
+    await cleanup()
     process.exit(exitCode)
   }
-
-  let isShuttingDown = false
-
-  // Cleanup handler that runs synchronously
-  const cleanup = () => {
-    if (isShuttingDown) return
-    isShuttingDown = true
-
-    console.error('[DEBUG] Cleanup called, killing frpc PID:', frpc.pid)
-    output.info('Stopping tunnel...')
-    frpc.kill('SIGTERM')
-    console.error('[DEBUG] frpc.kill() called')
-
-    // Deregister synchronously - just call fetch and don't wait
-    const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
-    if (token) {
-      fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${domain}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      }).catch(() => {})
-    }
-  }
-
-  // Handle Ctrl+C
-  process.on('SIGINT', () => {
-    console.error('[DEBUG] SIGINT received')
-    cleanup()
-  })
-
-  // Handle termination
-  process.on('SIGTERM', () => {
-    console.error('[DEBUG] SIGTERM received')
-    cleanup()
-  })
-
-  // Keep parent alive and check frpc is running
-  const checkInterval = setInterval(() => {
-    if (frpc.exitCode !== null || frpc.killed) {
-      console.error('[DEBUG] frpc exited, stopping interval')
-      clearInterval(checkInterval)
-      process.exit(0)
-    }
-  }, 1000)
 }
 
 /**
@@ -406,15 +408,16 @@ export async function listProxies(options = {}) {
     throw new Error('No API token found. Run: helpmetest login')
   }
 
-  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
-  const registrationPort = 30889
+  const { detectApiAndAuth } = await import('../utils/api.js')
+  const userInfo = await detectApiAndAuth()
+  const proxyUrl = userInfo.proxyUrl
 
   if (!returnData) {
     output.info('Listing active proxy tunnels...')
   }
 
   try {
-    const response = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/list`, {
+    const response = await fetch(`${proxyUrl}/tunnels/list`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -489,14 +492,15 @@ export async function stopAllProxies() {
     throw new Error('No API token found. Run: helpmetest login')
   }
 
-  const serverAddr = process.env.PROXY_HOST || 'proxy.helpmetest.com'
-  const registrationPort = 30889
+  const { detectApiAndAuth } = await import('../utils/api.js')
+  const userInfo = await detectApiAndAuth()
+  const proxyUrl = userInfo.proxyUrl
 
   output.info('Stopping all tunnels...')
 
   try {
     // First get list of active tunnels
-    const listResponse = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/list`, {
+    const listResponse = await fetch(`${proxyUrl}/tunnels/list`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -516,7 +520,7 @@ export async function stopAllProxies() {
 
     // Stop each tunnel
     for (const tunnel of data.tunnels) {
-      const response = await fetch(`http://${serverAddr}:${registrationPort}/tunnels/deregister?domain=${tunnel.domain}`, {
+      const response = await fetch(`${proxyUrl}/tunnels/deregister?domain=${tunnel.domain}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
