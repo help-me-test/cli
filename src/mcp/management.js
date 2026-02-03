@@ -239,7 +239,6 @@ I'll now execute a complete workflow that exercises every tool:
 
 ### Phase 7: Advanced Operations
 - helpmetest_generate_artifact (generate artifact with AI)
-- helpmetest_do_browser_task (browser automation task)
 
 ### Phase 8: Proxy Operations
 - helpmetest_proxy (manage proxy tunnels to localhost)

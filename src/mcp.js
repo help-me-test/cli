@@ -26,7 +26,6 @@ import { registerInteractiveTools } from './mcp/interactive.js'
 import { registerManagementTools } from './mcp/management.js'
 import { registerArtifactTools } from './mcp/artifacts.js'
 import { registerDocumentationTools } from './mcp/documentation.js'
-import { registerBrowserTaskTools } from './mcp/browser-tasks.js'
 import { registerCommandQueueTools } from './mcp/command-queue.js'
 import { registerProxyTools } from './mcp/proxy.js'
 import { registerInstructionTools } from './mcp/instructions.js'
@@ -123,9 +122,6 @@ export function createMcpServer(options = {}) {
 
   debug(config, 'Registering Documentation tools...')
   registerDocumentationTools(server)
-
-  debug(config, 'Registering Browser Task tools...')
-  registerBrowserTaskTools(server)
 
   debug(config, 'Registering Command Queue tools...')
   registerCommandQueueTools(server)
