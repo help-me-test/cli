@@ -191,11 +191,13 @@ async function handleRunInteractiveCommand(args) {
       console.error(`[Interactive] Sent UI update before command execution`)
     }
 
-    // Check if blocked - must call send_to_ui before running next interactive command
+    // Check if blocked - must communicate state/plan/expectations before running next command
     // (only if message/tasks weren't just sent above)
     if (state.requiresSendToUI && !message && !tasks) {
       const roomHint = state.lastRoom ? `\n\nUse room: "${state.lastRoom}"` : ''
-      throw new Error(`Must call send_to_ui before running next interactive command. Please communicate the state, plan, and expectations from the previous command first.${roomHint}`)
+      throw new Error(`Must communicate state/plan/expectations before running next command. Either:
+1. Pass message/tasks parameters to run_interactive_command (preferred - one call), OR
+2. Call send_to_ui separately (two calls)${roomHint}`)
     }
 
     const messageId = `cmd-${Date.now()}`
@@ -289,13 +291,13 @@ ${JSON.stringify(result, null, 2)}
 
 ${responseText}
 
-⚠️ **Next:** Use send_to_ui to communicate what happened and your plan. See \`how_to({ type: "send_to_ui_instructions" })\` for format.`
+⚠️ **Next:** Communicate what happened and your plan by passing message/tasks to next run_interactive_command call (or call send_to_ui separately).`
     } else {
       responseText = `✅ **Command Succeeded**
 
 ${responseText}
 
-⚠️ **Next:** Use send_to_ui to communicate state/plan/expectations. See \`how_to({ type: "send_to_ui_instructions" })\` for format.`
+⚠️ **Next:** Communicate state/plan/expectations by passing message/tasks to next run_interactive_command call (or call send_to_ui separately).`
     }
 
     const sessionUrl = `${userInfo.dashboardBaseUrl}/interactive/${timestamp}`
