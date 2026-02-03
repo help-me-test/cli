@@ -12,6 +12,45 @@ import { output } from '../utils/colors.js'
 import { spawnFrpc } from './frpc.js'
 import { config } from '../utils/config.js'
 
+// Global cleanup registry
+const cleanupHandlers = []
+let isShuttingDown = false
+let signalHandlersRegistered = false
+
+function registerCleanup(handler) {
+  cleanupHandlers.push(handler)
+}
+
+async function runCleanup() {
+  if (isShuttingDown) return
+  isShuttingDown = true
+
+  console.error('[DEBUG] Running cleanup handlers...')
+  await Promise.all(
+    cleanupHandlers.map(handler =>
+      handler().catch(err => console.error('[DEBUG] Cleanup handler error:', err.message))
+    )
+  )
+  process.exit(0)
+}
+
+function ensureSignalHandlers() {
+  if (signalHandlersRegistered) return
+  signalHandlersRegistered = true
+
+  process.on('SIGINT', () => {
+    console.error('[DEBUG] SIGINT received')
+    runCleanup()
+  })
+
+  process.on('SIGTERM', () => {
+    console.error('[DEBUG] SIGTERM received')
+    runCleanup()
+  })
+
+  console.error('[DEBUG] Signal handlers registered')
+}
+
 /**
  * Register tunnel with proxy server via HTTP GET
  * Returns frp_token and frp_server_port for frpc connection
@@ -150,51 +189,39 @@ export async function startProxy(target, options = {}) {
     return { domain, port, name }
   }
 
-  let isShuttingDown = false
   let frpc
+  let localShutdown = false
 
-  // Cleanup handler
-  const cleanup = async () => {
-    if (isShuttingDown) return
-    isShuttingDown = true
-
-    console.error('[DEBUG] Cleanup called')
-    output.info('Stopping tunnel...')
-
-    if (frpc) {
-      console.error('[DEBUG] Killing frpc PID:', frpc.pid)
-      frpc.kill('SIGTERM')
-    }
-
-    // Deregister
-    const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
-    if (token) {
-      console.error(`[DEBUG] Deregistering ${domain}`)
-      try {
-        await fetch(`${proxyUrl}/tunnels/deregister?domain=${domain}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        console.error('[DEBUG] Deregistered successfully')
-      } catch (err) {
-        console.error('[DEBUG] Deregister failed:', err.message)
-      }
-    }
-
-    process.exit(0)
+  // Cleanup task: kill frpc process
+  const killFrpc = async () => {
+    if (!frpc || localShutdown) return
+    console.error(`[DEBUG] Killing frpc for ${domain}`)
+    frpc.kill('SIGTERM')
   }
 
-  // Register signal handlers BEFORE spawning frpc
-  process.on('SIGINT', () => {
-    console.error('[DEBUG] SIGINT received')
-    cleanup()
-  })
+  // Cleanup task: deregister tunnel from server
+  const deregisterTunnel = async () => {
+    if (localShutdown) return
+    localShutdown = true
 
-  process.on('SIGTERM', () => {
-    console.error('[DEBUG] SIGTERM received')
-    cleanup()
-  })
+    const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
+    if (!token) return
 
-  console.error('[DEBUG] Signal handlers registered')
+    console.error(`[DEBUG] Deregistering tunnel ${domain}`)
+    try {
+      await fetch(`${proxyUrl}/tunnels/deregister?domain=${domain}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      console.error(`[DEBUG] Deregistered ${domain}`)
+    } catch (err) {
+      console.error(`[DEBUG] Failed to deregister ${domain}:`, err.message)
+    }
+  }
+
+  // Register cleanup tasks and ensure signal handlers are set up
+  registerCleanup(killFrpc)
+  registerCleanup(deregisterTunnel)
+  ensureSignalHandlers()
 
   // Spawn frpc with retry logic for router conflicts
   let retryCount = 0
@@ -246,8 +273,7 @@ export async function startProxy(target, options = {}) {
 
     if (exitCode === 0) {
       console.error('[DEBUG] frpc exited normally, cleaning up')
-      await cleanup()
-      break
+      await runCleanup()
     }
 
     // Check if it's a router config conflict
@@ -259,8 +285,7 @@ export async function startProxy(target, options = {}) {
     }
 
     output.error(`frpc exited with code ${exitCode}`)
-    await cleanup()
-    process.exit(exitCode)
+    await runCleanup()
   }
 }
 
