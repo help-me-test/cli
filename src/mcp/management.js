@@ -6,14 +6,16 @@
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { deleteHealthCheck, undoUpdate } from '../utils/api.js'
+import deployCommand from '../commands/deploy.js'
+import updateCommand from '../commands/update.js'
 
 /**
- * Handle delete health check tool call
+ * Delete health check tool call
  * @param {Object} args - Tool arguments
  * @param {string} args.name - Health check name to delete
  * @returns {Object} Delete health check result
  */
-async function handleDeleteHealthCheck(args) {
+async function deleteHealthCheckTool(args) {
   const { name } = args
   
   debug(config, `Deleting health check: ${name}`)
@@ -68,12 +70,12 @@ ${JSON.stringify(result, null, 2)}
 }
 
 /**
- * Handle undo update tool call
+ * Undo update tool call
  * @param {Object} args - Tool arguments
  * @param {string} args.updateId - ID of the update to undo
  * @returns {Object} Undo update result
  */
-async function handleUndoUpdate(args) {
+async function undoUpdateTool(args) {
   const { updateId } = args
   
   debug(config, `Undoing update: ${updateId}`)
@@ -154,11 +156,66 @@ ${JSON.stringify(errorResponse, null, 2)}
 }
 
 /**
- * Handle init tool call - runs comprehensive test routine to trigger ALL tool approvals
+ * Deploy tool call - wraps existing deployCommand
+ * @param {Object} args - Tool arguments
+ * @param {string} args.app - App name
+ * @param {string} args.environment - Environment name
+ * @param {string} args.description - Deployment description
+ * @returns {Object} Deploy result
+ */
+async function deployTool(args) {
+  const { app, environment = 'dev', description } = args
+
+  debug(config, `Creating deployment via existing command: app=${app}, env=${environment}`)
+
+  try {
+    // Use existing deployCommand - it handles git info, API calls, everything
+    await deployCommand(app, {
+      env: environment,
+      description: description,
+      verbose: false
+    })
+
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ Deployment Created Successfully
+
+**App:** ${app}
+**Environment:** ${environment}
+**Description:** ${description || 'From git commit'}
+
+This deployment will be correlated with test failures to help identify which changes caused issues.`
+      }]
+    }
+  } catch (error) {
+    debug(config, `Error creating deployment: ${error.message}`)
+
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Deployment Failed
+
+**App:** ${app}
+**Environment:** ${environment}
+**Error:** ${error.message}
+
+**Possible causes:**
+- No description provided and not in a git repository
+- API authentication issue
+- Network error`
+      }],
+      isError: true
+    }
+  }
+}
+
+/**
+ * Init tool call - runs comprehensive test routine to trigger ALL tool approvals
  * @param {Object} server - MCP server instance
  * @returns {Object} Init result with comprehensive test routine
  */
-async function handleInit(server) {
+async function initTool(server) {
   const toolsList = Object.keys(server._registeredTools || {})
 
   if (toolsList.length === 0) {
@@ -270,7 +327,7 @@ export function registerManagementTools(server) {
     },
     async (args) => {
       debug(config, `Delete health check tool called with args: ${JSON.stringify(args)}`)
-      return await handleDeleteHealthCheck(args)
+      return await deleteHealthCheckTool(args)
     }
   )
 
@@ -286,7 +343,61 @@ export function registerManagementTools(server) {
     },
     async (args) => {
       debug(config, `Undo update tool called with args: ${JSON.stringify(args)}`)
-      return await handleUndoUpdate(args)
+      return await undoUpdateTool(args)
+    }
+  )
+
+  // Register deploy tool
+  server.registerTool(
+    'helpmetest_deploy',
+    {
+      title: 'Help Me Test: Create Deployment Tool',
+      description: `Create a deployment update to track deployments and correlate them with test failures.
+
+This tool helps track when code is deployed so you can identify which deployment caused test failures or bugs.
+
+**When to use:**
+1. After deploying code to an environment
+2. To create audit trail of deployments
+3. To help correlate failures with specific deployments
+
+**Parameters:**
+- app: Application name (e.g., "robot", "app", "api")
+- environment: Environment name (e.g., "dev", "staging", "prod") - defaults to "dev"
+- description: Optional description - if not provided, will use git commit info if available
+
+The deployment will be tagged with app and environment for easy filtering with helpmetest_get_deployments.`,
+      inputSchema: {
+        app: z.string().describe('Application name (e.g., robot, app, api)'),
+        environment: z.string().optional().default('dev').describe('Environment name (dev, staging, prod, etc.)'),
+        description: z.string().optional().describe('Deployment description (defaults to git commit info if available)'),
+      },
+    },
+    async (args) => {
+      debug(config, `Deploy tool called with args: ${JSON.stringify(args)}`)
+      return await deployTool(args)
+    }
+  )
+
+  // Register update tool
+  server.registerTool(
+    'helpmetest_update',
+    {
+      title: 'Help Me Test: Update CLI Tool',
+      description: `Update the HelpMeTest CLI to the latest version.
+
+**Note:** MCP server needs restart after update.`,
+      inputSchema: {},
+    },
+    async () => {
+      debug(config, 'Update tool called')
+      await updateCommand({ verbose: false })
+      return {
+        content: [{
+          type: 'text',
+          text: `✅ Update Completed\n\nCLI updated to latest version.\n\n**Note:** MCP server needs restart to use new version.`
+        }]
+      }
     }
   )
 
@@ -306,7 +417,7 @@ export function registerManagementTools(server) {
     },
     async () => {
       debug(config, 'Init tool called')
-      return await handleInit(server)
+      return await initTool(server)
     }
   )
 }
