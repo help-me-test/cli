@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.27.0 (2026-02-08)
+
+### New Features
+
+- **Deploy Tracking via MCP**: AI assistants can now create deployment records using the `helpmetest_deploy` MCP tool. Track when code is deployed to correlate test failures with specific deployments, helping identify which changes caused issues. Deployment records are automatically tagged by app and environment for easy filtering.
+- **CLI Self-Update via MCP**: The new `helpmetest_update` MCP tool lets AI assistants update the CLI to the latest version. After updating, restart the MCP server to use the new version. Keeps your tooling current without manual intervention.
+- **Screenshot Persistence**: Interactive testing sessions now save screenshots to temporary storage (`tmpdir/helpmetest/screenshots/`) when screenshot mode is enabled. File paths are logged to console, making it easy to access and review captured screenshots for debugging and documentation.
+
+### Improvements
+
+- **Clearer CLI Description**: Updated main CLI description from "health check monitoring" to "Test automation, health monitoring, and AI-powered debugging" to better reflect the full scope of capabilities available.
+- **Complete Help Documentation**: Added missing commands to help examples including `install mcp`, `proxy start/list/run-fake-server`, and `agent claude`. All CLI commands are now properly documented in the built-in help.
+- **Reliable Proxy Cleanup**: Refactored proxy cleanup to use a global signal handler registry, ensuring tunnels are properly deregistered even when multiple signals are received. Prevents cleanup handlers from conflicting or being called multiple times.
+
 ## v1.26.0 (2026-02-03)
 
 ### New Features
