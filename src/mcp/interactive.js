@@ -9,6 +9,9 @@ import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
 import { getPendingMessages, formatAndSendToUI, state, formatUserMessages, registerInteractiveSession } from './command-queue.js'
 import open from 'open'
+import { writeFile, mkdir } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
 // Track URLs that have been opened in browser (by identifier)
 const openedUrls = new Set()
@@ -318,6 +321,34 @@ ${responseText}
 
     // Extract screenshots from result (including automatic screenshots from server)
     const screenshots = extractScreenshots(result)
+
+    // Save screenshots to temp folder if screenshot mode enabled
+    const savedScreenshotPaths = []
+    if (screenshot && screenshots.length > 0) {
+      const tempDir = join(tmpdir(), 'helpmetest', 'screenshots')
+      await mkdir(tempDir, { recursive: true })
+
+      for (let i = 0; i < screenshots.length; i++) {
+        let base64Data = screenshots[i].base64
+        let ext = 'png'
+
+        if (base64Data.startsWith('data:image/')) {
+          const match = base64Data.match(/^data:image\/(\w+);/)
+          if (match) ext = match[1] === 'jpeg' ? 'jpg' : match[1]
+          base64Data = base64Data.split(',')[1]
+        }
+
+        const filename = `screenshot-${Date.now()}-${i}.${ext}`
+        const filepath = join(tempDir, filename)
+        await writeFile(filepath, Buffer.from(base64Data, 'base64'))
+        savedScreenshotPaths.push(filepath)
+        console.error(`📸 Screenshot saved: ${filepath}`)
+      }
+    }
+
+    if (savedScreenshotPaths.length > 0) {
+      responseText += `\n**Screenshots saved:**\n${savedScreenshotPaths.map(p => `- ${p}`).join('\n')}`
+    }
 
     const contentItems = [
       {
