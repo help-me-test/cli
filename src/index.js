@@ -32,7 +32,7 @@ const program = new Command()
 
 program
   .name(colors.brand('helpmetest'))
-  .description(colors.dim('HelpMeTest CLI tool for health check monitoring'))
+  .description(colors.dim('HelpMeTest CLI - Test automation, health monitoring, and AI-powered debugging'))
   .version(packageJson.version, '-V, --version', 'display version number')
 
 // Register the health command
@@ -676,6 +676,11 @@ ${colors.subtitle('Examples:')}
   ${colors.dim('$')} ${colors.command('helpmetest keywords')} ${colors.option('--type libraries')}         ${colors.dim('# List available libraries')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--verbose')}
   ${colors.dim('$')} ${colors.command('helpmetest metrics')} ${colors.option('--json')} ${colors.option('--basic')}
+  ${colors.dim('$')} ${colors.command('helpmetest install mcp')}                    ${colors.dim('# Install MCP integration for editors')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy start')} ${colors.argument(':3000')}              ${colors.dim('# Proxy domain to localhost:3000')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy list')}                     ${colors.dim('# List active proxy tunnels')}
+  ${colors.dim('$')} ${colors.command('helpmetest proxy run-fake-server')}          ${colors.dim('# Run fake HTTP server for testing')}
+  ${colors.dim('$')} ${colors.command('helpmetest agent claude')}                   ${colors.dim('# Launch Claude Agent for auto-healing')}
   ${colors.dim('$')} ${colors.command('helpmetest version')}                        ${colors.dim('# Show current version')}
   ${colors.dim('$')} ${colors.command('helpmetest update')}                         ${colors.dim('# Update to latest version')}
 
