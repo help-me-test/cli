@@ -19,6 +19,9 @@ const openedUrls = new Set()
 // Track current interactive session timestamp (persists across tool calls)
 let currentSessionTimestamp = null
 
+// Track if we've shown authentication state info this MCP session
+let hasShownAuthStateInfo = false
+
 /**
  * Generic function to open URL in browser once per identifier
  * @param {string} url - Full URL to open
@@ -284,11 +287,18 @@ ${JSON.stringify(result, null, 2)}
 
     let responseText = formattedResult
 
+    // On first command of MCP session, include authentication state info
+    let authStateInfo = ''
+    if (!hasShownAuthStateInfo) {
+      hasShownAuthStateInfo = true
+      authStateInfo = userInfo.authStatePrompt || ''
+    }
+
     if (!isSuccess) {
       const errorDetails = extractContentFromResult(result)
       const errorMessage = errorDetails.error || "Command execution failed"
 
-      responseText = `❌ **Command Failed**
+      responseText = `${authStateInfo}❌ **Command Failed**
 
 **Error:** ${errorMessage}
 
@@ -296,7 +306,7 @@ ${responseText}
 
 ⚠️ **Next:** Communicate what happened and your plan by passing message/tasks to next run_interactive_command call (or call send_to_ui separately).`
     } else {
-      responseText = `✅ **Command Succeeded**
+      responseText = `${authStateInfo}✅ **Command Succeeded**
 
 ${responseText}
 
@@ -407,6 +417,7 @@ export function registerInteractiveTools(server) {
 - ⚠️ Communicate state/plan/expectations after EACH command using message/tasks parameters (eliminates need for separate send_to_ui call!)
 - ⚠️ DO NOT create tests without testing the full sequence interactively first
 - ⚠️ Describe screenshots and analyze failures based on visible evidence
+- 🚨 **AUTHENTICATION:** Before testing login/auth flows, call \`how_to({ type: "authentication_state_management" })\` to learn As/Save As pattern
 
 **Efficient Usage:**
 Pass message or tasks parameters directly to this tool instead of calling send_to_ui separately:
