@@ -68,6 +68,31 @@ export function createMcpServer(options = {}) {
   const server = new McpServer({
     name: serverConfig.name,
     version: serverConfig.version,
+  }, {
+    instructions: `# HelpMeTest MCP Server
+
+## 🚨 AUTHENTICATION - READ FIRST
+
+Before doing ANY authentication/login work:
+
+1. **Call how_to({ type: "authentication_state_management" })** - shows your available saved states and how to use them
+2. **If state exists** (e.g., "Admin", "User") → use "As <StateName>" keyword to skip login
+3. **If state doesn't exist** → create auth test with "Save As <StateName>"
+
+**Example - using existing state:**
+\`\`\`robot
+As  Admin
+Go To  https://app.example.com/dashboard
+# Already authenticated!
+\`\`\`
+
+**DO NOT re-authenticate if a saved state exists. Use "As <StateName>" instead.**
+
+## Quick Start
+
+1. Call \`how_to({ type: "getting_started" })\` for all available instructions
+2. Call \`how_to({ type: "authentication_state_management" })\` to see saved states
+3. Call \`helpmetest_status\` to see current tests and health checks`
   })
 
   /*
