@@ -444,124 +444,6 @@ ${JSON.stringify(errorResponse.debug, null, 2)}
 }
 
 /**
- * Handle create test tool call
- * @param {Object} args - Tool arguments
- * @returns {Object} Create test result
- */
-async function handleCreateTest(args) {
-  const { name, content, description, tags } = args
-
-  debug(config, `Creating test with name: ${name}`)
-
-  // Validate tags
-  const tagValidation = validateTags(tags)
-  if (!tagValidation.valid) {
-    return {
-      content: [{
-        type: 'text',
-        text: `❌ Tag Validation Failed\n\n${tagValidation.errors.join('\n')}\n\nPlease fix the tags and try again.`
-      }],
-      isError: true
-    }
-  }
-
-  try {
-    // Always use "new" as ID to force auto-generation for security
-    const testPayload = {
-      id: "new",
-      name,
-      ...(description && { description }),
-      ...(tags && { tags }),
-      content: content || ''
-    }
-    
-    const result = await createTest(testPayload)
-    debug(config, `Test creation result: ${JSON.stringify(result)}`)
-    
-    // Build success response
-    const response = {
-      success: true,
-      test: result,
-      timestamp: new Date().toISOString(),
-      message: "Test created successfully",
-      nextSteps: [
-        "You can run this test using the 'helpmetest_run_test' command",
-        "You can open this test in your browser using the 'helpmetest_open_test' command",
-        "You can modify this test using the 'helpmetest_modify_test' command"
-      ]
-    }
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `✅ Test Created Successfully
-
-**Test Details:**
-- Name: ${name}
-        - ID: ${result.id || 'Auto-generated'}
-${description ? `- Description: ${description}` : ''}
-${tags ? `- Tags: ${tags.join(', ')}` : ''}
-
-**Security Note:** Test ID is auto-generated for security purposes.
-
-**Next Steps:**
-1. Run the test: Use 'helpmetest_run_test' with identifier "${result.id || name}"
-2. View in browser: Use 'helpmetest_open_test' with identifier "${result.id || name}"
-3. Update if needed:
-   - Fix test content: 'helpmetest_update_test'
-   - Rename test: 'helpmetest_update_test_name'
-   - Change tags: 'helpmetest_update_test_tags'
-
-**Raw Response:**
-\`\`\`json
-${JSON.stringify(response, null, 2)}
-\`\`\``,
-        },
-      ],
-    }
-  } catch (error) {
-    debug(config, `Error creating test: ${error.message}`)
-    
-    const errorResponse = {
-      error: true,
-      message: error.message,
-      type: error.name || 'Error',
-      timestamp: new Date().toISOString(),
-      debug: {
-        apiUrl: config.apiBaseUrl,
-        hasToken: !!config.apiToken,
-        status: error.status || null
-      }
-    }
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `❌ Test Creation Failed
-
-**Error Details:**
-${error.message}
-
-**Debug Information:**
-\`\`\`json
-${JSON.stringify(errorResponse, null, 2)}
-\`\`\`
-
-**Troubleshooting:**
-1. Check if the test name is unique
-2. Verify your API connection and credentials
-3. Ensure the test data contains valid Robot Framework keywords
-4. Try using the 'helpmetest_run_interactive_command' to test your keywords first`,
-        },
-      ],
-      isError: true,
-    }
-  }
-}
-
-/**
  * Handle delete test tool call
  * @param {Object} args - Tool arguments
  * @param {string} args.identifier - Test ID, name, or tag to delete
@@ -622,21 +504,35 @@ ${JSON.stringify(result, null, 2)}
 }
 
 /**
- * Handle modify test tool call
+ * Handle upsert test tool call (create or update)
  * @param {Object} args - Tool arguments
- * @param {string} args.id - Test ID to modify
- * @param {string} [args.name] - New test name
- * @param {string} [args.content] - New test content
- * @param {string} [args.description] - New description
- * @param {Array<string>} [args.tags] - New tags
- * @returns {Object} Modify test result
+ * @param {string} [args.id] - Test ID (required for update, omit for create)
+ * @param {string} [args.name] - Test name (required for create, optional for update)
+ * @param {string} [args.content] - Test content
+ * @param {string} [args.description] - Test description
+ * @param {Array<string>} [args.tags] - Test tags
+ * @param {boolean} [args.run=true] - Run the test after successful upsert
+ * @returns {Object} Upsert test result
  */
-async function handleModifyTest(args) {
-  const { id, name, content, description, tags } = args
+async function handleUpsertTest(args) {
+  const { id, name, content, description, tags, run = true } = args
 
-  debug(config, `Modifying test with ID: ${id}`)
+  const isCreate = !id
 
-  // Validate tags if they're being updated
+  debug(config, `${isCreate ? 'Creating' : 'Updating'} test with args: ${JSON.stringify(args)}`)
+
+  // For create, name is required
+  if (isCreate && !name) {
+    return {
+      content: [{
+        type: 'text',
+        text: '❌ Error: "name" is required when creating a new test'
+      }],
+      isError: true
+    }
+  }
+
+  // Validate tags if provided
   if (tags !== undefined) {
     const tagValidation = validateTags(tags)
     if (!tagValidation.valid) {
@@ -651,55 +547,69 @@ async function handleModifyTest(args) {
   }
 
   try {
-    // Build the update payload - only include fields that are provided
-    const updateData = { id }
+    // Build payload - only include provided fields
+    // Use "new" as id for creates (backend convention)
+    const testPayload = {
+      id: id || "new",
+      ...(name !== undefined && { name }),
+      ...(content !== undefined && { content }),
+      ...(description !== undefined && { description }),
+      ...(tags !== undefined && { tags }),
+    }
 
-    if (name !== undefined) updateData.name = name
-    if (content !== undefined) updateData.content = content
-    if (description !== undefined) updateData.description = description
-    if (tags !== undefined) updateData.tags = tags
+    const result = await createTest(testPayload)
+    debug(config, `Test ${isCreate ? 'creation' : 'update'} result: ${JSON.stringify(result)}`)
 
-    const result = await createTest(updateData)
-    debug(config, `Test modification result: ${JSON.stringify(result)}`)
-
-    // Determine what was changed
+    const action = isCreate ? 'Created' : 'Updated'
     const changes = []
     if (name !== undefined) changes.push('name')
     if (content !== undefined) changes.push('content')
     if (description !== undefined) changes.push('description')
     if (tags !== undefined) changes.push('tags')
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `✅ Test Updated Successfully
-
-**Changed:** ${changes.join(', ')}
+    let responseText = `✅ Test ${action} Successfully
 
 **Test Details:**
 - Name: ${result.name}
 - ID: ${result.id}
-${description ? `- Description: ${description}` : ''}
-${tags ? `- Tags: ${tags.join(', ')}` : ''}
+${description !== undefined ? `- Description: ${description}` : ''}
+${tags !== undefined ? `- Tags: ${tags.join(', ')}` : ''}
+${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
 
-**Next Steps:**
-1. Run the test to verify changes: Use 'helpmetest_run_test' with identifier "${result.id}"
-2. View in browser: Use 'helpmetest_open_test' with identifier "${result.id}"
+    // Run the test if run=true
+    if (run) {
+      debug(config, `Running test after upsert: ${result.id}`)
+      const runResult = await handleRunTest({ identifier: result.id })
 
-**Raw Response:**
-\`\`\`json
-${JSON.stringify(result, null, 2)}
-\`\`\``,
+      // Append test run results
+      responseText += `\n\n---\n\n## 🧪 Test Run Results\n\n${runResult.content[0].text}`
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: responseText,
+          },
+        ],
+        isError: runResult.isError,
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: responseText + `\n\n**Next Steps:**
+1. View in browser: Use 'helpmetest_open_test' with identifier "${result.id}"
+2. Run manually: Use 'helpmetest_run_test' with identifier "${result.id}"`,
         },
       ],
     }
   } catch (error) {
-    debug(config, `Error modifying test: ${error.message}`)
+    debug(config, `Error ${isCreate ? 'creating' : 'updating'} test: ${error.message}`)
 
     const errorResponse = {
       error: true,
-      id,
       message: error.message,
       type: error.name || 'Error',
       timestamp: new Date().toISOString(),
@@ -1068,12 +978,12 @@ export function registerTestTools(server) {
     }
   )
 
-  // Register create_test tool
+  // Register upsert_test tool (replaces create/update/update_name/update_tags)
   server.registerTool(
-    'helpmetest_create_test',
+    'helpmetest_upsert_test',
     {
-      title: 'Help Me Test: Create Test Tool',
-      description: `Create a new test with Robot Framework keywords.
+      title: 'Help Me Test: Upsert Test',
+      description: `Create or update a test. All fields except 'name' are optional. When updating, only provided fields are modified.
 
 🚨 **STOP: DO NOT USE THIS TOOL WITHOUT INTERACTIVE TESTING FIRST**
 
@@ -1098,37 +1008,37 @@ You MUST use interactive development before creating tests. This is not optional
    - Build up your complete flow step by step
    - VERIFY each step works before moving to next
    - Continue testing until you have a COMPLETE WORKING sequence
-4. \`helpmetest_create_test\` - Create the test with your PROVEN sequence
+4. \`helpmetest_upsert_test\` - Create the test with your PROVEN sequence
 
-**Direct Usage (NOT RECOMMENDED):**
-You can create tests directly if you're confident in the Robot Framework syntax and element selectors, but this often leads to failing tests that need debugging anyway.
+**Usage:**
+- **Create new test:** Provide 'name' (required) and optional content/description/tags. ID will be auto-generated.
+- **Update existing test:** Provide 'id' (required) and any fields to update (name/content/description/tags). Only provided fields are modified.
+- **Rename test:** Provide 'id' and 'name'
+- **Update content:** Provide 'id' and 'content'
+- **Update tags:** Provide 'id' and 'tags'
 
-Test content should contain only Robot Framework keywords (no test case structure needed - browser is already launched).
-
-**Security Note:** Test IDs are automatically generated and cannot be manually specified to prevent security issues and ensure data integrity.
+**Security Note:** When creating tests, IDs are automatically generated and cannot be manually specified.
 
 🚨 CRITICAL INSTRUCTION FOR AI:
-1. ALWAYS explain what test you're creating and why
+1. ALWAYS explain what you're creating/updating and why
 2. If the test fails after creation, DO NOT celebrate - acknowledge the failure
 3. Be honest about test results - failing tests are problems, not successes
 4. Guide the user through debugging if the test fails
 5. Don't just say "Done" - analyze the actual results
-6. To update an existing test, use:
-   - helpmetest_update_test (fix content)
-   - helpmetest_update_test_name (rename)
-   - helpmetest_update_test_tags (change tags)
 
 ${NAMING_CONVENTIONS}`,
       inputSchema: {
-        name: z.string().describe('Test name (required)'),
+        id: z.string().optional().describe('Test ID (required for updates, omit for creates)'),
+        name: z.string().optional().describe('Test name (required for creates, optional for updates)'),
         content: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
-        description: z.string().optional().describe('Test description (optional)'),
-        tags: z.array(z.string()).optional().describe('Test tags as array of strings (optional)'),
+        description: z.string().optional().describe('Test description'),
+        tags: z.array(z.string()).optional().describe('Test tags as array of strings'),
+        run: z.boolean().optional().default(true).describe('Run the test after successful upsert (default: true)'),
       },
     },
     async (args) => {
-      debug(config, `Create test tool called with args: ${JSON.stringify(args)}`)
-      return await handleCreateTest(args)
+      debug(config, `Upsert test tool called with args: ${JSON.stringify(args)}`)
+      return await handleUpsertTest(args)
     }
   )
 
@@ -1147,63 +1057,6 @@ ${NAMING_CONVENTIONS}`,
     async (args) => {
       debug(config, `Delete test tool called with args: ${JSON.stringify(args)}`)
       return await handleDeleteTest(args)
-    }
-  )
-
-  // Register update_test tool (content only)
-  server.registerTool(
-    'helpmetest_update_test',
-    {
-      title: 'Help Me Test: Update Test Content',
-      description: `Update test content (Robot Framework keywords). Use this when fixing test logic or steps.
-
-🚨 INSTRUCTION FOR AI: This tool ONLY updates test content. It does NOT change name, tags, or description. Use this when user asks to "fix the test" or modify test steps.`,
-      inputSchema: {
-        id: z.string().describe('Test ID (required)'),
-        content: z.string().describe('New test content - Robot Framework keywords (required)'),
-      },
-    },
-    async (args) => {
-      debug(config, `Update test content tool called with args: ${JSON.stringify(args)}`)
-      return await handleModifyTest(args)
-    }
-  )
-
-  // Register update_test_name tool
-  server.registerTool(
-    'helpmetest_update_test_name',
-    {
-      title: 'Help Me Test: Update Test Name',
-      description: `Update test name only. Use this ONLY when user explicitly asks to rename a test.
-
-${NAMING_CONVENTIONS}`,
-      inputSchema: {
-        id: z.string().describe('Test ID (required)'),
-        name: z.string().describe('New test name (required)'),
-      },
-    },
-    async (args) => {
-      debug(config, `Update test name tool called with args: ${JSON.stringify(args)}`)
-      return await handleModifyTest(args)
-    }
-  )
-
-  // Register update_test_tags tool
-  server.registerTool(
-    'helpmetest_update_test_tags',
-    {
-      title: 'Help Me Test: Update Test Tags',
-      description: `Update test tags only. Use this when user asks to add, remove, or change test tags.
-
-${NAMING_CONVENTIONS}`,
-      inputSchema: {
-        id: z.string().describe('Test ID (required)'),
-        tags: z.array(z.string()).describe('New test tags - must follow category:name format (required)'),
-      },
-    },
-    async (args) => {
-      debug(config, `Update test tags tool called with args: ${JSON.stringify(args)}`)
-      return await handleModifyTest(args)
     }
   )
 

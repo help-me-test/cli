@@ -269,21 +269,16 @@ I'll now execute a complete workflow that exercises every tool:
 - helpmetest_keywords (search keywords)
 - get_pending_ui_commands (check UI queue)
 
-### Phase 2: Create Operations
-- helpmetest_create_test (create temporary test)
-- helpmetest_upsert_artifact (create temporary artifact)
+### Phase 2: Create/Update Operations
+- helpmetest_upsert_test (create or update test - all fields optional except name for creates)
+- helpmetest_upsert_artifact (create or update artifact)
+- helpmetest_partial_update_artifact (incremental artifact updates)
 
 ### Phase 3: Read Created Data
 - helpmetest_get_test_runs (get test run history)
 - helpmetest_get_artifact (read created artifact)
 - helpmetest_get_linked_artifacts (find linked artifacts)
 - helpmetest_get_artifact_schema (get artifact schema)
-
-### Phase 4: Update Operations
-- helpmetest_update_test (update test content)
-- helpmetest_update_test_name (rename test)
-- helpmetest_update_test_tags (change test tags)
-- helpmetest_partial_update_artifact (update artifact)
 
 ### Phase 5: Run Operations
 - helpmetest_run_test (execute the test)

@@ -84,7 +84,7 @@ describe('MCP End-to-End Tests', () => {
       expect(toolNames).toContain('helpmetest_run_test')
       expect(toolNames).toContain('helpmetest_list_tests')
       expect(toolNames).toContain('helpmetest_keywords')
-      expect(toolNames).toContain('helpmetest_create_test')
+      expect(toolNames).toContain('helpmetest_upsert_test')
     })
 
     test('should provide tool descriptions', async () => {
@@ -582,7 +582,7 @@ describe('MCP End-to-End Tests', () => {
     test('should create a test with minimal required fields', async () => {
       const testId = `test-mcp-${Date.now()}`
       const result = await client.callTool({
-        name: 'helpmetest_create_test',
+        name: 'helpmetest_upsert_test',
         arguments: {
           id: testId,
           name: 'MCP Test Creation',
@@ -626,7 +626,7 @@ Should Be Equal    \${1+1}    2`
     test('should create a test with browser automation', async () => {
       const testId = `browser-test-mcp-${Date.now()}`
       const result = await client.callTool({
-        name: 'helpmetest_create_test',
+        name: 'helpmetest_upsert_test',
         arguments: {
           id: testId,
           name: 'MCP Browser Test',
@@ -656,7 +656,7 @@ Get Title    ==    Example Domain`
     test('should create a test with API testing', async () => {
       const testId = `api-test-mcp-${Date.now()}`
       const result = await client.callTool({
-        name: 'helpmetest_create_test',
+        name: 'helpmetest_upsert_test',
         arguments: {
           id: testId,
           name: 'MCP API Test',
@@ -686,7 +686,7 @@ Should Contain    \${response.json()}[url]    httpbin.org`
 
     test('should handle create test without optional fields', async () => {
       const result = await client.callTool({
-        name: 'helpmetest_create_test',
+        name: 'helpmetest_upsert_test',
         arguments: {
           name: 'Minimal Test'
           // Only required field provided
@@ -711,7 +711,7 @@ Should Contain    \${response.json()}[url]    httpbin.org`
 
     test('should reject create test with invalid test data', async () => {
       const result = await client.callTool({
-        name: 'helpmetest_create_test',
+        name: 'helpmetest_upsert_test',
         arguments: {
           id: `invalid-test-${Date.now()}`,
           name: 'Invalid Test',
@@ -742,13 +742,13 @@ Should Contain    \${response.json()}[url]    httpbin.org`
       expect(Array.isArray(result.prompts)).toBe(true)
       
       const promptNames = result.prompts.map(prompt => prompt.name)
-      expect(promptNames).toContain('helpmetest_create_test')
+      expect(promptNames).toContain('helpmetest_upsert_test')
       expect(promptNames).toContain('helpmetest_explore_keywords')
     })
 
     test('should get create test prompt', async () => {
       const result = await client.getPrompt({
-        name: 'helpmetest_create_test',
+        name: 'helpmetest_upsert_test',
         arguments: {
           test_type: 'web',
           target_system: 'e-commerce'
