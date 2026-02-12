@@ -537,45 +537,6 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
       proxyUrl.hostname = `proxy.${proxyUrl.hostname}`
       userInfo.proxyUrl = proxyUrl.toString().replace(/\/$/, '')
 
-      // Fetch available authentication states and build prompt
-      try {
-        const statesResponse = await apiGet('/api/states', {}, 'Fetching auth states', true)
-        userInfo.states = statesResponse.states || []
-
-        if (userInfo.states.length > 0) {
-          const stateNames = userInfo.states.map(s => `**${s.name}**`).join(', ')
-          userInfo.authStatePrompt = `## 🔐 Available Authentication States
-
-You have saved states: ${stateNames}
-
-**Use \`As <StateName>\` to skip authentication:**
-\`\`\`robot
-As  ${userInfo.states[0].name}
-Go To  https://your-app.com/dashboard
-# Already authenticated!
-\`\`\`
-
----
-
-`
-        } else {
-          // Fetch how_to prompt for no states case
-          const promptResponse = await apiGet('/api/prompts', { type: 'authentication_state_management' }, 'Fetching auth prompt', true)
-          userInfo.authStatePrompt = `## 🔐 No Saved Authentication States
-
-You don't have any saved states yet. Create one to avoid re-authenticating in every test.
-
-${promptResponse.content || ''}
-
----
-
-`
-        }
-      } catch (e) {
-        userInfo.states = []
-        userInfo.authStatePrompt = ''
-      }
-
       cachedUserInfo = userInfo
       authInitialized = true
       return cachedUserInfo

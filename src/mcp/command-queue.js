@@ -78,7 +78,29 @@ export function getAvailableRooms(company) {
 }
 
 /**
- * Get all pending events (user messages, test status changes, etc.) and clear the queue
+ * Inject a system message into the queue
+ * @param {string} content - Message content
+ */
+export function injectSystemMessage(content) {
+  const event = {
+    id: ++eventIdCounter,
+    timestamp: Date.now(),
+    type: 'system_message',
+    content
+  }
+
+  if (queue.length >= MAX_QUEUE_SIZE) {
+    queue.shift()
+    if (lastProcessedIndex >= 0) {
+      lastProcessedIndex--
+    }
+  }
+
+  queue.push(event)
+}
+
+/**
+ * Get all pending events (user messages, test status changes, system messages) and clear the queue
  * @returns {Array} All events from the queue
  */
 export function getPendingEvents() {
@@ -543,10 +565,17 @@ export function formatEvents(events) {
     return ''
   }
 
+  const systemMessages = events.filter(e => e.type === 'system_message')
   const userMessages = events.filter(e => e.type === 'user_message')
   const testEvents = events.filter(e => e.type === 'test_status_change')
 
   let output = '\n\n---\n\n'
+
+  if (systemMessages.length > 0) {
+    systemMessages.forEach(msg => {
+      output += `${msg.content}\n\n---\n\n`
+    })
+  }
 
   if (userMessages.length > 0) {
     output += `💬 **User sent ${userMessages.length} message(s):**\n\n`
@@ -576,7 +605,7 @@ export function formatEvents(events) {
   if (userMessages.length > 0) {
     output += '**FIRST:** Call send_to_ui to respond to user messages\n'
     output += '**THEN:** Handle test failures/recoveries if needed\n'
-  } else {
+  } else if (testEvents.length > 0) {
     output += '**What to do:**\n'
     output += '1. Investigate test failures/regressions\n'
     output += '2. Acknowledge recoveries\n'
@@ -584,6 +613,39 @@ export function formatEvents(events) {
   }
 
   return output
+}
+
+/**
+ * Get pending events and append to response text
+ * Call this at the end of any tool to include system messages, user messages, test changes
+ * @param {string} responseText - Existing response text
+ * @returns {string} Response text with pending events appended
+ */
+export function appendPendingEventsToResponse(responseText) {
+  // Get unprocessed events
+  const newEvents = []
+  for (let i = lastProcessedIndex + 1; i < queue.length; i++) {
+    newEvents.push(queue[i])
+  }
+
+  if (newEvents.length === 0) {
+    return responseText
+  }
+
+  // Update lastProcessedIndex
+  const lastEventIndex = queue.indexOf(newEvents[newEvents.length - 1])
+  lastProcessedIndex = lastEventIndex
+
+  // Mark user messages as processed
+  const userMessages = newEvents.filter(e => e.type === 'user_message')
+  for (const msg of userMessages) {
+    if (msg.messageId && msg.room) {
+      msg.status = 'processed'
+      sendToUI(msg, msg.room).catch(() => {})
+    }
+  }
+
+  return responseText + formatEvents(newEvents)
 }
 
 /**

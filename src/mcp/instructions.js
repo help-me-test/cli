@@ -25,6 +25,106 @@ async function fetchAllInstructions() {
 }
 
 /**
+ * Get how_to instructions (exported for use in other tools)
+ */
+export async function getHowToInstructions(args = {}) {
+  try {
+    // Special handling for authentication_state_management - always fetch fresh since it includes dynamic state data
+    if (args.type === 'authentication_state_management') {
+      await detectApiAndAuth()
+      const response = await apiGet('/api/prompts', { type: 'authentication_state_management' }, 'Fetching authentication state management instructions', true)
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `# authentication_state_management Instructions
+
+${response.content}`,
+          },
+        ],
+      }
+    }
+
+    const prompts = await fetchAllInstructions()
+
+    // Format response based on whether specific type was requested
+    if (args.type) {
+      const content = prompts[args.type]
+      if (!content) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Instruction type '${args.type}' not found
+
+**Available types:**
+${Object.keys(prompts).map(t => `- ${t}`).join('\n')}`,
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `# ${args.type} Instructions
+
+${content}`,
+          },
+        ],
+      }
+    } else {
+      // Return list of all available instructions
+      const availableTypes = Object.keys(prompts)
+      const summary = availableTypes.map(type => `- **${type}**`).join('\n')
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `# Available Instructions
+
+${summary}
+
+**Total:** ${availableTypes.length} instruction types
+
+**To get specific instructions:** Call with \`{ "type": "<instruction_type>" }\`
+
+**All instructions are stored centrally on the server and can be updated independently.**`,
+          },
+        ],
+      }
+    }
+
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `❌ Failed to Fetch Instructions
+
+**Error:** ${error.message}
+
+**Troubleshooting:**
+1. Check server is running
+2. Verify API connection
+3. Ensure you have authentication
+
+**Debug Info:**
+\`\`\`
+${error.stack}
+\`\`\``,
+        },
+      ],
+      isError: true,
+    }
+  }
+}
+
+/**
  * Register instruction tools
  */
 export function registerInstructionTools(server) {
@@ -72,86 +172,7 @@ Returns either:
     },
     async (args) => {
       debug(config, `Get instructions tool called: ${JSON.stringify(args)}`)
-
-      try {
-        const prompts = await fetchAllInstructions()
-
-        // Format response based on whether specific type was requested
-        if (args.type) {
-          const content = prompts[args.type]
-          if (!content) {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `❌ Instruction type '${args.type}' not found
-
-**Available types:**
-${Object.keys(prompts).map(t => `- ${t}`).join('\n')}`,
-                },
-              ],
-              isError: true,
-            }
-          }
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `# ${args.type} Instructions
-
-${content}`,
-              },
-            ],
-          }
-        } else {
-          // Return list of all available instructions
-          const availableTypes = Object.keys(prompts)
-          const summary = availableTypes.map(type => `- **${type}**`).join('\n')
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `# Available Instructions
-
-${summary}
-
-**Total:** ${availableTypes.length} instruction types
-
-**To get specific instructions:** Call with \`{ "type": "<instruction_type>" }\`
-
-**All instructions are stored centrally on the server and can be updated independently.**`,
-              },
-            ],
-          }
-        }
-
-      } catch (error) {
-        debug(config, `Error fetching instructions: ${error.message}`)
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `❌ Failed to Fetch Instructions
-
-**Error:** ${error.message}
-
-**Troubleshooting:**
-1. Check server is running
-2. Verify API connection
-3. Ensure you have authentication
-
-**Debug Info:**
-\`\`\`
-${error.stack}
-\`\`\``,
-            },
-          ],
-          isError: true,
-        }
-      }
+      return await getHowToInstructions(args)
     }
   )
 }

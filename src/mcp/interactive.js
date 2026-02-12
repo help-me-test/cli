@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
-import { getPendingMessages, formatAndSendToUI, state, formatUserMessages, registerInteractiveSession } from './command-queue.js'
+import { getPendingMessages, formatAndSendToUI, state, formatUserMessages, registerInteractiveSession, injectSystemMessage, appendPendingEventsToResponse } from './command-queue.js'
 import open from 'open'
 import { writeFile, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -19,8 +19,8 @@ const openedUrls = new Set()
 // Track current interactive session timestamp (persists across tool calls)
 let currentSessionTimestamp = null
 
-// Track if we've shown authentication state info this MCP session
-let hasShownAuthStateInfo = false
+// Track if we've injected auth prompt this MCP session
+let hasInjectedAuthPrompt = false
 
 /**
  * Generic function to open URL in browser once per identifier
@@ -184,6 +184,18 @@ async function handleRunInteractiveCommand(args) {
       currentSessionTimestamp = timestamp
       console.error(`[Interactive] Created new session: ${timestamp}`)
       registerInteractiveSession(timestamp)
+
+      // Inject auth state prompt on first interactive command
+      if (!hasInjectedAuthPrompt) {
+        hasInjectedAuthPrompt = true
+        try {
+          const { getHowToInstructions } = await import('./instructions.js')
+          const result = await getHowToInstructions({ type: 'authentication_state_management' })
+          injectSystemMessage(result.content[0].text)
+        } catch (e) {
+          console.error(`[Interactive] Failed to inject auth prompt: ${e.message}`)
+        }
+      }
     }
 
     const room = `${userInfo.activeCompany}__interactive__${timestamp}`
@@ -287,18 +299,11 @@ ${JSON.stringify(result, null, 2)}
 
     let responseText = formattedResult
 
-    // On first command of MCP session, include authentication state info
-    let authStateInfo = ''
-    if (!hasShownAuthStateInfo) {
-      hasShownAuthStateInfo = true
-      authStateInfo = userInfo.authStatePrompt || ''
-    }
-
     if (!isSuccess) {
       const errorDetails = extractContentFromResult(result)
       const errorMessage = errorDetails.error || "Command execution failed"
 
-      responseText = `${authStateInfo}❌ **Command Failed**
+      responseText = `❌ **Command Failed**
 
 **Error:** ${errorMessage}
 
@@ -306,7 +311,7 @@ ${responseText}
 
 ⚠️ **Next:** Communicate what happened and your plan by passing message/tasks to next run_interactive_command call (or call send_to_ui separately).`
     } else {
-      responseText = `${authStateInfo}✅ **Command Succeeded**
+      responseText = `✅ **Command Succeeded**
 
 ${responseText}
 
@@ -322,12 +327,8 @@ ${responseText}
 **Session:** ${sessionUrl}
 **Total Time:** ${totalElapsedSec}s`
 
-    // Check for user messages sent via AIChat during execution
-    const userMessages = getPendingMessages()
-
-    if (userMessages.length > 0) {
-      responseText += formatUserMessages(userMessages)
-    }
+    // Append all pending events (system messages, user messages, test status changes)
+    responseText = appendPendingEventsToResponse(responseText)
 
     // Extract screenshots from result (including automatic screenshots from server)
     const screenshots = extractScreenshots(result)
