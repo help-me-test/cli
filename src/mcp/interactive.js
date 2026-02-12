@@ -411,6 +411,9 @@ export function registerInteractiveTools(server) {
       title: 'Help Me Test: Interactive Command Tool',
       description: `Execute Robot Framework commands interactively. Sessions maintain browser state between commands.
 
+🚨 **MANDATORY PREREQUISITE FOR helpmetest_upsert_test**
+You MUST use this tool to test your complete flow interactively BEFORE calling \`helpmetest_upsert_test\`. Creating tests without interactive validation is NOT allowed.
+
 ⚠️ **FIRST TIME USING THIS TOOL?** Call \`how_to({ type: "interactive_command_instructions" })\` for detailed workflow and requirements.
 
 **Quick Reminders:**

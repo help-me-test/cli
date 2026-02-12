@@ -376,9 +376,7 @@ ${test.content || 'No content'}
 
 - **Run:** Use \`helpmetest_run_test\` with identifier "${id}"
 - **Open:** Use \`helpmetest_open_test\` with id "${id}"
-- **Update:** Use \`helpmetest_update_test\` to modify content
-- **Rename:** Use \`helpmetest_update_test_name\` to change name
-- **Retag:** Use \`helpmetest_update_test_tags\` to modify tags`
+- **Update:** Use \`helpmetest_upsert_test\` with id "${id}" and fields to update (name/content/description/tags)`
 
       return {
         content: [
@@ -520,17 +518,6 @@ async function handleUpsertTest(args) {
   const isCreate = !id
 
   debug(config, `${isCreate ? 'Creating' : 'Updating'} test with args: ${JSON.stringify(args)}`)
-
-  // For create, name is required
-  if (isCreate && !name) {
-    return {
-      content: [{
-        type: 'text',
-        text: '❌ Error: "name" is required when creating a new test'
-      }],
-      isError: true
-    }
-  }
 
   // Validate tags if provided
   if (tags !== undefined) {
@@ -1011,11 +998,10 @@ You MUST use interactive development before creating tests. This is not optional
 4. \`helpmetest_upsert_test\` - Create the test with your PROVEN sequence
 
 **Usage:**
-- **Create new test:** Provide 'name' (required) and optional content/description/tags. ID will be auto-generated.
-- **Update existing test:** Provide 'id' (required) and any fields to update (name/content/description/tags). Only provided fields are modified.
-- **Rename test:** Provide 'id' and 'name'
-- **Update content:** Provide 'id' and 'content'
-- **Update tags:** Provide 'id' and 'tags'
+- **Create new test:** Omit 'id' (or use id="new"). Provide 'name' (required) and optional content/description/tags. Backend will auto-generate ID.
+- **Update existing test:** Provide 'id' (required), 'name' (required), and any fields to update (content/description/tags).
+
+**Backend Convention:** When id is omitted or set to "new", the backend creates a new test with an auto-generated ID.
 
 **Security Note:** When creating tests, IDs are automatically generated and cannot be manually specified.
 
@@ -1028,8 +1014,8 @@ You MUST use interactive development before creating tests. This is not optional
 
 ${NAMING_CONVENTIONS}`,
       inputSchema: {
-        id: z.string().optional().describe('Test ID (required for updates, omit for creates)'),
-        name: z.string().optional().describe('Test name (required for creates, optional for updates)'),
+        id: z.string().optional().describe('Test ID for updates (omit or use "new" to create new test with auto-generated ID)'),
+        name: z.string().describe('Test name (required)'),
         content: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
         description: z.string().optional().describe('Test description'),
         tags: z.array(z.string()).optional().describe('Test tags as array of strings'),
