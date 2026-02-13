@@ -212,20 +212,7 @@ export function registerProxyTools(server) {
     'helpmetest_proxy',
     {
       title: 'Help Me Test: Proxy Tunnel',
-      description: `Manage proxy tunnels to expose local servers to public URLs.
-
-**Actions:**
-- **start**: Start proxy (requires port, optional domain/name)
-- **list**: List active proxies
-- **stop**: Stop a proxy by domain
-- **stop_all**: Stop all proxies
-
-**Example:** Start proxy for localhost:3000
-- action: "start"
-- port: 3000
-- domain: "myapp.dev.local" (optional)
-
-🚨 **INSTRUCTION FOR AI:** Use this tool when users want to test local development servers with HelpMeTest.`,
+      description: 'Manage proxy tunnels to expose local servers to public URLs. Actions: start, list, stop, stop_all. Use for testing local development servers.',
       inputSchema: {
         action: z.enum(['start', 'list', 'stop', 'stop_all']).describe('Action to perform'),
         port: z.number().optional().describe('Local port to proxy (required for start)'),
