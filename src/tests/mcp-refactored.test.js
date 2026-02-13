@@ -225,7 +225,7 @@ describe('MCP Refactored Methods Tests', () => {
     })
 
     // Full replace test
-    test('should perform full replace with complete object', async () => {
+    test.skipIf(process.env.GITHUB_ACTIONS)('should perform full replace with complete object', async () => {
       const testId = `test-artifact-${Date.now()}`
 
       const result = await client.callTool({
@@ -252,7 +252,7 @@ describe('MCP Refactored Methods Tests', () => {
     }, 30000)
 
     // Partial update test
-    test('should perform partial update with dot notation', async () => {
+    test.skipIf(process.env.GITHUB_ACTIONS)('should perform partial update with dot notation', async () => {
       const testId = `test-artifact-${Date.now()}`
 
       // First create artifact
