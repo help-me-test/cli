@@ -13,11 +13,27 @@ import { formatHealthchecksAsTable } from './healthchecks.js'
 /**
  * Handle comprehensive status tool call
  * @param {Object} args - Tool arguments
+ * @param {string|Array<string>} [args.id] - Filter by ID (test ID, health check name, or deployment ID)
  * @param {boolean} [args.verbose] - Enable verbose output
+ * @param {boolean} [args.testsOnly] - Only show tests
+ * @param {boolean} [args.healthOnly] - Only show health checks
+ * @param {boolean} [args.includeRuns] - Include test run history
+ * @param {boolean} [args.includeDeployments] - Include deployment history
+ * @param {number} [args.runsLimit] - Limit for test runs (default: 10)
+ * @param {number} [args.deploymentsLimit] - Limit for deployments (default: 10)
  * @returns {Object} Comprehensive status result
  */
 async function handleStatus(args) {
-  const { verbose = false } = args
+  const {
+    id = null,
+    verbose = false,
+    testsOnly = false,
+    healthOnly = false,
+    includeRuns = false,
+    includeDeployments = false,
+    runsLimit = 10,
+    deploymentsLimit = 10
+  } = args
 
   debug(config, 'Getting comprehensive status for MCP client')
 
@@ -26,15 +42,109 @@ async function handleStatus(args) {
 
     debug(config, `Retrieved status data: ${statusData.tests.length} tests, ${statusData.healthchecks.length} healthchecks`)
 
-    const output = `# 🔍 Complete System Status - ${statusData.company}
+    // Filter by ID if provided
+    let filteredTests = statusData.tests
+    let filteredHealthchecks = statusData.healthchecks
 
-${formatTestsAsTable(statusData.tests, { includeHeader: true })}
+    if (id) {
+      const ids = Array.isArray(id) ? id : [id]
+      filteredTests = statusData.tests.filter(t =>
+        ids.includes(t.id) || ids.includes(t.name)
+      )
+      filteredHealthchecks = statusData.healthchecks.filter(h =>
+        ids.includes(h.name) || ids.includes(h.id)
+      )
 
-${formatHealthchecksAsTable(statusData.healthchecks, { includeHeader: true })}
+      debug(config, `Filtered to ${filteredTests.length} tests, ${filteredHealthchecks.length} healthchecks`)
+    }
 
-💡 **Action Items:**
-- Focus on ❌ failed tests and down services
-- Check recent deployments if you see new failures`
+    let output = `# 🔍 Complete System Status - ${statusData.company}\n\n`
+
+    // Add tests section (unless healthOnly)
+    if (!healthOnly) {
+      output += formatTestsAsTable(filteredTests, { includeHeader: true, verbose }) + '\n\n'
+    }
+
+    // Add health checks section (unless testsOnly)
+    if (!testsOnly) {
+      output += formatHealthchecksAsTable(filteredHealthchecks, { includeHeader: true }) + '\n\n'
+    }
+
+    // Add test runs if requested
+    if (includeRuns && !healthOnly) {
+      try {
+        const runsResponse = await getTestRuns({ limit: runsLimit })
+        let testRuns = runsResponse.runs || []
+
+        // Filter runs by test ID if id filter is provided
+        if (id) {
+          const ids = Array.isArray(id) ? id : [id]
+          testRuns = testRuns.filter(run => ids.includes(run.test))
+        }
+
+        if (testRuns.length > 0) {
+          const formattedRuns = testRuns.map(run => ({
+            testId: run.test,
+            status: run.status,
+            duration: run.elapsedTime,
+            timestamp: run.timestamp,
+            errorMessage: run.errors?.length > 0 ? run.errors.map(e => e.message).join('; ') : null
+          }))
+
+          const statusCounts = formattedRuns.reduce((acc, run) => {
+            acc[run.status] = (acc[run.status] || 0) + 1
+            return acc
+          }, {})
+
+          output += `## 🏃 Recent Test Runs (${formattedRuns.length} total)\n\n`
+          output += `**Status:** ${Object.entries(statusCounts).map(([status, count]) => `${status}: ${count}`).join(', ')}\n\n`
+
+          const failedRuns = formattedRuns.filter(r => r.status === 'FAIL')
+          if (failedRuns.length > 0) {
+            output += `**Recent Failures:**\n\n`
+            output += `| Test | Duration | Error | Time |\n`
+            output += `|------|----------|-------|------|\n`
+            for (const run of failedRuns.slice(0, 5)) {
+              const error = run.errorMessage ? run.errorMessage.substring(0, 40) + '...' : '-'
+              const time = run.timestamp ? new Date(run.timestamp).toLocaleString() : '-'
+              output += `| ${run.testId} | ${run.duration || '-'} | ${error} | ${time} |\n`
+            }
+            output += '\n'
+          }
+        }
+      } catch (error) {
+        debug(config, `Error getting test runs: ${error.message}`)
+      }
+    }
+
+    // Add deployments if requested
+    if (includeDeployments) {
+      try {
+        const deployments = await getDeployments(new Date(), deploymentsLimit)
+
+        if (deployments && deployments.length > 0) {
+          output += `## 🚀 Recent Deployments (${deployments.length} total)\n\n`
+          output += `| Time | App/Environment | Description |\n`
+          output += `|------|-----------------|-------------|\n`
+
+          for (const dep of deployments.slice(0, deploymentsLimit)) {
+            const time = dep.timestamp ? new Date(dep.timestamp).toLocaleString() : '-'
+            const appEnv = `${dep.data?.app || 'unknown'}/${dep.data?.environment || 'unknown'}`
+            const desc = dep.data?.description ? dep.data.description.substring(0, 50) + '...' : '-'
+            output += `| ${time} | ${appEnv} | ${desc} |\n`
+          }
+          output += '\n'
+        }
+      } catch (error) {
+        debug(config, `Error getting deployments: ${error.message}`)
+      }
+    }
+
+    output += `💡 **Action Items:**\n`
+    output += `- Focus on ❌ failed tests and down services\n`
+    if (includeDeployments) {
+      output += `- Check recent deployments if you see new failures`
+    }
 
     return {
       content: [
@@ -365,80 +475,26 @@ ${deploymentsTable}
  * @param {Object} server - MCP server instance
  */
 export function registerStatusTools(server) {
-  // Register comprehensive status tool
+  // Register comprehensive status tool (enhanced - replaces get_test_runs and get_deployments)
   server.registerTool(
     'helpmetest_status',
     {
       title: 'Help Me Test: Complete Status Tool',
-      description: `Get comprehensive status of all tests and health checks in the helpmetest system. When verbose=true, includes full test content and additional healthcheck data.
-
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're checking and why. After getting results, summarize the key findings in plain language - don't just say "Done". Tell the user about test statuses, any failures, health check issues, etc.`,
+      description: `Get comprehensive status of tests, health checks, test runs, and deployments. Single source of truth for system status. Supports filtering by ID (test ID/name, health check name, or deployment ID).`,
       inputSchema: {
-        verbose: z.boolean().optional().default(false).describe('Enable verbose output with test content, descriptions, and additional debug information'),
+        id: z.union([z.string(), z.array(z.string())]).optional().describe('Filter by ID - test ID/name, health check name, or deployment ID (single string or array)'),
+        verbose: z.boolean().optional().default(false).describe('Enable verbose output with test content and additional debug information'),
+        testsOnly: z.boolean().optional().default(false).describe('Only show tests (filter out health checks)'),
+        healthOnly: z.boolean().optional().default(false).describe('Only show health checks (filter out tests)'),
+        includeRuns: z.boolean().optional().default(false).describe('Include recent test run history'),
+        includeDeployments: z.boolean().optional().default(false).describe('Include recent deployment history for debugging'),
+        runsLimit: z.number().optional().default(10).describe('Limit for test runs when includeRuns=true (default: 10)'),
+        deploymentsLimit: z.number().optional().default(10).describe('Limit for deployments when includeDeployments=true (default: 10)'),
       },
     },
     async (args) => {
       debug(config, `Status tool called with args: ${JSON.stringify(args)}`)
       return await handleStatus(args)
-    }
-  )
-
-  // Register test runs tool
-  server.registerTool(
-    'helpmetest_get_test_runs',
-    {
-      title: 'Help Me Test: Get Test Runs Tool',
-      description: 'Retrieve test run statuses with filtered error messages from the record data. Returns test runs with their status and any error messages that occurred during execution. Useful for analyzing test failures and debugging issues.',
-      inputSchema: {
-        tests: z.array(z.string()).optional().describe('Array of test IDs to filter by (optional)'),
-        status: z.array(z.string()).optional().describe('Array of statuses to filter by (optional, e.g., ["FAIL", "PASS"])'),
-        startDate: z.string().optional().describe('Start date for filtering (ISO format, optional)'),
-        endDate: z.string().optional().describe('End date for filtering (ISO format, optional)'),
-        limit: z.number().optional().default(50).describe('Maximum number of results to return (default: 50, max: 1000)'),
-      },
-    },
-    async (args) => {
-      debug(config, `Test runs tool called with args: ${JSON.stringify(args)}`)
-      return await handleTestRuns(args)
-    }
-  )
-
-  // Register deployments tool
-  server.registerTool(
-    'helpmetest_get_deployments',
-    {
-      title: 'Help Me Test: Get Deployments Tool',
-      description: `Get all deployments from the system.
-
-🚨 CRITICAL AI INSTRUCTION - USE THIS TOOL AS FIRST LINE OF DEBUGGING:
-
-**ALWAYS use this tool FIRST when debugging errors or investigating issues.**
-
-This tool helps correlate test failures and errors with deployments. If an error started occurring after a deployment, that deployment is the likely cause of the issue.
-
-**When to use:**
-1. When investigating test failures - check if they started after a deployment
-2. When debugging errors - compare error timestamps with deployment times
-3. When analyzing system issues - see what was deployed recently
-4. Before assuming code bugs - verify if error correlates with deployment
-
-**Debugging workflow:**
-1. Get error/failure timestamp
-2. Call this tool to get recent deployments
-3. Find deployments that happened just before the error
-4. Check deployment description and app/environment
-5. Correlate with the affected service
-6. Report the likely cause based on deployment timeline
-
-The tool returns deployment data with timestamps, app names, environments, and descriptions. Use this to build a timeline and identify which deployment likely caused the current issue.`,
-      inputSchema: {
-        startDate: z.string().optional().describe('Start date for filtering deployments (ISO format, optional). If not provided, returns all recent deployments'),
-        limit: z.number().optional().default(1000).describe('Maximum number of deployments to return (default: 1000)'),
-      },
-    },
-    async (args) => {
-      debug(config, `Deployments tool called with args: ${JSON.stringify(args)}`)
-      return await handleDeployments(args)
     }
   )
 }
