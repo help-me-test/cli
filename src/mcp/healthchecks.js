@@ -3,7 +3,6 @@
  * Provides health monitoring tools for the helpmetest system
  */
 
-import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
 import { getAllHealthChecks } from '../utils/api.js'
