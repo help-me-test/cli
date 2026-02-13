@@ -8,6 +8,63 @@ import { config, debug } from '../utils/config.js'
 import { deleteHealthCheck, undoUpdate } from '../utils/api.js'
 import deployCommand from '../commands/deploy.js'
 import updateCommand from '../commands/update.js'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
+
+/**
+ * Get path to MCP state file
+ * @returns {string} Path to state file
+ */
+function getStatePath() {
+  const homeDir = os.homedir()
+  const helpmetestDir = path.join(homeDir, '.helpmetest')
+
+  // Ensure directory exists
+  if (!fs.existsSync(helpmetestDir)) {
+    fs.mkdirSync(helpmetestDir, { recursive: true })
+  }
+
+  return path.join(helpmetestDir, 'mcp-state.json')
+}
+
+/**
+ * Check if init has been run before
+ * @returns {Object} State object with init flag and date
+ */
+function getInitState() {
+  const statePath = getStatePath()
+
+  if (!fs.existsSync(statePath)) {
+    return { initCalled: false, initDate: null }
+  }
+
+  try {
+    const stateData = fs.readFileSync(statePath, 'utf8')
+    return JSON.parse(stateData)
+  } catch (error) {
+    debug(config, `Error reading state file: ${error.message}`)
+    return { initCalled: false, initDate: null }
+  }
+}
+
+/**
+ * Save init state
+ */
+function saveInitState() {
+  const statePath = getStatePath()
+  const state = {
+    initCalled: true,
+    initDate: new Date().toISOString()
+  }
+
+  try {
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf8')
+    debug(config, `Saved init state to ${statePath}`)
+  } catch (error) {
+    debug(config, `Error saving state file: ${error.message}`)
+  }
+}
 
 /**
  * Delete health check tool call
@@ -216,6 +273,31 @@ This deployment will be correlated with test failures to help identify which cha
  * @returns {Object} Init result with comprehensive test routine
  */
 async function initTool(server) {
+  // Check if init has been run before
+  const initState = getInitState()
+
+  if (initState.initCalled) {
+    const initDate = new Date(initState.initDate).toLocaleString()
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ **MCP Server Already Initialized**
+
+Init was previously run on ${initDate}.
+
+All tools should already be approved. If you're seeing approval prompts again, it may be due to:
+- MCP client settings reset
+- Different MCP client being used
+- Permissions file was cleared
+
+You can run individual tools to re-approve them as needed, or delete the state file to force re-initialization:
+\`~/.helpmetest/mcp-state.json\`
+
+**Available tools:** ${Object.keys(server._registeredTools || {}).length} tools registered`
+      }]
+    }
+  }
+
   const toolsList = Object.keys(server._registeredTools || {})
 
   if (toolsList.length === 0) {
@@ -226,6 +308,9 @@ async function initTool(server) {
       }]
     }
   }
+
+  // Save init state
+  saveInitState()
 
   const toolsWithDescriptions = toolsList.map(name => {
     const tool = server._registeredTools[name]
@@ -239,7 +324,7 @@ async function initTool(server) {
   return {
     content: [{
       type: 'text',
-      text: `🎉 **HelpMeTest MCP Server - Comprehensive Tool Approval**
+      text: `🎉 **HelpMeTest MCP Server - First-Time Initialization**
 
 Found ${toolsList.length} tools. I'll now run a comprehensive test routine that:
 1. Creates temporary test data (test, artifact, etc.)
@@ -374,27 +459,8 @@ The deployment will be tagged with app and environment for easy filtering with h
     }
   )
 
-  // Register update tool
-  server.registerTool(
-    'helpmetest_update',
-    {
-      title: 'Help Me Test: Update CLI Tool',
-      description: `Update the HelpMeTest CLI to the latest version.
-
-**Note:** MCP server needs restart after update.`,
-      inputSchema: {},
-    },
-    async () => {
-      debug(config, 'Update tool called')
-      await updateCommand({ verbose: false })
-      return {
-        content: [{
-          type: 'text',
-          text: `✅ Update Completed\n\nCLI updated to latest version.\n\n**Note:** MCP server needs restart to use new version.`
-        }]
-      }
-    }
-  )
+  // Note: helpmetest_update removed - CLI updates should be managed outside of MCP
+  // Users can update CLI directly with: bun update @helpmetest/cli
 
   // Register init tool
   server.registerTool(
