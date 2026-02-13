@@ -206,18 +206,77 @@ ${generateTagDocumentation()}
 `
 
 /**
- * Handle run test tool call
+ * Handle run test tool call (single or parallel)
  * @param {Object} args - Tool arguments
- * @param {string} args.identifier - Test name, tag, or ID to run
+ * @param {string|Array<string>} args.id - Test name/tag/ID, or array of IDs for parallel execution
  * @returns {Object} Test run result
  */
 async function handleRunTest(args) {
-  const { identifier } = args
+  const { id } = args
 
-  debug(config, `Running test with identifier: ${identifier}`)
+  // Handle array - run in parallel
+  if (Array.isArray(id)) {
+    debug(config, `Running ${id.length} tests in parallel: ${id.join(', ')}`)
+
+    try {
+      // Run all tests in parallel
+      const results = await Promise.allSettled(
+        id.map(testId => runTestMarkdown(testId))
+      )
+
+      // Format results - header first
+      let output = `# 🧪 Parallel Test Execution\n\n`
+
+      // Show each test result
+      results.forEach((result, index) => {
+        const testId = id[index]
+        output += `## Test: ${testId}\n\n`
+
+        if (result.status === 'fulfilled') {
+          output += result.value + '\n\n'
+        } else {
+          output += `❌ **Error:** ${result.reason?.message || 'Unknown error'}\n\n`
+        }
+
+        output += `---\n\n`
+      })
+
+      // Summary at the end
+      const passed = results.filter(r => r.status === 'fulfilled' && !r.value.includes('❌') && !r.value.includes('FAIL'))
+      const failed = results.filter(r => r.status === 'fulfilled' && (r.value.includes('❌') || r.value.includes('FAIL')))
+      const errored = results.filter(r => r.status === 'rejected')
+
+      output += `## Summary\n\n`
+      output += `**Tests run:** ${id.length}\n\n`
+      output += `**Results:** ${passed.length}✅ ${failed.length}❌ ${errored.length}⚠️\n`
+
+      const hasFailures = failed.length > 0 || errored.length > 0
+
+      return {
+        content: [{
+          type: 'text',
+          text: output
+        }],
+        isError: hasFailures
+      }
+    } catch (error) {
+      debug(config, `Error running tests in parallel: ${error.message}`)
+
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Parallel Test Execution Failed\n\n**Error:** ${error.message}`
+        }],
+        isError: true
+      }
+    }
+  }
+
+  // Handle single test
+  debug(config, `Running test with identifier: ${id}`)
 
   try {
-    const markdownOutput = await runTestMarkdown(identifier)
+    const markdownOutput = await runTestMarkdown(id)
 
     // Check if output indicates failure
     const hasFailures = markdownOutput.includes('❌') || markdownOutput.includes('FAIL')
@@ -240,11 +299,11 @@ async function handleRunTest(args) {
           type: 'text',
           text: `❌ Test Execution Failed
 
-**Identifier:** ${identifier}
+**Identifier:** ${id}
 **Error:** ${error.message}
 
 **Troubleshooting:**
-1. Verify the test exists using \`helpmetest_status_test\`
+1. Verify the test exists using \`helpmetest_status\`
 2. Check your API connection and credentials
 3. Try running a different test to isolate the issue`,
         },
@@ -261,7 +320,7 @@ async function handleRunTest(args) {
  * @returns {string} Formatted markdown table
  */
 export function formatTestsAsTable(tests, options = {}) {
-  const { includeHeader = true } = options
+  const { includeHeader = true, verbose = false } = options
 
   const passedTests = tests.filter(t => t.status === 'PASS')
   const failedTests = tests.filter(t => t.status === 'FAIL')
@@ -301,6 +360,28 @@ export function formatTestsAsTable(tests, options = {}) {
     const duration = test.duration || '-'
     const id = test.id ? `\`${test.id}\`` : '-'
     output += `| ⚠️ | ${test.name} | ${id} | ${duration} | ${tags} |\n`
+  }
+
+  // Add test details in verbose mode
+  if (verbose) {
+    const allTests = [...failedTests, ...passedTests, ...otherTests]
+    const testsWithContent = allTests.filter(t => t.content || t.description)
+
+    if (testsWithContent.length > 0) {
+      output += '\n---\n\n## 📋 Test Details\n\n'
+
+      for (const test of testsWithContent) {
+        output += `### ${test.name} (\`${test.id}\`)\n\n`
+
+        if (test.description) {
+          output += `**Description:** ${test.description}\n\n`
+        }
+
+        if (test.content) {
+          output += `**Content:**\n\`\`\`robot\n${test.content}\n\`\`\`\n\n`
+        }
+      }
+    }
   }
 
   return output
@@ -375,7 +456,7 @@ ${test.content || 'No content'}
 
 ## Actions
 
-- **Run:** Use \`helpmetest_run_test\` with identifier "${id}"
+- **Run:** Use \`helpmetest_run_test\` with id "${id}"
 - **Open:** Use \`helpmetest_open_test\` with id "${id}"
 - **Update:** Use \`helpmetest_upsert_test\` with id "${id}" and fields to update (name/content/description/tags)`
 
@@ -445,25 +526,25 @@ ${JSON.stringify(errorResponse.debug, null, 2)}
 /**
  * Handle delete test tool call
  * @param {Object} args - Tool arguments
- * @param {string} args.identifier - Test ID, name, or tag to delete
+ * @param {string} args.id - Test ID, name, or tag to delete
  * @returns {Object} Delete test result
  */
 async function handleDeleteTest(args) {
-  const { identifier } = args
-  
-  debug(config, `Deleting test with identifier: ${identifier}`)
-  
+  const { id } = args
+
+  debug(config, `Deleting test with identifier: ${id}`)
+
   try {
-    const result = await deleteTest(identifier)
+    const result = await deleteTest(id)
     debug(config, `Test deletion result: ${JSON.stringify(result)}`)
-    
+
     return {
       content: [
         {
           type: 'text',
           text: `✅ Test Deleted Successfully
 
-**Deleted:** ${identifier}
+**Deleted:** ${id}
 
 **Note:** This operation can be undone using the 'helpmetest_undo_update' command if the deletion was made in error.
 
@@ -476,10 +557,10 @@ ${JSON.stringify(result, null, 2)}
     }
   } catch (error) {
     debug(config, `Error deleting test: ${error.message}`)
-    
+
     const errorResponse = {
       error: true,
-      identifier,
+      identifier: id,
       message: error.message,
       type: error.name || 'Error',
       timestamp: new Date().toISOString(),
@@ -489,7 +570,7 @@ ${JSON.stringify(result, null, 2)}
         status: error.status || null
       }
     }
-    
+
     return {
       content: [
         {
@@ -521,7 +602,7 @@ async function handleUpsertTest(args) {
   debug(config, `${isCreate ? 'Creating' : 'Updating'} test with args: ${JSON.stringify(args)}`)
 
   // Inject test quality prompt on first test creation/modification
-  await injectPromptsByType('what_makes_a_good_test')
+  await injectPromptsByType('test_quality_guardrails')
 
   // Validate tags if provided
   if (tags !== undefined) {
@@ -570,7 +651,7 @@ ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
     // Run the test if run=true
     if (run) {
       debug(config, `Running test after upsert: ${result.id}`)
-      const runResult = await handleRunTest({ identifier: result.id })
+      const runResult = await handleRunTest({ id: result.id })
 
       // Append test run results
       responseText += `\n\n---\n\n## 🧪 Test Run Results\n\n${runResult.content[0].text}`
@@ -591,8 +672,8 @@ ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
 
     // Append pending events (system messages)
     responseText = formatResponse(responseText + `\n\n**Next Steps:**
-1. View in browser: Use 'helpmetest_open_test' with identifier "${result.id}"
-2. Run manually: Use 'helpmetest_run_test' with identifier "${result.id}"`)
+1. View in browser: Use 'helpmetest_open_test' with id "${result.id}"
+2. Run manually: Use 'helpmetest_run_test' with id "${result.id}"`)
 
     return {
       content: [
@@ -926,11 +1007,9 @@ export function registerTestTools(server) {
     'helpmetest_run_test',
     {
       title: 'Help Me Test: Run Test Tool',
-      description: `Run a test by name, tag, or ID. After execution, provides a detailed explanation of what happened, including test results, keyword execution status, and next steps for debugging if needed.
-
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're running and why. After getting results, describe what happened during the test execution - whether it passed or failed, what steps were executed, and what the results mean. Don't just say "Done".`,
+      description: 'Run one or more tests. Pass a single ID for sequential execution, or an array of IDs for parallel execution. Returns detailed execution results including test status, keyword execution, and debugging information.',
       inputSchema: {
-        identifier: z.string().describe('Test name, tag (tag:tagname), or ID to run'),
+        id: z.union([z.string(), z.array(z.string())]).describe('Test name/tag/ID (single string), or array of IDs for parallel execution'),
       },
     },
     async (args) => {
@@ -939,41 +1018,12 @@ export function registerTestTools(server) {
     }
   )
 
-  // Register status_test tool
-  server.registerTool(
-    'helpmetest_status_test',
-    {
-      title: 'Help Me Test: Test Status Tool',
-      description: `Get status of all tests in the helpmetest system, or show full details for a specific test.
-
-**Two Modes:**
-
-1. **List Mode** (no id parameter): Shows table of all tests with status, duration, tags
-2. **Detail Mode** (with id parameter): Shows FULL test details including:
-   - Test name, ID, status, last run, duration, tags, description
-   - Complete Robot Framework test content
-   - Available actions (run, open, update, etc.)
-
-**Use Detail Mode to:**
-- View test content without executing
-- Check test description
-- See what Robot Framework keywords a test uses
-- Verify test configuration before running
-
-🚨 INSTRUCTION FOR AI:
-- Use **Detail Mode** (\`id="test_id"\`) when you need to see test content/description without running it
-- Use **List Mode** (no id) to get overview of all tests
-- Always explain what you're checking and summarize results in plain language`,
-      inputSchema: {
-        id: z.string().optional().describe('Optional test ID to show full details for specific test (including content and description)'),
-        verbose: z.boolean().optional().default(false).describe('Deprecated - content is always included when id is provided'),
-      },
-    },
-    async (args) => {
-      debug(config, `Test status tool called with args: ${JSON.stringify(args)}`)
-      return await handleTestStatus(args)
-    }
-  )
+  // Note: Test status list view has been consolidated into helpmetest_status with testsOnly=true
+  // Detail mode functionality (viewing full test content) can be achieved by using:
+  // 1. helpmetest_status({ testsOnly: true, verbose: true }) to get test overview with content
+  // 2. helpmetest_status({ id: "test-id", verbose: true }) to get specific test content
+  // 3. helpmetest_status({ id: ["test1", "test2"], verbose: true }) to get multiple tests
+  // This reduces method duplication while maintaining all functionality
 
   // Register upsert_test tool (replaces create/update/update_name/update_tags)
   server.registerTool(
@@ -1015,13 +1065,6 @@ You MUST use interactive development before creating tests. This is not optional
 
 **Security Note:** When creating tests, IDs are automatically generated and cannot be manually specified.
 
-🚨 CRITICAL INSTRUCTION FOR AI:
-1. ALWAYS explain what you're creating/updating and why
-2. If the test fails after creation, DO NOT celebrate - acknowledge the failure
-3. Be honest about test results - failing tests are problems, not successes
-4. Guide the user through debugging if the test fails
-5. Don't just say "Done" - analyze the actual results
-
 ${NAMING_CONVENTIONS}`,
       inputSchema: {
         id: z.string().optional().describe('Test ID for updates (omit or use "new" to create new test with auto-generated ID)'),
@@ -1043,11 +1086,9 @@ ${NAMING_CONVENTIONS}`,
     'helpmetest_delete_test',
     {
       title: 'Help Me Test: Delete Test Tool',
-      description: `Delete a test by ID, name, or tag. This operation can be undone using the undo_update tool if the update is revertable.
-
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which test you're deleting and why. After deletion, confirm what was deleted and mention that it can be undone if needed. Don't just say "Done".`,
+      description: 'Delete a test by ID, name, or tag. This operation can be undone using the undo_update tool if the update is revertable.',
       inputSchema: {
-        identifier: z.string().describe('Test ID, name, or tag (with tag: prefix) to delete'),
+        id: z.string().describe('Test ID, name, or tag (with tag: prefix) to delete'),
       },
     },
     async (args) => {
@@ -1067,9 +1108,7 @@ ${NAMING_CONVENTIONS}`,
 - Open test by ID: \`id="nrwm2kgy66ar2nt0camren"\`
 - Open test run: \`id="nrwm2kgy66ar2nt0camren"\`, \`runIdDate="2025-11-04T11:54:05.000Z"\`
 - Search by name: \`name="Login Flow"\`
-- Search by tag: \`tag="feature:login"\`
-
-🚨 INSTRUCTION FOR AI: Use explicit parameters (id, name, or tag) - never guess what type of identifier you have. If you get multiple results, pick the specific ID you want.`,
+- Search by tag: \`tag="feature:login"\``,
       inputSchema: {
         id: z.string().optional().describe('Test ID (e.g., "nrwm2kgy66ar2nt0camren") - use this for direct test access'),
         name: z.string().optional().describe('Test name (e.g., "Login Flow") - will search for exact name match'),
