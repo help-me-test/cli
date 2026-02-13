@@ -81,6 +81,9 @@ export function getAvailableRooms(company) {
  * Inject a system message into the queue
  * @param {string} content - Message content
  */
+// Track which system messages have been injected (by key)
+const injectedMessages = new Set()
+
 export function injectSystemMessage(content) {
   const event = {
     id: ++eventIdCounter,
@@ -97,6 +100,58 @@ export function injectSystemMessage(content) {
   }
 
   queue.push(event)
+}
+
+/**
+ * Inject system message only once per session (tracked by key)
+ * @param {string} key - Unique key to track if message was already injected
+ * @param {string} content - Message content to inject
+ * @returns {boolean} true if injected, false if already injected
+ */
+export function injectSystemMessageOnce(key, content) {
+  if (injectedMessages.has(key)) {
+    return false
+  }
+  injectedMessages.add(key)
+  injectSystemMessage(content)
+  return true
+}
+
+/**
+ * Inject multiple prompts at once (batch operation)
+ * @param {Object} prompts - Object with prompt keys and their content
+ */
+export function injectPrompts(prompts) {
+  for (const [key, content] of Object.entries(prompts)) {
+    injectSystemMessageOnce(key, content)
+  }
+}
+
+/**
+ * Inject prompt by fetching it from instructions
+ * @param {string|string[]} types - Single type or array of types to fetch and inject
+ */
+export async function injectPromptsByType(types) {
+  const typeArray = Array.isArray(types) ? types : [types]
+
+  try {
+    const { getAllPrompts } = await import('./instructions.js')
+
+    // Fetch ALL prompts in ONE request
+    const allPrompts = await getAllPrompts()
+
+    // Inject requested types
+    const prompts = {}
+    for (const type of typeArray) {
+      if (allPrompts[type]) {
+        prompts[type] = allPrompts[type]
+      }
+    }
+
+    injectPrompts(prompts)
+  } catch (e) {
+    console.error(`[CommandQueue] Failed to inject prompts: ${e.message}`)
+  }
 }
 
 /**
@@ -616,12 +671,12 @@ export function formatEvents(events) {
 }
 
 /**
- * Get pending events and append to response text
+ * Format response with pending events
  * Call this at the end of any tool to include system messages, user messages, test changes
  * @param {string} responseText - Existing response text
- * @returns {string} Response text with pending events appended
+ * @returns {string} Formatted response with pending events
  */
-export function appendPendingEventsToResponse(responseText) {
+export function formatResponse(responseText) {
   // Get unprocessed events
   const newEvents = []
   for (let i = lastProcessedIndex + 1; i < queue.length; i++) {
@@ -645,7 +700,7 @@ export function appendPendingEventsToResponse(responseText) {
     }
   }
 
-  return responseText + formatEvents(newEvents)
+  return formatEvents(newEvents) + responseText
 }
 
 /**

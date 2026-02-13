@@ -25,28 +25,37 @@ async function fetchAllInstructions() {
 }
 
 /**
+ * Get all prompts (exported for injection)
+ * Fetches static prompts + dynamic auth state section
+ */
+export async function getAllPrompts() {
+  const cachedPrompts = await fetchAllInstructions()
+
+  // Clone to avoid mutating cache
+  const prompts = { ...cachedPrompts }
+
+  // Fetch dynamic auth state section
+  try {
+    await detectApiAndAuth()
+    const authStateResponse = await apiGet('/api/auth-states-prompt', {}, 'Fetching auth states', true)
+
+    if (authStateResponse.section) {
+      prompts.authentication_state_management = authStateResponse.section + cachedPrompts.authentication_state_management
+    }
+  } catch (e) {
+    console.error('[Instructions] Failed to fetch auth states:', e.message)
+    // Fall back to static prompt
+  }
+
+  return prompts
+}
+
+/**
  * Get how_to instructions (exported for use in other tools)
  */
 export async function getHowToInstructions(args = {}) {
   try {
-    // Special handling for authentication_state_management - always fetch fresh since it includes dynamic state data
-    if (args.type === 'authentication_state_management') {
-      await detectApiAndAuth()
-      const response = await apiGet('/api/prompts', { type: 'authentication_state_management' }, 'Fetching authentication state management instructions', true)
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `# authentication_state_management Instructions
-
-${response.content}`,
-          },
-        ],
-      }
-    }
-
-    const prompts = await fetchAllInstructions()
+    const prompts = await getAllPrompts()
 
     // Format response based on whether specific type was requested
     if (args.type) {
@@ -137,11 +146,19 @@ export function registerInstructionTools(server) {
 These instructions define agent behavior, workflow loops, and best practices.
 Prompts are stored on the server and can be updated independently of platform code.
 
+**⚠️ MANDATORY BEFORE CREATING TESTS:**
+- what_makes_a_good_test: Test quality criteria, structure, and evaluation (READ THIS FIRST)
+
 **Available instruction types:**
-- self_healing: Self-healing test monitoring loop
-- browser_automation: Browser agent thinking loop
+- what_makes_a_good_test: What makes tests good vs bad (⚠️ READ BEFORE CREATING TESTS)
 - test_creation_guidance: How to create tests
 - test_modification_guidance: How to modify tests
+- authentication_state_management: Save/restore auth states
+- interactive_command_instructions: Interactive testing workflow
+- self_healing: Self-healing test monitoring loop
+- browser_automation: Browser agent thinking loop
+- exploratory_testing: Exploratory testing workflow
+- robot_framework_syntax: Robot Framework syntax guide
 - test_type_ui: UI testing guidance
 - test_type_api: API testing guidance
 - test_type_database: Database testing guidance
@@ -151,13 +168,14 @@ Prompts are stored on the server and can be updated independently of platform co
 **Usage:**
 \`\`\`json
 // Get specific instruction
-{ "type": "self_healing" }
+{ "type": "what_makes_a_good_test" }
 
 // Get all instructions
 { }
 \`\`\`
 
 **When to use:**
+- BEFORE creating any test (call what_makes_a_good_test)
 - Starting an agent loop (self-healing, exploratory testing, etc.)
 - Need guidance for test creation/modification
 - Implementing platform-agnostic agent logic

@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
-import { formatAndSendToUI, state, registerInteractiveSession, injectSystemMessage, appendPendingEventsToResponse } from './command-queue.js'
+import { formatAndSendToUI, state, registerInteractiveSession, injectPromptsByType, formatResponse } from './command-queue.js'
 import open from 'open'
 import { writeFile, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -19,8 +19,7 @@ const openedUrls = new Set()
 // Track current interactive session timestamp (persists across tool calls)
 let currentSessionTimestamp = null
 
-// Track if we've injected auth prompt this MCP session
-let hasInjectedAuthPrompt = false
+// No more injection tracking flags - centralized in command-queue.js
 
 /**
  * Generic function to open URL in browser once per identifier
@@ -185,17 +184,8 @@ async function handleRunInteractiveCommand(args) {
       console.error(`[Interactive] Created new session: ${timestamp}`)
       registerInteractiveSession(timestamp)
 
-      // Inject auth state prompt on first interactive command
-      if (!hasInjectedAuthPrompt) {
-        hasInjectedAuthPrompt = true
-        try {
-          const { getHowToInstructions } = await import('./instructions.js')
-          const result = await getHowToInstructions({ type: 'authentication_state_management' })
-          injectSystemMessage(result.content[0].text)
-        } catch (e) {
-          console.error(`[Interactive] Failed to inject auth prompt: ${e.message}`)
-        }
-      }
+      // Inject prompts on first interactive command
+      await injectPromptsByType(['authentication_state_management', 'robot_framework_syntax'])
     }
 
     const room = `${userInfo.activeCompany}__interactive__${timestamp}`
@@ -328,7 +318,7 @@ ${responseText}
 **Total Time:** ${totalElapsedSec}s`
 
     // Append all pending events (system messages, user messages, test status changes)
-    responseText = appendPendingEventsToResponse(responseText)
+    responseText = formatResponse(responseText)
 
     // Extract screenshots from result (including automatic screenshots from server)
     const screenshots = extractScreenshots(result)

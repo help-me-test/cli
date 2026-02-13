@@ -8,6 +8,7 @@ import { config, debug } from '../utils/config.js'
 import { runTestMarkdown, createTest, deleteTest, getAllTests, detectApiAndAuth } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
+import { injectPromptsByType, formatResponse } from './command-queue.js'
 
 /**
  * Tag system configuration - SINGLE SOURCE OF TRUTH
@@ -519,6 +520,9 @@ async function handleUpsertTest(args) {
 
   debug(config, `${isCreate ? 'Creating' : 'Updating'} test with args: ${JSON.stringify(args)}`)
 
+  // Inject test quality prompt on first test creation/modification
+  await injectPromptsByType('what_makes_a_good_test')
+
   // Validate tags if provided
   if (tags !== undefined) {
     const tagValidation = validateTags(tags)
@@ -571,6 +575,9 @@ ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
       // Append test run results
       responseText += `\n\n---\n\n## 🧪 Test Run Results\n\n${runResult.content[0].text}`
 
+      // Append pending events (system messages)
+      responseText = formatResponse(responseText)
+
       return {
         content: [
           {
@@ -582,13 +589,16 @@ ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
       }
     }
 
+    // Append pending events (system messages)
+    responseText = formatResponse(responseText + `\n\n**Next Steps:**
+1. View in browser: Use 'helpmetest_open_test' with identifier "${result.id}"
+2. Run manually: Use 'helpmetest_run_test' with identifier "${result.id}"`)
+
     return {
       content: [
         {
           type: 'text',
-          text: responseText + `\n\n**Next Steps:**
-1. View in browser: Use 'helpmetest_open_test' with identifier "${result.id}"
-2. Run manually: Use 'helpmetest_run_test' with identifier "${result.id}"`,
+          text: responseText,
         },
       ],
     }
