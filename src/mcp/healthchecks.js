@@ -274,54 +274,8 @@ ${JSON.stringify(errorResponse.debug, null, 2)}
  * @param {Object} server - MCP server instance
  */
 export function registerHealthTools(server) {
-  // Register health_check tool
-  server.registerTool(
-    'helpmetest_health_check',
-    {
-      title: 'Help Me Test: Health Check Tool',
-      description: `Perform a health check on a specified URL
-
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user which URL you're checking and why. After getting results, describe whether the health check passed or failed and what that means. Don't just say "Done".`,
-      inputSchema: {
-        url: z.string().describe('URL to check'),
-        timeout: z.number().optional().default(30).describe('Timeout in seconds (optional)'),
-      },
-    },
-    async (args) => {
-      debug(config, `Health check tool called with args: ${JSON.stringify(args)}`)
-      return await handleHealthCheck(args)
-    }
-  )
-
-  // Register health_checks_status tool
-  server.registerTool(
-    'helpmetest_health_checks_status',
-    {
-      title: 'Help Me Test: Health Checks Status Tool',
-      description: 'Get status of all health checks in the helpmetest system',
-      inputSchema: {},
-    },
-    async (args) => {
-      debug(config, `Health checks status tool called with args: ${JSON.stringify(args)}`)
-      return await handleHealthChecksStatus(args)
-    }
-  )
-
-  // Register status_health tool
-  server.registerTool(
-    'helpmetest_status_health',
-    {
-      title: 'Help Me Test: Health Status Tool',
-      description: `Get status of all health checks in the helpmetest system. When verbose=true, includes additional healthcheck metadata and heartbeat data.
-
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're checking. After getting results, summarize the health check statuses in plain language - tell them which services are up/down, any issues found, etc. Don't just say "Done".`,
-      inputSchema: {
-        verbose: z.boolean().optional().default(false).describe('Enable verbose output with additional healthcheck metadata, heartbeat data, and debug information'),
-      },
-    },
-    async (args) => {
-      debug(config, `Health status tool called with args: ${JSON.stringify(args)}`)
-      return await handleHealthStatus(args)
-    }
-  )
+  // Note: Health check status methods have been consolidated into helpmetest_status
+  // See status.js for the unified status method with options:
+  // - healthOnly: true - to get only health checks
+  // - verbose: true - for additional metadata
 }

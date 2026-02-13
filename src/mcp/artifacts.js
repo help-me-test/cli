@@ -91,7 +91,36 @@ export async function upsertArtifact(args) {
 
   await detectApiAndAuth()
 
-  debug(config, `Upserting artifact: ${id}`)
+  // Smart detection: if only id and content provided, and content has dot notation, do partial update
+  const isPartialUpdate = !name && !type && content && typeof content === 'object'
+    && Object.keys(content).some(k => k.includes('.') || k.includes('-1'))
+
+  if (isPartialUpdate) {
+    debug(config, `Partially updating artifact (smart detection): ${id}`)
+
+    // Import apiPut dynamically
+    const { apiPut } = await import('../utils/api.js')
+
+    const data = await apiPut(`/api/artifacts/${id}/content`, content)
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `✅ Artifact ${id} updated (partial)
+
+**Updated fields:** ${Object.keys(content).join(', ')}
+
+\`\`\`json
+${JSON.stringify(data, null, 2)}
+\`\`\``
+        }
+      ]
+    }
+  }
+
+  // Full upsert
+  debug(config, `Upserting artifact (full): ${id}`)
 
   const payload = {
     id,
@@ -309,10 +338,10 @@ ${JSON.stringify(data, null, 2)}
  * Register artifact tools with the MCP server
  */
 export function registerArtifactTools(server) {
-  // List artifacts
+  // Search artifacts (renamed from list_artifacts)
   server.tool(
-    'helpmetest_list_artifacts',
-    'List all artifacts with optional filters (type, tags, search). Use this to browse the knowledge base.',
+    'helpmetest_search_artifacts',
+    'Search and filter artifacts with optional filters (type, tags, search). Use this to browse the knowledge base.',
     {
       type: z.string().optional().describe('Filter by artifact type (e.g., SelfHealing, ExploratoryTesting, BusinessAnalysis)'),
       tags: z.union([z.string(), z.array(z.string())]).optional().describe('Filter by tags (comma-separated string or array)'),
@@ -333,15 +362,15 @@ export function registerArtifactTools(server) {
     getArtifact
   )
 
-  // Create/update artifact
+  // Create/update artifact (with smart partial update detection)
   server.tool(
     'helpmetest_upsert_artifact',
-    'Create a new artifact or update an existing one. Artifacts are knowledge base items that can help with test writing and debugging.',
+    'Create or update artifact. Supports both full replacement and partial updates. For partial updates, only provide id and content with dot notation (e.g., {"notes.-1": "new note"}). For full updates, provide all fields.',
     {
       id: z.string().describe('Unique artifact ID (e.g., "login-page-selectors")'),
-      name: z.string().describe('Human-readable artifact name'),
-      type: z.string().describe('Artifact type matching backend class names (e.g., BusinessAnalysis, SelfHealing, ExploratoryTesting). Server validates valid types.'),
-      content: z.union([z.string(), z.any()]).describe('Artifact content as JSON object or JSON string'),
+      name: z.string().optional().describe('Human-readable artifact name (required for full upsert, omit for partial update)'),
+      type: z.string().optional().describe('Artifact type (required for full upsert, omit for partial update)'),
+      content: z.union([z.string(), z.any()]).describe('Artifact content. For partial updates, use dot notation (e.g., {"coverage": "high", "notes.-1": "observation"}). For full updates, provide complete content object.'),
       tags: z.array(z.string()).optional().describe('Tags for categorization and linking (e.g., ["page:login", "feature:auth"])')
     },
     upsertArtifact
@@ -357,52 +386,22 @@ export function registerArtifactTools(server) {
     deleteArtifact
   )
 
-  // Get statistics
-  server.tool(
-    'helpmetest_get_artifact_stats',
-    'Get statistics about artifacts including total count, counts by type, and tag usage.',
-    {},
-    getArtifactStats
-  )
-
-  // Get linked artifacts
-  server.tool(
-    'helpmetest_get_linked_artifacts',
-    'Get artifacts linked to a specific artifact (artifacts with overlapping tags).',
-    {
-      id: z.string().describe('Source artifact ID')
-    },
-    getLinkedArtifacts
-  )
-
-  // Get all tags
-  server.tool(
-    'helpmetest_get_artifact_tags',
-    'Get all available tags used across artifacts.',
-    {},
-    getArtifactTags
-  )
+  // Note: Removed non-essential methods (get_artifact_stats, get_linked_artifacts, get_artifact_tags)
+  // These features were rarely used and added complexity without significant value
+  // Search functionality covers most use cases for discovering artifacts
 
   // Get artifact schema - CALL THIS FIRST before making updates
   server.tool(
     'helpmetest_get_artifact_schema',
-    'Get the schema for an artifact type to know what fields exist and their validation rules. ALWAYS call this BEFORE making updates to understand the structure and use correct field names.',
+    'Get the schema for an artifact type to know what fields exist and their validation rules. Call this before making updates to understand the structure.',
     {
       type: z.string().describe('Artifact type (e.g., SelfHealing, ExploratoryTesting, BusinessAnalysis)')
     },
     getArtifactSchema
   )
 
-  // Partial update artifact - USE THIS for exploratory testing
-  server.tool(
-    'helpmetest_partial_update_artifact',
-    'Incrementally update artifact content without regenerating entire artifact. Use this to append test results, bugs, notes, or update specific fields. ALWAYS use this instead of helpmetest_upsert_artifact during exploratory testing. Supports dot notation for nested updates and -1 for array append.',
-    {
-      id: z.string().describe('Artifact ID'),
-      updates: z.record(z.any()).describe('Fields to update using dot notation. Examples: {"coverage": "high"}, {"testResults.-1": {...new result...}}, {"bugs.-1": {...new bug...}}, {"notes.-1": "observation text"}')
-    },
-    partialUpdateArtifact
-  )
+  // Note: partial_update_artifact has been merged into upsert_artifact
+  // Use upsert_artifact with only id and content (with dot notation) for partial updates
 
   // Generate artifact
   server.tool(

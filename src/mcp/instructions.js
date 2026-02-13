@@ -147,10 +147,10 @@ These instructions define agent behavior, workflow loops, and best practices.
 Prompts are stored on the server and can be updated independently of platform code.
 
 **⚠️ MANDATORY BEFORE CREATING TESTS:**
-- what_makes_a_good_test: Test quality criteria, structure, and evaluation (READ THIS FIRST)
+- test_quality_guardrails: Test quality criteria, structure, and evaluation (READ THIS FIRST)
 
 **Available instruction types:**
-- what_makes_a_good_test: What makes tests good vs bad (⚠️ READ BEFORE CREATING TESTS)
+- test_quality_guardrails: Mandatory test quality mechanisms and guardrails (⚠️ READ BEFORE CREATING TESTS)
 - test_creation_guidance: How to create tests
 - test_modification_guidance: How to modify tests
 - authentication_state_management: Save/restore auth states
@@ -168,14 +168,14 @@ Prompts are stored on the server and can be updated independently of platform co
 **Usage:**
 \`\`\`json
 // Get specific instruction
-{ "type": "what_makes_a_good_test" }
+{ "type": "test_quality_guardrails" }
 
 // Get all instructions
 { }
 \`\`\`
 
 **When to use:**
-- BEFORE creating any test (call what_makes_a_good_test)
+- BEFORE creating any test (call test_quality_guardrails)
 - Starting an agent loop (self-healing, exploratory testing, etc.)
 - Need guidance for test creation/modification
 - Implementing platform-agnostic agent logic

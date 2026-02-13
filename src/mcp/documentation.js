@@ -184,9 +184,7 @@ export function registerDocumentationTools(server) {
     'helpmetest_keywords',
     {
       title: 'Help Me Test: Keywords Documentation Tool',
-      description: `Search and get documentation for available Robot Framework keywords and libraries
-
-🚨 INSTRUCTION FOR AI: When using this tool, ALWAYS explain to the user what you're searching for and why. After getting results, summarize the key keywords or libraries found that are relevant to the user's needs. Don't just say "Done".`,
+      description: 'Search Robot Framework keywords and library documentation. Returns detailed information about available commands and usage.',
       inputSchema: {
         search: z.string().optional().describe('Search term to filter keywords/libraries (optional - if not provided, returns all)'),
         type: z.enum(['keywords', 'libraries', 'all']).optional().default('all').describe('Type of documentation to search: keywords, libraries, or all'),
