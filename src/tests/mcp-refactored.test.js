@@ -31,7 +31,7 @@ describe('MCP Refactored Methods Tests', () => {
       args: [
         serverPath,
         'mcp',
-        'HELP-b2bcd672-f7b7-4e34-b610-d236ca31ed1e',
+        'HELP-1dc7fbe0-1f4f-4c58-abb6-20f7ae47570c',
         '--verbose'
       ],
       env: {
