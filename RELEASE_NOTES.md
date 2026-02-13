@@ -1,5 +1,40 @@
 # Release Notes
 
+## v1.28.0 (2026-02-13)
+
+### New Features
+
+- **Parallel Test Execution**: Run multiple tests simultaneously for faster feedback. Pass an array of test IDs to `helpmetest_run_test` to execute tests in parallel with Promise.allSettled. Individual results are shown for each test, followed by a comprehensive summary showing passed/failed/errored counts. Perfect for running smoke test suites or validating multiple features at once.
+- **Verbose Test Inspection**: View complete test content and descriptions without executing tests using the new `verbose` parameter in `helpmetest_status`. See Robot Framework keywords, test descriptions, and full implementation details to review tests, understand logic, or prepare for modifications—all without triggering actual test runs.
+- **Smart ID Filtering**: Filter status output by test ID, health check name, or deployment ID using the new `id` parameter. Pass a single ID or an array to focus on specific resources. Combine with `verbose` mode to get detailed information about particular tests, making test investigation and debugging more efficient.
+- **Streamlined MCP Interface**: Reduced MCP tool count from 32 to 21 essential methods by removing duplicate and rarely-used tools. Consolidated overlapping functionality (`status_test`, `status_health`, `health_checks_status` merged into unified `status` tool). Cleaner API surface makes it easier for AI assistants to choose the right tool for each task.
+- **First-Run Approval Tracking**: MCP init tool now tracks when it has been run and skips repeated tool approval prompts. State is persisted to `~/.helpmetest/mcp-state.json`, preventing the need to approve the same tools every time you restart your IDE or MCP client. One-time approval per tool for seamless ongoing usage.
+
+### Improvements
+
+- **Unified Test Management**: All test operations now use consistent `id` parameter instead of mixed `identifier` naming. Simplified parameter conventions across run, delete, and status operations make the API more predictable and easier to use.
+- **Enhanced Status Tool Options**: Added `testsOnly` and `healthOnly` filters to show specific resource types. New `includeRuns` and `includeDeployments` options with configurable limits let you see test execution history and deployment timeline directly in status output. Complete system visibility in a single tool call.
+- **Simplified Tool Descriptions**: Removed verbose AI-specific instructions from tool descriptions, focusing on concise functional descriptions. Cleaner documentation improves tool selection and reduces cognitive load for AI assistants.
+- **Comprehensive Test Coverage**: Added 30 automated tests validating all MCP refactoring changes including duplicate removal, parameter consistency, enhanced status filters, parallel execution, and artifact upsert merging. Ensures stability and prevents regressions across the refactored API.
+
+### Breaking Changes
+
+- **Removed Duplicate Methods**: The following duplicate MCP tools have been removed in favor of the unified `helpmetest_status` tool:
+  - `helpmetest_status_test` → use `helpmetest_status` with `testsOnly: true`
+  - `helpmetest_status_health` → use `helpmetest_status` with `healthOnly: true`
+  - `helpmetest_health_checks_status` → use `helpmetest_status` with `healthOnly: true`
+  - `helpmetest_get_test_runs` → use `helpmetest_status` with `includeRuns: true`
+  - `helpmetest_get_deployments` → use `helpmetest_status` with `includeDeployments: true`
+  - `helpmetest_health_check` → use health check endpoints directly
+  - `helpmetest_update` → use CLI update command or standard installation
+- **Removed Non-Essential Artifact Methods**: The following artifact tools were rarely used and have been removed:
+  - `helpmetest_get_artifact_stats` → use `helpmetest_search_artifacts` with filters
+  - `helpmetest_get_artifact_tags` → tags are returned with artifacts in search
+  - `helpmetest_get_linked_artifacts` → use `helpmetest_get_artifact` with `includeLinked: true`
+  - `helpmetest_partial_update_artifact` → merged into `helpmetest_upsert_artifact` (use with only `id` and `content` parameters for partial updates)
+- **Artifact Search Renamed**: `helpmetest_list_artifacts` has been renamed to `helpmetest_search_artifacts` to better reflect its filtering capabilities. Functionality remains unchanged.
+- **Parameter Naming**: Test operations now consistently use `id` parameter instead of `identifier` for better API coherence across all methods.
+
 ## v1.27.0 (2026-02-08)
 
 ### New Features
