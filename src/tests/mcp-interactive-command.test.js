@@ -83,6 +83,7 @@ describe('MCP Interactive Robot Framework Command Tests', () => {
       name: 'helpmetest_run_interactive_command',
       arguments: {
         command: 'Get Title',
+        explanation: 'Testing get title command',
         line: 1
       }
     })
@@ -101,11 +102,12 @@ describe('MCP Interactive Robot Framework Command Tests', () => {
 
   test('should handle interactive command with custom session ID', async () => {
     const customSessionId = 'test-session-123'
-    
+
     const result = await client.callTool({
       name: 'helpmetest_run_interactive_command',
       arguments: {
         command: 'Go To    https://example.com',
+        explanation: 'Testing navigation to example.com',
         line: 0,
         sessionId: customSessionId
       }
@@ -118,11 +120,12 @@ describe('MCP Interactive Robot Framework Command Tests', () => {
 
   test('should handle Exit command', async () => {
     const sessionId = 'exit-test-session'
-    
+
     const result = await client.callTool({
       name: 'helpmetest_run_interactive_command',
       arguments: {
         command: 'Exit',
+        explanation: 'Testing exit command',
         sessionId: sessionId
       }
     })
@@ -165,11 +168,12 @@ describe('MCP Interactive Robot Framework Command Tests', () => {
   })
 
   test('should handle missing optional parameters gracefully', async () => {
-    // Test with minimal parameters
+    // Test with minimal required parameters (command + explanation)
     const result = await client.callTool({
       name: 'helpmetest_run_interactive_command',
       arguments: {
-        command: 'Get Title'
+        command: 'Get Title',
+        explanation: 'Testing minimal parameters'
       }
     })
     
