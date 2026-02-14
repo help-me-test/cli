@@ -87,7 +87,8 @@ function formatKeywordExecution(events, isTestRun = false) {
   const keywords = events.filter(e => e.type === 'keyword' && e.status && e.status !== 'NOT SET')
   const keywordResults = events.filter(e => e.type === 'keyword_result')
 
-  if (keywords.length === 0) return ''
+  // Show keyword results even if no final keyword status events
+  if (keywords.length === 0 && keywordResults.length === 0) return ''
 
   const title = isTestRun ? '## 🔧 Keywords Executed' : '## 🤖 Command Execution'
   const lines = [title + '\n']
@@ -122,6 +123,24 @@ function formatKeywordExecution(events, isTestRun = false) {
     if (status === 'FAIL' && (error || message)) {
       const errorMsg = error || message
       lines.push(`  ⚠️ ${errorMsg}`)
+    }
+  }
+
+  // Show orphaned keyword results (results without matching keyword events)
+  const matchedKeywords = new Set(keywords.map(kw => kw.keyword))
+  const orphanedResults = keywordResults.filter(r => !matchedKeywords.has(r.keyword))
+
+  for (const kwResult of orphanedResults) {
+    const { keyword, value } = kwResult
+
+    if (value !== null && value !== undefined) {
+      // Check if this is a screenshot (base64 string)
+      const isScreenshot = keyword && keyword.includes('Take Screenshot') && typeof value === 'string' && value.length > 100
+
+      if (!isScreenshot) {
+        lines.push(`**${keyword}**`)
+        lines.push(`  → ${JSON.stringify(value)}`)
+      }
     }
   }
 
