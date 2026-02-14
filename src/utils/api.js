@@ -1,11 +1,10 @@
 /**
  * API Client Utility
- * 
+ *
  * Handles authenticated requests to the HelpMeTest backend with proper
  * error handling, retries, and response processing.
  */
 
-import axios from 'axios'
 import { output } from './colors.js'
 import { config, getRequestConfig, debug, getUserSubdomain } from './config.js'
 
@@ -30,60 +29,102 @@ class ApiError extends Error {
 }
 
 /**
- * Create axios instance with default configuration
+ * Create fetch-based API client with default configuration
  * @param {boolean} enableDebug - Whether to enable debug logging for this client
  * @param {string} [subdomain] - Optional subdomain to use for URL construction
- * @returns {Object} Configured axios instance
+ * @returns {Object} Fetch wrapper with get/post/put/delete methods
  */
 const createApiClient = (enableDebug = false, subdomain = null) => {
   const requestConfig = getRequestConfig(config, subdomain)
-  const client = axios.create(requestConfig)
 
-  // Request interceptor for debugging (only if debug is enabled)
-  client.interceptors.request.use(
-    (config) => {
+  const fetchWithConfig = async (endpoint, options = {}) => {
+    const url = `${requestConfig.baseURL}${endpoint}`
+    const method = options.method || 'GET'
+
+    if (enableDebug) {
+      debug(config, `Making ${method} request to ${url}`)
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...requestConfig.headers,
+          ...options.headers,
+        },
+        signal: AbortSignal.timeout(requestConfig.timeout),
+      })
+
       if (enableDebug) {
-        debug(config, `Making ${config.method?.toUpperCase()} request to ${config.url}`)
+        debug(config, `Response ${response.status} from ${url}`)
       }
-      return config
-    },
-    (error) => {
+
+      // Parse response based on content type
+      const contentType = response.headers.get('content-type')
+      let data
+      if (contentType?.includes('application/json')) {
+        data = await response.json()
+      } else {
+        data = await response.text()
+      }
+
+      if (!response.ok) {
+        const error = new Error(data?.message || data?.error || data || `HTTP ${response.status}`)
+        error.response = { status: response.status, data }
+        error.status = response.status
+        throw error
+      }
+
+      return { status: response.status, data, headers: response.headers }
+    } catch (error) {
       if (enableDebug) {
         debug(config, `Request error: ${error.message}`)
       }
-      return Promise.reject(error)
-    },
-  )
+      throw error
+    }
+  }
 
-  // Response interceptor for debugging and error handling (only if debug is enabled)
-  client.interceptors.response.use(
-    (response) => {
-      if (enableDebug) {
-        debug(config, `Response ${response.status} from ${response.config.url}`)
+  return {
+    get: async (endpoint, options = {}) => {
+      const params = options.params
+      let queryString = ''
+      if (params && Object.keys(params).length > 0) {
+        queryString = '?' + new URLSearchParams(params).toString()
       }
-      return response
+      return fetchWithConfig(endpoint + queryString, { method: 'GET' })
     },
-    (error) => {
-      if (enableDebug) {
-        debug(config, `Response error: ${error.message}`)
-      }
-      return Promise.reject(error)
+    post: async (endpoint, data, options = {}) => {
+      return fetchWithConfig(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        ...options,
+      })
     },
-  )
-
-  return client
+    put: async (endpoint, data, options = {}) => {
+      return fetchWithConfig(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        ...options,
+      })
+    },
+    delete: async (endpoint, options = {}) => {
+      return fetchWithConfig(endpoint, { method: 'DELETE', ...options })
+    },
+  }
 }
 
 /**
  * Handle API errors - extract actual error message from response
- * @param {Error} error - Axios error object
+ * @param {Error} error - Fetch error object
  * @param {Object} requestInfo - Information about the request
  * @returns {Error} Error with actual API error message
  */
 const handleApiError = (error, requestInfo = {}) => {
   if (error.response) {
     const { status, data } = error.response
-    const message = data?.message || data?.error || `HTTP ${status} error`
+    const message = data?.message || data?.error || (typeof data === 'string' ? data : `HTTP ${status} error`)
     debug(config, `API Error ${status}: ${message}`)
 
     // Throw new error with actual API error message
@@ -91,9 +132,9 @@ const handleApiError = (error, requestInfo = {}) => {
     apiError.status = status
     apiError.response = error.response
     return apiError
-  } else if (error.request) {
-    debug(config, `Network Error: No response received from server`)
-    return new Error('Network Error: No response received from server')
+  } else if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+    debug(config, `Request timeout or aborted`)
+    return new Error('Request timeout or aborted')
   } else {
     debug(config, `Request Error: ${error.message}`)
     return error
@@ -409,24 +450,30 @@ const runTestMarkdown = async (identifier) => {
     resolvedIdentifier = matchingTest.id
   }
 
-  // Use endpoint WITHOUT .json to get markdown output
-  const endpoint = `/api/run/${encodeURIComponent(resolvedIdentifier)}`
+  // Use endpoint with query parameter for text output
+  const endpoint = `/api/run/${encodeURIComponent(resolvedIdentifier)}?output=txt`
+  const fullUrl = `${config.apiBaseUrl}${endpoint}`
 
-  debug(config, `Running test (markdown): ${identifier} (resolved: ${resolvedIdentifier})`)
+  debug(config, `Running test (streaming text): ${identifier} (resolved: ${resolvedIdentifier})`)
 
   try {
-    const response = await apiPost(endpoint, {}, `Running test: ${identifier}`)
+    // Use native fetch for proper streaming support (axios can't handle SSE streams in parallel)
+    const response = await fetch(fullUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.apiToken}`,
+        'User-Agent': config.userAgent || 'HelpMeTest-CLI/1.0.0',
+      },
+    })
 
-    // API returns markdown string on success, JSON object on error
-    if (typeof response === 'object' && response.error) {
-      return `❌ Test Execution Failed
-
-**Error:** ${response.error}
-
-**Identifier:** ${identifier}`
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new ApiError(`HTTP ${response.status}: ${errorText}`, response.status)
     }
 
-    return response
+    // Read the entire stream as text
+    const text = await response.text()
+    return text
   } catch (error) {
     throw handleApiError(error, { identifier, resolvedIdentifier, endpoint })
   }

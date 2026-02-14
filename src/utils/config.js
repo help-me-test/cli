@@ -205,7 +205,7 @@ const getApiHeaders = (config) => {
 }
 
 /**
- * Get request configuration for axios
+ * Get request configuration for fetch API
  * @param {Object} config - Configuration object
  * @param {string} [subdomain] - Optional subdomain to use for URL construction
  * @returns {Object} Axios configuration
