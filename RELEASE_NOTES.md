@@ -1,5 +1,22 @@
 # Release Notes
 
+## v1.29.0 (2026-02-14)
+
+### New Features
+
+- **Test Stability Metrics**: Status tool now includes stability metrics showing test reliability over time. Track pass rates and identify flaky tests that need attention, helping prioritize test maintenance and improve overall test suite quality.
+- **Test Content Validation**: Automatic linting detects excessive Sleep commands in test content and suggests improvements. Tests with too many delays are flagged with warnings, encouraging more efficient test patterns and faster execution times.
+
+### Improvements
+
+- **Automatic Test Execution**: Tests now always run immediately after creation or update, providing instant feedback on test validity. No more manual test runs after making changes—see results right away and catch errors faster during test development.
+- **Enhanced Status Formatting**: Test run results in status output now display with improved formatting and clearer presentation, making it easier to scan test history and identify patterns in test behavior.
+- **Smarter API Detection**: Health check command now automatically detects and authenticates with the correct API endpoint, switching between production and development environments as needed for seamless operation across different deployments.
+
+### Bug Fixes
+
+- **CI Test Reliability**: Disabled flaky artifact upsert tests in CI environments that were failing due to backend issues, improving build stability and reducing false test failures.
+
 ## v1.28.0 (2026-02-13)
 
 ### New Features
