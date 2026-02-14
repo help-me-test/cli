@@ -15,7 +15,7 @@ import os from 'os'
 import { output } from '../utils/colors.js'
 import { config, configUtils, validateConfiguration } from '../utils/config.js'
 import { collectSystemMetrics } from '../utils/metrics.js'
-import { createApiClient } from '../utils/api.js'
+import { createApiClient, detectApiAndAuth } from '../utils/api.js'
 import { fetchWithTimeout } from '../utils/fetch-with-timeout.js'
 import {
   parseSystemdTimerFile,
@@ -574,13 +574,15 @@ async function sendHeartbeat(processedArgs, heartbeatData, options) {
   configUtils.debug('Sending heartbeat to API')
   
   const apiStartTime = Date.now()
-  
+
   const endpoint = `/api/healthcheck/${encodeURIComponent(processedArgs.name)}/${encodeURIComponent(processedArgs.gracePeriod)}`
   try {
+    // Detect API URL and authenticate
+    await detectApiAndAuth(options.verbose)
+
     // Construct API endpoint
-    
     configUtils.debug(`API endpoint: ${endpoint}`)
-    
+
     // Create API client and send POST request
     const apiClient = createApiClient()
     const response = await apiClient.post(endpoint, heartbeatData)
