@@ -334,32 +334,35 @@ export function formatTestsAsTable(tests, options = {}) {
 `
   }
 
-  output += `| Status | Test Name | ID | Duration | Tags |
-|--------|-----------|-----|----------|------|
+  output += `| Status | Test Name | ID | Duration | Stability | Tags |
+|--------|-----------|-----|----------|-----------|------|
 `
 
   // Failed tests first (most important)
   for (const test of failedTests) {
     const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : '-'
     const duration = test.duration || '-'
+    const stability = test.stability || '⚪ Unknown'
     const id = test.id ? `\`${test.id}\`` : '-'
-    output += `| ❌ | ${test.name} | ${id} | ${duration} | ${tags} |\n`
+    output += `| ❌ | ${test.name} | ${id} | ${duration} | ${stability} | ${tags} |\n`
   }
 
   // Passing tests
   for (const test of passedTests) {
     const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : '-'
     const duration = test.duration || '-'
+    const stability = test.stability || '⚪ Unknown'
     const id = test.id ? `\`${test.id}\`` : '-'
-    output += `| ✅ | ${test.name} | ${id} | ${duration} | ${tags} |\n`
+    output += `| ✅ | ${test.name} | ${id} | ${duration} | ${stability} | ${tags} |\n`
   }
 
   // Other tests
   for (const test of otherTests) {
     const tags = test.tags && test.tags.length > 0 ? test.tags.join(', ') : '-'
     const duration = test.duration || '-'
+    const stability = test.stability || '⚪ Unknown'
     const id = test.id ? `\`${test.id}\`` : '-'
-    output += `| ⚠️ | ${test.name} | ${id} | ${duration} | ${tags} |\n`
+    output += `| ⚠️ | ${test.name} | ${id} | ${duration} | ${stability} | ${tags} |\n`
   }
 
   // Add test details in verbose mode
@@ -584,6 +587,26 @@ ${JSON.stringify(result, null, 2)}
 }
 
 /**
+ * Lint test content for violations
+ * @param {string} content - Test content to validate
+ * @returns {Array<string>} Array of warning messages
+ */
+function lintTestContent(content) {
+  if (!content || typeof content !== 'string') {
+    return []
+  }
+
+  const violations = []
+
+  const sleepMatch = content.match(/^\s*(Sleep\s+.+)$/im)
+  if (sleepMatch) {
+    violations.push(`⚠️ \`${sleepMatch[1].trim()}\` - use Wait For Elements State or Wait Until Keyword Succeeds`)
+  }
+
+  return violations
+}
+
+/**
  * Handle upsert test tool call (create or update)
  * @param {Object} args - Tool arguments
  * @param {string} [args.id] - Test ID (required for update, omit for create)
@@ -639,6 +662,9 @@ async function handleUpsertTest(args) {
     if (description !== undefined) changes.push('description')
     if (tags !== undefined) changes.push('tags')
 
+    // Run lint checks on test content
+    const violations = content !== undefined ? lintTestContent(content) : []
+
     let responseText = `✅ Test ${action} Successfully
 
 **Test Details:**
@@ -647,6 +673,11 @@ async function handleUpsertTest(args) {
 ${description !== undefined ? `- Description: ${description}` : ''}
 ${tags !== undefined ? `- Tags: ${tags.join(', ')}` : ''}
 ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
+
+    // Append violations if any
+    if (violations.length > 0) {
+      responseText += `\n\n---\n\n## ⚠️ Lint Warnings\n\n${violations.join('\n')}`
+    }
 
     // Run the test if run=true
     if (run) {
