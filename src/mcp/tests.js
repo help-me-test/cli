@@ -608,17 +608,17 @@ function lintTestContent(content) {
 
 /**
  * Handle upsert test tool call (create or update)
+ * Test is automatically run after successful upsert
  * @param {Object} args - Tool arguments
  * @param {string} [args.id] - Test ID (required for update, omit for create)
  * @param {string} [args.name] - Test name (required for create, optional for update)
  * @param {string} [args.content] - Test content
  * @param {string} [args.description] - Test description
  * @param {Array<string>} [args.tags] - Test tags
- * @param {boolean} [args.run=true] - Run the test after successful upsert
- * @returns {Object} Upsert test result
+ * @returns {Object} Upsert test result with run results
  */
 async function handleUpsertTest(args) {
-  const { id, name, content, description, tags, run = true } = args
+  const { id, name, content, description, tags } = args
 
   const isCreate = !id
 
@@ -679,32 +679,15 @@ ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
       responseText += `\n\n---\n\n## ⚠️ Lint Warnings\n\n${violations.join('\n')}`
     }
 
-    // Run the test if run=true
-    if (run) {
-      debug(config, `Running test after upsert: ${result.id}`)
-      const runResult = await handleRunTest({ id: result.id })
+    // Always run the test after upsert
+    debug(config, `Running test after upsert: ${result.id}`)
+    const runResult = await handleRunTest({ id: result.id })
 
-      // Append test run results
-      responseText += `\n\n---\n\n## 🧪 Test Run Results\n\n${runResult.content[0].text}`
-
-      // Append pending events (system messages)
-      responseText = formatResponse(responseText)
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: responseText,
-          },
-        ],
-        isError: runResult.isError,
-      }
-    }
+    // Append test run results
+    responseText += `\n\n---\n\n## 🧪 Test Run Results\n\n${runResult.content[0].text}`
 
     // Append pending events (system messages)
-    responseText = formatResponse(responseText + `\n\n**Next Steps:**
-1. View in browser: Use 'helpmetest_open_test' with id "${result.id}"
-2. Run manually: Use 'helpmetest_run_test' with id "${result.id}"`)
+    responseText = formatResponse(responseText)
 
     return {
       content: [
@@ -713,6 +696,7 @@ ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
           text: responseText,
         },
       ],
+      isError: runResult.isError,
     }
   } catch (error) {
     debug(config, `Error ${isCreate ? 'creating' : 'updating'} test: ${error.message}`)
@@ -1061,7 +1045,7 @@ export function registerTestTools(server) {
     'helpmetest_upsert_test',
     {
       title: 'Help Me Test: Upsert Test',
-      description: `Create or update a test. All fields except 'name' are optional. When updating, only provided fields are modified.
+      description: `Create or update a test. All fields except 'name' are optional. When updating, only provided fields are modified. Test is automatically run after successful upsert.
 
 🚨 **STOP: DO NOT USE THIS TOOL WITHOUT INTERACTIVE TESTING FIRST**
 
@@ -1103,7 +1087,6 @@ ${NAMING_CONVENTIONS}`,
         content: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
         description: z.string().optional().describe('Test description'),
         tags: z.array(z.string()).optional().describe('Test tags as array of strings'),
-        run: z.boolean().optional().default(true).describe('Run the test after successful upsert (default: true)'),
       },
     },
     async (args) => {
