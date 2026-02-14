@@ -135,7 +135,7 @@ describe('MCP Refactored Methods Tests', () => {
       expect(tool.inputSchema.properties).toHaveProperty('verbose')
       expect(tool.inputSchema.properties).toHaveProperty('testsOnly')
       expect(tool.inputSchema.properties).toHaveProperty('healthOnly')
-      expect(tool.inputSchema.properties).toHaveProperty('includeRuns')
+      expect(tool.inputSchema.properties).toHaveProperty('testRunLimit')
       expect(tool.inputSchema.properties).toHaveProperty('includeDeployments')
     })
 
@@ -177,7 +177,7 @@ describe('MCP Refactored Methods Tests', () => {
     test('should include test runs when requested', async () => {
       const result = await client.callTool({
         name: 'helpmetest_status',
-        arguments: { includeRuns: true }
+        arguments: { testRunLimit: 5 }
       })
 
       const content = result.content[0].text
