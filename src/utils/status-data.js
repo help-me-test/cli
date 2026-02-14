@@ -123,7 +123,7 @@ export const formatHealthcheck = formatApiResponse(
  * Format test for JSON output
  */
 export const formatTest = formatApiResponse(
-  ['id', 'name', 'status', 'last_run', 'duration', 'tags'],
+  ['id', 'name', 'status', 'last_run', 'duration', 'stability', 'stability_runs', 'tags'],
   ['content', 'description']
 )
 
@@ -205,14 +205,32 @@ export function formatStatusDataForJson(statusData, options = {}) {
   const testsWithStatus = sortedTests.map(test => {
     const statusRecords = testStatus[test.id] || []
     const latestStatus = statusRecords.length > 0 ? statusRecords[0] : null
-    
+
+    // Calculate stability from last 10 runs (or fewer if not enough history)
+    const last10Runs = statusRecords.slice(0, 10)
+    const passed = last10Runs.filter(r => r.status === 'PASS').length
+    const total = last10Runs.length
+
+    let stability = '⚪ Unknown'
+    if (total > 0) {
+      if (passed === total) {
+        stability = `🟢 ${passed}/${total}`
+      } else if (passed >= Math.ceil(total * 0.7)) {
+        stability = `🟡 ${passed}/${total}`
+      } else {
+        stability = `🔴 ${passed}/${total}`
+      }
+    }
+
     // Add execution data (don't override existing content/description from API)
     const testWithExecution = R.mergeRight(test, {
       status: latestStatus?.status || 'unknown',
       last_run: latestStatus?.timestamp,
-      duration: latestStatus?.elapsedtime ? `${Math.round(latestStatus.elapsedtime / 1000)}s` : 'N/A'
+      duration: latestStatus?.elapsedtime ? `${Math.round(latestStatus.elapsedtime / 1000)}s` : 'N/A',
+      stability,
+      stability_runs: `${passed}/${total}`
     })
-    
+
     return formatTest(testWithExecution, verbose)
   })
 

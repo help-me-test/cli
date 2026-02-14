@@ -17,9 +17,8 @@ import { formatHealthchecksAsTable } from './healthchecks.js'
  * @param {boolean} [args.verbose] - Enable verbose output
  * @param {boolean} [args.testsOnly] - Only show tests
  * @param {boolean} [args.healthOnly] - Only show health checks
- * @param {boolean} [args.includeRuns] - Include test run history
+ * @param {number} [args.testRunLimit] - Number of recent test runs to show (default: 0)
  * @param {boolean} [args.includeDeployments] - Include deployment history
- * @param {number} [args.runsLimit] - Limit for test runs (default: 10)
  * @param {number} [args.deploymentsLimit] - Limit for deployments (default: 10)
  * @returns {Object} Comprehensive status result
  */
@@ -29,9 +28,8 @@ async function handleStatus(args) {
     verbose = false,
     testsOnly = false,
     healthOnly = false,
-    includeRuns = false,
     includeDeployments = false,
-    runsLimit = 10,
+    testRunLimit = 0,
     deploymentsLimit = 10
   } = args
 
@@ -65,22 +63,20 @@ async function handleStatus(args) {
       output += formatTestsAsTable(filteredTests, { includeHeader: true, verbose }) + '\n\n'
     }
 
-    // Add health checks section (unless testsOnly)
-    if (!testsOnly) {
+    // Add health checks section (unless testsOnly) - only if there are any
+    if (!testsOnly && filteredHealthchecks.length > 0) {
       output += formatHealthchecksAsTable(filteredHealthchecks, { includeHeader: true }) + '\n\n'
     }
 
-    // Add test runs if requested
-    if (includeRuns && !healthOnly) {
+    // Add test runs if testRunLimit > 0
+    if (testRunLimit > 0 && !healthOnly) {
       try {
-        const runsResponse = await getTestRuns({ limit: runsLimit })
-        let testRuns = runsResponse.runs || []
-
-        // Filter runs by test ID if id filter is provided
-        if (id) {
-          const ids = Array.isArray(id) ? id : [id]
-          testRuns = testRuns.filter(run => ids.includes(run.test))
-        }
+        const ids = id ? (Array.isArray(id) ? id : [id]) : null
+        const runsResponse = await getTestRuns({
+          tests: ids,
+          limit: testRunLimit
+        })
+        const testRuns = runsResponse.runs || []
 
         if (testRuns.length > 0) {
           const formattedRuns = testRuns.map(run => ({
@@ -88,7 +84,7 @@ async function handleStatus(args) {
             status: run.status,
             duration: run.elapsedTime,
             timestamp: run.timestamp,
-            errorMessage: run.errors?.length > 0 ? run.errors.map(e => e.message).join('; ') : null
+            errors: run.errors || []
           }))
 
           const statusCounts = formattedRuns.reduce((acc, run) => {
@@ -96,21 +92,40 @@ async function handleStatus(args) {
             return acc
           }, {})
 
-          output += `## 🏃 Recent Test Runs (${formattedRuns.length} total)\n\n`
-          output += `**Status:** ${Object.entries(statusCounts).map(([status, count]) => `${status}: ${count}`).join(', ')}\n\n`
+          const singleTestFilter = id && !Array.isArray(id)
 
-          const failedRuns = formattedRuns.filter(r => r.status === 'FAIL')
-          if (failedRuns.length > 0) {
-            output += `**Recent Failures:**\n\n`
-            output += `| Test | Duration | Error | Time |\n`
-            output += `|------|----------|-------|------|\n`
-            for (const run of failedRuns.slice(0, 5)) {
-              const error = run.errorMessage ? run.errorMessage.substring(0, 40) + '...' : '-'
-              const time = run.timestamp ? new Date(run.timestamp).toLocaleString() : '-'
-              output += `| ${run.testId} | ${run.duration || '-'} | ${error} | ${time} |\n`
+          output += `## 🏃 Recent Test Runs\n\n`
+          output += `**Summary:** ${Object.entries(statusCounts).map(([status, count]) => `${status}: ${count}`).join(', ')} (${formattedRuns.length} total)\n\n`
+
+          // Show all runs in chronological order
+          formattedRuns.slice(0, testRunLimit).forEach(run => {
+            const time = run.timestamp ? new Date(run.timestamp).toLocaleString() : '-'
+            const duration = run.duration ? `${(run.duration / 1000).toFixed(1)}s` : '-'
+            const statusIcon = run.status === 'PASS' ? '✅' : '❌'
+
+            if (!singleTestFilter) {
+              output += `${statusIcon} **${run.status}** - ${run.testId} - ${time} (${duration})\n`
+            } else {
+              output += `${statusIcon} **${run.status}** - ${time} (${duration})\n`
+            }
+
+            if (run.status === 'FAIL' && run.errors?.length > 0) {
+              // Deduplicate errors by keyword+message
+              const uniqueErrors = run.errors.reduce((acc, error) => {
+                const key = `${error.keyword}:${error.message}`
+                if (!acc.has(key)) {
+                  acc.set(key, error)
+                }
+                return acc
+              }, new Map())
+
+              uniqueErrors.forEach(error => {
+                output += `  **Keyword:** ${error.keyword || 'unknown'}\n`
+                output += `  **Error:**\n\`\`\`\n${error.message}\n\`\`\`\n`
+              })
             }
             output += '\n'
-          }
+          })
         }
       } catch (error) {
         debug(config, `Error getting test runs: ${error.message}`)
@@ -247,7 +262,6 @@ async function handleTestRuns(args) {
       startTime: run.timestamp,
       endTime: null,
       duration: run.elapsedTime,
-      errorMessage: run.errors?.length > 0 ? run.errors.map(e => e.message).join('; ') : null,
       errors: run.errors || [],
       tags: []
     }))
@@ -265,23 +279,42 @@ async function handleTestRuns(args) {
       timestamp: new Date().toISOString()
     }
 
-    // Build table for failed runs
+    // Build detailed list for failed runs
     const failedRuns = formattedRuns.filter(r => r.status === 'FAIL')
-    let failedTable = ''
+    let failedOutput = ''
     if (failedRuns.length > 0) {
-      failedTable = `\n**Failed Test Runs:**
+      const singleTestFilter = tests?.length === 1
+      failedOutput = `\n**❌ Failed Test Runs:**\n\n`
 
-| Test Name | Status | Duration | Error | Time |
-|-----------|--------|----------|-------|------|
-`
-      for (const run of failedRuns.slice(0, 10)) { // Show max 10 failures
-        const error = run.errorMessage ? run.errorMessage.substring(0, 50) + '...' : '-'
-        const duration = run.duration || '-'
+      failedRuns.slice(0, limit).forEach(run => {
+        const duration = run.duration || 'unknown'
         const time = run.startTime ? new Date(run.startTime).toLocaleString() : '-'
-        failedTable += `| ${run.testName} | ❌ ${run.status} | ${duration} | ${error} | ${time} |\n`
-      }
-      if (failedRuns.length > 10) {
-        failedTable += `\n*Showing 10 of ${failedRuns.length} failed runs*`
+
+        if (!singleTestFilter) {
+          failedOutput += `**Test:** ${run.testName}\n`
+        }
+        failedOutput += `🕐 ${time} (${duration})\n\n`
+
+        if (run.errors?.length > 0) {
+          // Deduplicate errors by keyword+message
+          const uniqueErrors = run.errors.reduce((acc, error) => {
+            const key = `${error.keyword}:${error.message}`
+            if (!acc.has(key)) {
+              acc.set(key, error)
+            }
+            return acc
+          }, new Map())
+
+          uniqueErrors.forEach(error => {
+            failedOutput += `🔴 **Keyword:** ${error.keyword || 'unknown'}\n`
+            failedOutput += `**Error:**\n\`\`\`\n${error.message}\n\`\`\`\n\n`
+          })
+        }
+        failedOutput += '---\n\n'
+      })
+
+      if (failedRuns.length > limit) {
+        failedOutput += `*Showing ${limit} of ${failedRuns.length} failed runs*\n`
       }
     }
 
@@ -301,7 +334,7 @@ ${status ? `- Status: ${status.join(', ')}` : ''}
 ${startDate ? `- Start Date: ${startDate}` : ''}
 ${endDate ? `- End Date: ${endDate}` : ''}
 - Limit: ${limit}
-${failedTable}
+${failedOutput}
 
 💡 Focus on failed runs to identify patterns and fix flaky tests`,
         },
@@ -486,9 +519,8 @@ export function registerStatusTools(server) {
         verbose: z.boolean().optional().default(false).describe('Enable verbose output with test content and additional debug information'),
         testsOnly: z.boolean().optional().default(false).describe('Only show tests (filter out health checks)'),
         healthOnly: z.boolean().optional().default(false).describe('Only show health checks (filter out tests)'),
-        includeRuns: z.boolean().optional().default(false).describe('Include recent test run history'),
+        testRunLimit: z.number().optional().default(0).describe('Number of recent test runs to show (0 = none, default: 0). Shows both passed and failed runs with full error details.'),
         includeDeployments: z.boolean().optional().default(false).describe('Include recent deployment history for debugging'),
-        runsLimit: z.number().optional().default(10).describe('Limit for test runs when includeRuns=true (default: 10)'),
         deploymentsLimit: z.number().optional().default(10).describe('Limit for deployments when includeDeployments=true (default: 10)'),
       },
     },

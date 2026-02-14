@@ -171,19 +171,21 @@ function formatInteractiveElements(events) {
 
   const { list } = findElements
 
-  // Group elements by selector
+  // Group elements by selector (use first selector as key)
   const elementMap = new Map()
 
   const processElements = (action, elements) => {
     if (!elements?.length) return
     for (const el of elements) {
-      const selector = el.selectors?.[0] || el.selectors || '-'
+      const selectors = Array.isArray(el.selectors) ? el.selectors : [el.selectors || '-']
+      const primarySelector = selectors[0] || '-'
+      const alternatives = selectors.slice(1, 3) // Get selectors 1 and 2
       const text = el.text || ''
 
-      if (!elementMap.has(selector)) {
-        elementMap.set(selector, { actions: [], text })
+      if (!elementMap.has(primarySelector)) {
+        elementMap.set(primarySelector, { actions: [], alternatives, text })
       }
-      elementMap.get(selector).actions.push(action)
+      elementMap.get(primarySelector).actions.push(action)
     }
   }
 
@@ -197,12 +199,13 @@ function formatInteractiveElements(events) {
   if (elementMap.size === 0) return ''
 
   const lines = ['## 🎯 Interactive Elements\n']
-  lines.push('| Actions | Selector | Text |')
-  lines.push('|---------|----------|------|')
+  lines.push('| Actions | Selector | Alternatives | Text |')
+  lines.push('|---------|----------|--------------|------|')
 
-  for (const [selector, { actions, text }] of elementMap) {
+  for (const [selector, { actions, alternatives, text }] of elementMap) {
     const actionStr = actions.join(', ')
-    lines.push(`| ${actionStr} | \`${selector}\` | ${text} |`)
+    const altStr = alternatives.length > 0 ? alternatives.map(s => `\`${s}\``).join(', ') : '-'
+    lines.push(`| ${actionStr} | \`${selector}\` | ${altStr} | ${text} |`)
   }
 
   return lines.join('\n') + '\n'
