@@ -26,27 +26,19 @@ function getFrpcPath() {
 export async function ensureFrpc() {
   const binaryName = process.platform === 'win32' ? 'frpc.exe' : 'frpc'
 
-  // Check if frpc exists in PATH (cross-platform)
-  try {
-    execSync(`${binaryName} --help`, { stdio: 'pipe' })
-    return binaryName
-  } catch {
-    // Not in PATH
-  }
-
-  // Check ~/.local/bin (where helpmetest installer puts it)
+  // Check ~/.local/bin first (where installer puts it)
   const localBinPath = join(homedir(), '.local', 'bin', binaryName)
   if (existsSync(localBinPath)) {
     return localBinPath
   }
 
-  // Check ~/.helpmetest/bin
+  // Check ~/.helpmetest/bin (our fallback location)
   const frpcPath = getFrpcPath()
   if (existsSync(frpcPath)) {
     return frpcPath
   }
 
-  // Not found in any known location, auto-install
+  // Not found, auto-install
 
   // Auto-install frpc using helpmetest installer
   output.info('frpc not found. Installing automatically...')
@@ -98,30 +90,21 @@ export async function ensureFrpc() {
       }
     }
 
-    // Verify installation - check all possible locations since installer might fallback
-    // Check ~/.local/bin
+    // Verify installation - check where installer put it
+    // Check ~/.local/bin first (installer's preferred fallback)
     if (existsSync(localBinPath)) {
       output.info('✅ frpc installed successfully to ' + localBinPath)
       return localBinPath
     }
 
-    // Check ~/.helpmetest/bin
+    // Check ~/.helpmetest/bin (our OUT_DIR)
     if (existsSync(frpcPath)) {
       output.info('✅ frpc installed successfully to ' + frpcPath)
       return frpcPath
     }
 
-    // Check if in PATH (cross-platform)
-    try {
-      execSync(`${binaryName} --help`, { stdio: 'pipe' })
-      output.info('✅ frpc installed successfully (found in PATH)')
-      return binaryName
-    } catch {
-      // Not in PATH either
-    }
-
-    // Not found anywhere
-    throw new Error('Installation completed but frpc not found in ~/.local/bin, ~/.helpmetest/bin, or PATH')
+    // Not found - installation failed
+    throw new Error('Installation completed but frpc not found in ~/.local/bin or ~/.helpmetest/bin')
   } catch (err) {
     output.error('Failed to auto-install frpc: ' + err.message)
     if (err.stderr) output.error('Stderr: ' + err.stderr)
