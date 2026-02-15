@@ -59,6 +59,56 @@ export async function openSessionInBrowser(dashboardBaseUrl, timestamp) {
 }
 
 /**
+ * Auto-quote arguments starting with # to prevent Robot Framework from treating them as comments
+ * @param {string} command - Robot Framework command
+ * @returns {Object} { command: fixed command, corrections: array of corrections made }
+ */
+function autoQuoteHashArgs(command) {
+  const corrections = []
+  const lines = command.split('\n')
+  const fixedLines = []
+
+  for (const line of lines) {
+    // Skip empty lines and lines that are already comments
+    const stripped = line.trimStart()
+    if (!stripped || stripped.startsWith('#')) {
+      fixedLines.push(line)
+      continue
+    }
+
+    // Split on TWO or more spaces (Robot Framework separator pattern)
+    // This preserves the original spacing structure
+    const parts = line.split(/( {2,})/)
+
+    const fixedParts = []
+    for (const part of parts) {
+      // Keep whitespace separators as-is
+      if (/^ {2,}$/.test(part)) {
+        fixedParts.push(part)
+        continue
+      }
+
+      // Check if this part starts with # and is not already quoted
+      if (part.startsWith('#') && !part.startsWith('"#') && !part.startsWith("'#")) {
+        // Quote it
+        const fixedPart = `'${part}'`
+        fixedParts.push(fixedPart)
+        corrections.push(`${part} → ${fixedPart}`)
+      } else {
+        fixedParts.push(part)
+      }
+    }
+
+    fixedLines.push(fixedParts.join(''))
+  }
+
+  return {
+    command: fixedLines.join('\n'),
+    corrections
+  }
+}
+
+/**
  * Analyze Robot Framework streaming result to determine success/failure
  * @param {Array} result - Array of Robot Framework execution events
  * @returns {boolean} True if the command succeeded
@@ -157,27 +207,30 @@ function extractContentFromResult(result) {
  */
 async function handleRunInteractiveCommand(args) {
   const startTime = Date.now()
-  const { command, explanation, line = 0, debug: debugMode = false, screenshot = false, timeout = 5000, timestamp: sessionTimestamp, message, tasks } = args
+  let { command, explanation, line = 0, debug: debugMode = false, screenshot = false, timeout = 5000, message, tasks } = args
 
   debug(config, `Running interactive command: ${command} (${explanation}) [timeout: ${timeout}ms]`)
+
+  // Auto-quote arguments starting with # to prevent them being treated as comments
+  const { command: fixedCommand, corrections } = autoQuoteHashArgs(command)
+  let correctionMessage = ''
+
+  if (corrections.length > 0) {
+    correctionMessage = `\n\n💡 **Auto-quoted selectors:** ${corrections.join(', ')}\n*Tip: In Robot Framework, # starts a comment. Use '#selector' with quotes.*\n`
+    console.error(`[Interactive] Auto-quoted: ${corrections.join(', ')}`)
+    command = fixedCommand
+  }
 
   try {
     // Get user info (memoized - will call detectApiAndAuth if not cached)
     const userInfo = await detectApiAndAuth()
 
-    // Determine which session timestamp to use:
-    // 1. Use provided timestamp parameter if given
-    // 2. Otherwise use current session timestamp if exists
-    // 3. Otherwise create new session timestamp
+    // Session management - MCP controlled, not AI controlled
+    // If session exists, continue it; otherwise create new session
     let timestamp
-    if (sessionTimestamp) {
-      timestamp = sessionTimestamp
-      currentSessionTimestamp = timestamp
-      console.error(`[Interactive] Using provided session timestamp: ${timestamp}`)
-      registerInteractiveSession(timestamp)
-    } else if (currentSessionTimestamp) {
+    if (currentSessionTimestamp) {
       timestamp = currentSessionTimestamp
-      console.error(`[Interactive] Continuing existing session: ${timestamp}`)
+      console.error(`[Interactive] Continuing session: ${timestamp}`)
     } else {
       timestamp = new Date().toISOString()
       currentSessionTimestamp = timestamp
@@ -241,6 +294,11 @@ async function handleRunInteractiveCommand(args) {
 
     // Check if this is an Exit command
     if (command.toLowerCase().trim() === 'exit') {
+      // Clear all session state
+      currentSessionTimestamp = null
+      state.requiresSendToUI = false
+      state.lastRoom = null
+
       return {
         content: [
           {
@@ -296,13 +354,13 @@ ${JSON.stringify(result, null, 2)}
       responseText = `❌ **Command Failed**
 
 **Error:** ${errorMessage}
-
+${correctionMessage}
 ${responseText}
 
 ⚠️ **Next:** Communicate what happened and your plan by passing message/tasks to next run_interactive_command call (or call send_to_ui separately).`
     } else {
       responseText = `✅ **Command Succeeded**
-
+${correctionMessage}
 ${responseText}
 
 ⚠️ **Next:** Communicate state/plan/expectations by passing message/tasks to next run_interactive_command call (or call send_to_ui separately).`
@@ -425,7 +483,7 @@ Pass message or tasks parameters directly to this tool instead of calling send_t
 - Get Text <selector> - Validate text
 - Exit - End session
 
-**Sessions:** Provide timestamp parameter to continue existing session, or omit to create new session.`,
+**Sessions:** MCP server automatically manages sessions - first command creates a new session, subsequent commands continue the same session, Exit ends the session.`,
       inputSchema: {
         command: z.string().describe('Robot Framework command to execute (e.g., "Go To  https://example.com", "Click  button", "Exit")'),
         explanation: z.string().describe('REQUIRED: Explain what this command does and what the goal is. This will be shown during replay. Example: "Testing navigation to Wikipedia homepage to verify page loads correctly"'),
@@ -433,7 +491,6 @@ Pass message or tasks parameters directly to this tool instead of calling send_t
         debug: z.boolean().optional().default(false).describe('Enable debug mode to show network request/response bodies. When false (default), hides request/response data.'),
         screenshot: z.boolean().optional().default(false).describe('Enable screenshot capture after command execution. DEFAULT: false. ONLY set to true if you need visual confirmation that readable/clickable page content cannot provide (e.g., visual layout issues, image content, color verification). Every command returns ExtractReadableContent with full page text and FindInteractableElements with all clickable elements - this is usually sufficient. Screenshots are SLOW - avoid unless absolutely necessary for visual information.'),
         timeout: z.number().optional().default(1000).describe('Timeout in milliseconds for command execution (default: 1000ms / 1 second). IMPORTANT: Increase timeout for "Go To" commands (recommend 5000-10000ms for page navigation) and slow-loading elements.'),
-        timestamp: z.string().optional().describe('Optional session timestamp to continue an existing interactive session (e.g., "2026-01-12T14:46:55.830Z"). If not provided, creates a new session.'),
         message: z.string().optional().describe('Optional message to send to UI before executing command. This eliminates the need for separate send_to_ui call.'),
         tasks: z.array(z.object({
           name: z.string().describe('Task name'),
