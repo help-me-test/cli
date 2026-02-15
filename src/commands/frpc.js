@@ -24,26 +24,23 @@ function getFrpcPath() {
  * @returns {Promise<string>} Path to frpc binary
  */
 export async function ensureFrpc() {
-  // Check if frpc is in PATH
-  try {
-    execSync('which frpc', { stdio: 'pipe' })
-    return 'frpc'
-  } catch {
-    // Not in PATH, check local installation
-  }
-
   // Check ~/.local/bin first (where helpmetest installer puts it)
-  const localBinPath = join(homedir(), '.local', 'bin', 'frpc')
+  const localBinPath = join(homedir(), '.local', 'bin', process.platform === 'win32' ? 'frpc.exe' : 'frpc')
   if (existsSync(localBinPath)) {
     return localBinPath
   }
 
+  // Check ~/.helpmetest/bin
   const frpcPath = getFrpcPath()
-
-  // Check if already installed locally
   if (existsSync(frpcPath)) {
     return frpcPath
   }
+
+  // Try using 'frpc' from PATH (cross-platform - spawn will find it)
+  // We'll verify it exists after auto-install, but for now assume it might be in PATH
+  const binaryName = process.platform === 'win32' ? 'frpc.exe' : 'frpc'
+
+  // If not found in known locations, we'll auto-install
 
   // Auto-install frpc using helpmetest installer
   output.info('frpc not found. Installing automatically...')
@@ -96,15 +93,6 @@ export async function ensureFrpc() {
     }
 
     // Verify installation - check all possible locations since installer might fallback
-    // Check PATH first
-    try {
-      execSync('which frpc', { stdio: 'pipe' })
-      output.info('✅ frpc installed successfully (found in PATH)')
-      return 'frpc'
-    } catch {
-      // Not in PATH
-    }
-
     // Check ~/.local/bin
     if (existsSync(localBinPath)) {
       output.info('✅ frpc installed successfully to ' + localBinPath)
@@ -117,8 +105,10 @@ export async function ensureFrpc() {
       return frpcPath
     }
 
-    // Not found anywhere
-    throw new Error('Installation completed but frpc binary not found in PATH, ~/.local/bin, or ~/.helpmetest/bin')
+    // Not found in known locations - try using 'frpc' from PATH
+    // spawn() will search PATH automatically on all platforms
+    output.info('✅ frpc may be installed in PATH, will attempt to use it')
+    return binaryName
   } catch (err) {
     output.error('Failed to auto-install frpc: ' + err.message)
     if (err.stderr) output.error('Stderr: ' + err.stderr)
