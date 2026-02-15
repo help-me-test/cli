@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.29.1 (2026-02-15)
+
+### Bug Fixes
+
+- **frpc Auto-Installation**: Fixed issue where frpc auto-installer failed to find the binary if the installer fell back to `~/.local/bin` or other PATH directories instead of `~/.helpmetest/bin`. The installer now properly checks all possible locations after auto-installation, ensuring frpc is found regardless of where it was installed.
+- **Interactive Sessions**: Fixed session reuse bug after Exit command in MCP interactive mode, preventing stale session data from interfering with new sessions.
+- **Test Results Display**: JavaScript return values now properly displayed in test result formatting, making debugging and test validation easier.
+- **Status Table Layout**: Improved test status table readability by repositioning Duration and Stability columns next to Status column for easier scanning of timing and stability issues.
+- **API Requests**: Replaced axios with native fetch for more reliable parallel streaming requests, reducing dependencies and improving performance.
+
 ## v1.29.0 (2026-02-14)
 
 ### New Features
