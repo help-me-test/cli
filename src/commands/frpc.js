@@ -95,13 +95,30 @@ export async function ensureFrpc() {
       }
     }
 
-    // Verify installation
+    // Verify installation - check all possible locations since installer might fallback
+    // Check PATH first
+    try {
+      execSync('which frpc', { stdio: 'pipe' })
+      output.info('✅ frpc installed successfully (found in PATH)')
+      return 'frpc'
+    } catch {
+      // Not in PATH
+    }
+
+    // Check ~/.local/bin
+    if (existsSync(localBinPath)) {
+      output.info('✅ frpc installed successfully to ' + localBinPath)
+      return localBinPath
+    }
+
+    // Check ~/.helpmetest/bin
     if (existsSync(frpcPath)) {
       output.info('✅ frpc installed successfully to ' + frpcPath)
       return frpcPath
-    } else {
-      throw new Error('Installation completed but frpc binary not found at expected path')
     }
+
+    // Not found anywhere
+    throw new Error('Installation completed but frpc binary not found in PATH, ~/.local/bin, or ~/.helpmetest/bin')
   } catch (err) {
     output.error('Failed to auto-install frpc: ' + err.message)
     if (err.stderr) output.error('Stderr: ' + err.stderr)
