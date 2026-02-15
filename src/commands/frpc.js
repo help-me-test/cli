@@ -24,8 +24,18 @@ function getFrpcPath() {
  * @returns {Promise<string>} Path to frpc binary
  */
 export async function ensureFrpc() {
-  // Check ~/.local/bin first (where helpmetest installer puts it)
-  const localBinPath = join(homedir(), '.local', 'bin', process.platform === 'win32' ? 'frpc.exe' : 'frpc')
+  const binaryName = process.platform === 'win32' ? 'frpc.exe' : 'frpc'
+
+  // Check if frpc exists in PATH (cross-platform)
+  try {
+    execSync(`${binaryName} --help`, { stdio: 'pipe' })
+    return binaryName
+  } catch {
+    // Not in PATH
+  }
+
+  // Check ~/.local/bin (where helpmetest installer puts it)
+  const localBinPath = join(homedir(), '.local', 'bin', binaryName)
   if (existsSync(localBinPath)) {
     return localBinPath
   }
@@ -36,11 +46,7 @@ export async function ensureFrpc() {
     return frpcPath
   }
 
-  // Try using 'frpc' from PATH (cross-platform - spawn will find it)
-  // We'll verify it exists after auto-install, but for now assume it might be in PATH
-  const binaryName = process.platform === 'win32' ? 'frpc.exe' : 'frpc'
-
-  // If not found in known locations, we'll auto-install
+  // Not found in any known location, auto-install
 
   // Auto-install frpc using helpmetest installer
   output.info('frpc not found. Installing automatically...')
@@ -105,10 +111,17 @@ export async function ensureFrpc() {
       return frpcPath
     }
 
-    // Not found in known locations - try using 'frpc' from PATH
-    // spawn() will search PATH automatically on all platforms
-    output.info('✅ frpc may be installed in PATH, will attempt to use it')
-    return binaryName
+    // Check if in PATH (cross-platform)
+    try {
+      execSync(`${binaryName} --help`, { stdio: 'pipe' })
+      output.info('✅ frpc installed successfully (found in PATH)')
+      return binaryName
+    } catch {
+      // Not in PATH either
+    }
+
+    // Not found anywhere
+    throw new Error('Installation completed but frpc not found in ~/.local/bin, ~/.helpmetest/bin, or PATH')
   } catch (err) {
     output.error('Failed to auto-install frpc: ' + err.message)
     if (err.stderr) output.error('Stderr: ' + err.stderr)
