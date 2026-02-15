@@ -334,8 +334,8 @@ export function formatTestsAsTable(tests, options = {}) {
 `
   }
 
-  output += `| Status | Test Name | ID | Duration | Stability | Tags |
-|--------|-----------|-----|----------|-----------|------|
+  output += `| Status | Duration | Stability | Test Name | ID | Tags |
+|--------|----------|-----------|-----------|-----|------|
 `
 
   // Failed tests first (most important)
@@ -344,7 +344,7 @@ export function formatTestsAsTable(tests, options = {}) {
     const duration = test.duration || '-'
     const stability = test.stability || '⚪ Unknown'
     const id = test.id ? `\`${test.id}\`` : '-'
-    output += `| ❌ | ${test.name} | ${id} | ${duration} | ${stability} | ${tags} |\n`
+    output += `| ❌ | ${duration} | ${stability} | ${test.name} | ${id} | ${tags} |\n`
   }
 
   // Passing tests
@@ -353,7 +353,7 @@ export function formatTestsAsTable(tests, options = {}) {
     const duration = test.duration || '-'
     const stability = test.stability || '⚪ Unknown'
     const id = test.id ? `\`${test.id}\`` : '-'
-    output += `| ✅ | ${test.name} | ${id} | ${duration} | ${stability} | ${tags} |\n`
+    output += `| ✅ | ${duration} | ${stability} | ${test.name} | ${id} | ${tags} |\n`
   }
 
   // Other tests
@@ -362,7 +362,7 @@ export function formatTestsAsTable(tests, options = {}) {
     const duration = test.duration || '-'
     const stability = test.stability || '⚪ Unknown'
     const id = test.id ? `\`${test.id}\`` : '-'
-    output += `| ⚠️ | ${test.name} | ${id} | ${duration} | ${stability} | ${tags} |\n`
+    output += `| ⚠️ | ${duration} | ${stability} | ${test.name} | ${id} | ${tags} |\n`
   }
 
   // Add test details in verbose mode
