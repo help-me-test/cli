@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.29.2 (2026-02-16)
+
+### Bug Fixes
+
+- **frpc Execution**: Fixed critical bug where frpc binary detection tried to execute `frpc --help` from PATH before checking if the binary exists, causing failures when frpc is not installed. Now correctly checks filesystem paths and returns absolute paths for execution, eliminating the need for frpc to be in PATH.
+
 ## v1.29.1 (2026-02-15)
 
 ### Bug Fixes
