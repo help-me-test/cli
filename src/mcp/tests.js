@@ -9,7 +9,6 @@ import { runTestMarkdown, createTest, deleteTest, getAllTests, detectApiAndAuth 
 import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
 import { injectPromptsByType, formatResponse } from './command-queue.js'
-import { log } from '../utils/log.js'
 
 /**
  * Tag system configuration - SINGLE SOURCE OF TRUTH
@@ -215,77 +214,46 @@ ${generateTagDocumentation()}
 async function handleRunTest(args) {
   const { id } = args
 
-  // Handle array - run in parallel
+  // PARALLEL EXECUTION DISABLED - KNOWN ISSUE
+  // Problem: When running multiple tests in parallel via HTTP streaming (FastAPI StreamingResponse),
+  // secondary streams get truncated early (e.g., test-list-display returns only 508-547 bytes instead of ~1900 bytes).
+  // The issue is NOT in the client code - direct parallel execution on the robot pod works correctly.
+  // Root cause: FastAPI's StreamingResponse or the runProcess() async generator prematurely closes
+  // secondary streams when running parallel subprocess executions.
+  //
+  // Evidence:
+  // - Direct execution: kubectl exec robot-pod -- python robot_patched.py (parallel) → full output (1943 bytes)
+  // - HTTP streaming: POST /api/run/test-list-display in parallel → truncated (547 bytes)
+  // - The robot_patched.py listener.py output flushing works correctly (flush=True on all prints)
+  // - The client-side STREAM implementation matches working app/utils.js pattern
+  //
+  // TODO: Fix FastAPI StreamingResponse to handle multiple concurrent async generators properly
   if (Array.isArray(id)) {
-    debug(config, `Running ${id.length} tests in parallel: ${id.join(', ')}`)
-
-    try {
-      // Create promises one by one to debug
-      const promises = []
-      for (const testId of id) {
-        log(`Creating promise for test ${testId}`)
-        promises.push(runTestMarkdown(testId))
-      }
-      log(`All ${promises.length} promises created, waiting for results...`)
-
-      // Wait for all promises to settle
-      const results = await Promise.allSettled(promises)
-
-      log(`All promises settled. Results: ${results.map((r, i) => `${id[i]}: ${r.status} - ${r.status === 'fulfilled' ? r.value.length + ' bytes' : r.reason}`).join(', ')}`)
-
-      debug(config, `All tests completed. Results: ${results.map((r, i) => `${id[i]}: ${r.status === 'fulfilled' ? r.value.length + ' bytes' : 'error'}`).join(', ')}`)
-
-      // Format results - header first
-      let output = `# 🧪 Parallel Test Execution\n\n`
-
-      // Show each test result
-      results.forEach((result, index) => {
-        const testId = id[index]
-        output += `## Test: ${testId}\n\n`
-
-        if (result.status === 'fulfilled') {
-          if (!result.value || result.value.length === 0) {
-            debug(config, `WARNING: Empty output for test ${testId}`)
-            output += `⚠️ **Warning:** Test completed but produced no output\n\n`
-          }
-          output += result.value + '\n\n'
-        } else {
-          output += `❌ **Error:** ${result.reason?.message || 'Unknown error'}\n\n`
-        }
-
-        output += `---\n\n`
-      })
-
-      // Summary at the end
-      const passed = results.filter(r => r.status === 'fulfilled' && !r.value.includes('❌') && !r.value.includes('FAIL'))
-      const failed = results.filter(r => r.status === 'fulfilled' && (r.value.includes('❌') || r.value.includes('FAIL')))
-      const errored = results.filter(r => r.status === 'rejected')
-
-      output += `## Summary\n\n`
-      output += `**Tests run:** ${id.length}\n\n`
-      output += `**Results:** ${passed.length}✅ ${failed.length}❌ ${errored.length}⚠️\n`
-
-      const hasFailures = failed.length > 0 || errored.length > 0
-
-      return {
-        content: [{
-          type: 'text',
-          text: output
-        }],
-        isError: hasFailures
-      }
-    } catch (error) {
-      debug(config, `Error running tests in parallel: ${error.message}`)
-
-      return {
-        content: [{
-          type: 'text',
-          text: `❌ Parallel Test Execution Failed\n\n**Error:** ${error.message}`
-        }],
-        isError: true
-      }
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Parallel Test Execution is Currently Disabled\n\n**Reason:** Known issue with HTTP streaming - secondary tests get truncated output\n\n**Workaround:** Run tests sequentially instead:\n${id.map(testId => `- helpmetest_run_test({ id: "${testId}" })`).join('\n')}\n\n**Technical Details:**\nParallel HTTP streaming returns incomplete output for non-primary tests. Direct robot execution works correctly, indicating the issue is in FastAPI's StreamingResponse handling of concurrent async generators.`
+      }],
+      isError: true
     }
   }
+
+  // Original parallel implementation - COMMENTED OUT
+  // if (Array.isArray(id)) {
+  //   debug(config, `Running ${id.length} tests in parallel: ${id.join(', ')}`)
+  //   try {
+  //     const promises = []
+  //     for (const testId of id) {
+  //       log(`Creating promise for test ${testId}`)
+  //       promises.push(runTestMarkdown(testId))
+  //     }
+  //     log(`All ${promises.length} promises created, waiting for results...`)
+  //     const results = await Promise.allSettled(promises)
+  //     ... formatting code ...
+  //   } catch (error) {
+  //     ... error handling ...
+  //   }
+  // }
 
   // Handle single test
   debug(config, `Running test with identifier: ${id}`)
