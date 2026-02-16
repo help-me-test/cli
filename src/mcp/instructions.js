@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { config, debug } from '../utils/config.js'
 import { apiGet, detectApiAndAuth } from '../utils/api.js'
+import { log } from '../utils/log.js'
 
 // Cache all prompts in memory after first fetch
 let promptsCache = null
@@ -43,7 +44,7 @@ export async function getAllPrompts() {
       prompts.authentication_state_management = authStateResponse.section + cachedPrompts.authentication_state_management
     }
   } catch (e) {
-    console.error('[Instructions] Failed to fetch auth states:', e.message)
+    log(`[Instructions] Failed to fetch auth states: ${e.message}`)
     // Fall back to static prompt
   }
 

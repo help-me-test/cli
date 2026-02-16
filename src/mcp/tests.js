@@ -9,6 +9,7 @@ import { runTestMarkdown, createTest, deleteTest, getAllTests, detectApiAndAuth 
 import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
 import { injectPromptsByType, formatResponse } from './command-queue.js'
+import { log } from '../utils/log.js'
 
 /**
  * Tag system configuration - SINGLE SOURCE OF TRUTH
@@ -219,10 +220,20 @@ async function handleRunTest(args) {
     debug(config, `Running ${id.length} tests in parallel: ${id.join(', ')}`)
 
     try {
-      // Run all tests in parallel
-      const results = await Promise.allSettled(
-        id.map(testId => runTestMarkdown(testId))
-      )
+      // Create promises one by one to debug
+      const promises = []
+      for (const testId of id) {
+        log(`Creating promise for test ${testId}`)
+        promises.push(runTestMarkdown(testId))
+      }
+      log(`All ${promises.length} promises created, waiting for results...`)
+
+      // Wait for all promises to settle
+      const results = await Promise.allSettled(promises)
+
+      log(`All promises settled. Results: ${results.map((r, i) => `${id[i]}: ${r.status} - ${r.status === 'fulfilled' ? r.value.length + ' bytes' : r.reason}`).join(', ')}`)
+
+      debug(config, `All tests completed. Results: ${results.map((r, i) => `${id[i]}: ${r.status === 'fulfilled' ? r.value.length + ' bytes' : 'error'}`).join(', ')}`)
 
       // Format results - header first
       let output = `# 🧪 Parallel Test Execution\n\n`
@@ -233,6 +244,10 @@ async function handleRunTest(args) {
         output += `## Test: ${testId}\n\n`
 
         if (result.status === 'fulfilled') {
+          if (!result.value || result.value.length === 0) {
+            debug(config, `WARNING: Empty output for test ${testId}`)
+            output += `⚠️ **Warning:** Test completed but produced no output\n\n`
+          }
           output += result.value + '\n\n'
         } else {
           output += `❌ **Error:** ${result.reason?.message || 'Unknown error'}\n\n`

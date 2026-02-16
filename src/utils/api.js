@@ -430,7 +430,11 @@ const runTest = async (identifier, onEvent = () => {}) => {
  * @param {string} identifier - Test name, tag (with tag: prefix), or ID
  * @returns {Promise<string>} Markdown formatted test output
  */
+import { log } from './log.js'
+
 const runTestMarkdown = async (identifier) => {
+  const startTime = Date.now()
+
   // For names, we need to resolve to ID first
   let resolvedIdentifier = identifier
 
@@ -454,10 +458,9 @@ const runTestMarkdown = async (identifier) => {
   const endpoint = `/api/run/${encodeURIComponent(resolvedIdentifier)}?output=txt`
   const fullUrl = `${config.apiBaseUrl}${endpoint}`
 
-  debug(config, `Running test (streaming text): ${identifier} (resolved: ${resolvedIdentifier})`)
+  log(`START test ${resolvedIdentifier}`)
 
   try {
-    // Use native fetch for proper streaming support (axios can't handle SSE streams in parallel)
     const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
@@ -466,15 +469,47 @@ const runTestMarkdown = async (identifier) => {
       },
     })
 
+    log(`RESPONSE test ${resolvedIdentifier} - status ${response.status}`)
+
     if (!response.ok) {
       const errorText = await response.text()
       throw new ApiError(`HTTP ${response.status}: ${errorText}`, response.status)
     }
 
-    // Read the entire stream as text
-    const text = await response.text()
+    log(`READING test ${resolvedIdentifier}`)
+
+    // Read stream chunk by chunk to ensure we get all data
+    const reader = response.body.getReader()
+    const chunks = []
+    let totalBytes = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        log(`STREAM DONE test ${resolvedIdentifier} - total ${totalBytes} bytes`)
+        break
+      }
+      chunks.push(value)
+      totalBytes += value.length
+      log(`CHUNK test ${resolvedIdentifier} - ${value.length} bytes (total: ${totalBytes})`)
+    }
+
+    // Combine all chunks
+    const allChunks = new Uint8Array(totalBytes)
+    let position = 0
+    for (const chunk of chunks) {
+      allChunks.set(chunk, position)
+      position += chunk.length
+    }
+
+    const text = new TextDecoder().decode(allChunks)
+    const elapsed = Date.now() - startTime
+    log(`COMPLETE test ${resolvedIdentifier} - ${text.length} bytes in ${elapsed}ms`)
+
     return text
   } catch (error) {
+    const elapsed = Date.now() - startTime
+    log(`ERROR test ${resolvedIdentifier} after ${elapsed}ms: ${error.message}`)
     throw handleApiError(error, { identifier, resolvedIdentifier, endpoint })
   }
 }

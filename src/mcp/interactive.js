@@ -12,6 +12,7 @@ import open from 'open'
 import { writeFile, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { log } from '../utils/log.js'
 
 // Track URLs that have been opened in browser (by identifier)
 const openedUrls = new Set()
@@ -31,18 +32,17 @@ let currentSessionTimestamp = null
 export async function openBrowserOnce(url, identifier, description = 'URL') {
   if (!openedUrls.has(identifier)) {
     openedUrls.add(identifier)
-    console.error(`🌐 Opening browser for ${description}: ${url}`)
+    log(`🌐 Opening browser for ${description}: ${url}`)
     try {
       await open(url)
-      debug(config, `✅ Browser opened successfully: ${url}`)
+      log(`✅ Browser opened successfully: ${url}`)
       return { opened: true, url, alreadyOpen: false }
     } catch (error) {
-      console.error(`❌ Failed to open browser: ${error.message}`)
-      debug(config, `Failed to open browser for ${description}: ${error.message}`)
+      log(`❌ Failed to open browser: ${error.message}`)
       return { opened: false, url, error: error.message, alreadyOpen: false }
     }
   } else {
-    console.error(`ℹ️ ${description} already opened, skipping`)
+    log(`ℹ️ ${description} already opened, skipping`)
     return { opened: false, url, alreadyOpen: true }
   }
 }
@@ -217,7 +217,7 @@ async function handleRunInteractiveCommand(args) {
 
   if (corrections.length > 0) {
     correctionMessage = `\n\n💡 **Auto-quoted selectors:** ${corrections.join(', ')}\n*Tip: In Robot Framework, # starts a comment. Use '#selector' with quotes.*\n`
-    console.error(`[Interactive] Auto-quoted: ${corrections.join(', ')}`)
+    log(`[Interactive] Auto-quoted: ${corrections.join(', ')}`)
     command = fixedCommand
   }
 
@@ -230,11 +230,11 @@ async function handleRunInteractiveCommand(args) {
     let timestamp
     if (currentSessionTimestamp) {
       timestamp = currentSessionTimestamp
-      console.error(`[Interactive] Continuing session: ${timestamp}`)
+      log(`[Interactive] Continuing session: ${timestamp}`)
     } else {
       timestamp = new Date().toISOString()
       currentSessionTimestamp = timestamp
-      console.error(`[Interactive] Created new session: ${timestamp}`)
+      log(`[Interactive] Created new session: ${timestamp}`)
       registerInteractiveSession(timestamp)
 
       // Inject prompts on first interactive command
@@ -249,7 +249,7 @@ async function handleRunInteractiveCommand(args) {
     // If message or tasks provided, send properly formatted UI update to clear blocking flag
     if (message || tasks) {
       await formatAndSendToUI({ message, tasks, room })
-      console.error(`[Interactive] Sent UI update before command execution`)
+      log(`[Interactive] Sent UI update before command execution`)
     }
 
     // Check if blocked - must communicate state/plan/expectations before running next command
@@ -401,7 +401,7 @@ ${responseText}
         const filepath = join(tempDir, filename)
         await writeFile(filepath, Buffer.from(base64Data, 'base64'))
         savedScreenshotPaths.push(filepath)
-        console.error(`📸 Screenshot saved: ${filepath}`)
+        log(`📸 Screenshot saved: ${filepath}`)
       }
     }
 

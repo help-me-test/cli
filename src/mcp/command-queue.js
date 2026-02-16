@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { config } from '../utils/config.js'
 import { STREAM } from '../utils.js'
+import { log } from '../utils/log.js'
 
 // Module-level unified queue for ALL events (user messages, test status changes, etc.)
 // Max 100 items to prevent memory issues
@@ -150,7 +151,7 @@ export async function injectPromptsByType(types) {
 
     injectPrompts(prompts)
   } catch (e) {
-    console.error(`[CommandQueue] Failed to inject prompts: ${e.message}`)
+    log(`[CommandQueue] Failed to inject prompts: ${e.message}`)
   }
 }
 

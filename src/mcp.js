@@ -17,6 +17,7 @@ import path from 'path'
 import { output } from './utils/colors.js'
 import { config, debug } from './utils/config.js'
 import { getMcpServerConfig, validateMcpConfig } from './utils/mcp-config.js'
+import { log } from './utils/log.js'
 
 // Import all tool categories
 import { registerHealthTools } from './mcp/healthchecks.js'
@@ -44,7 +45,7 @@ function logMcpMessage(direction, message) {
     fs.appendFileSync(logFile, logEntry)
   } catch (error) {
     // Ignore logging errors to avoid breaking the server
-    console.error(`Failed to log MCP message: ${error.message}`)
+    log(`Failed to log MCP message: ${error.message}`)
   }
 }
 
@@ -62,7 +63,7 @@ export function createMcpServer(options = {}) {
   try {
     fs.writeFileSync(logFile, `MCP Server Debug Log - Started at ${new Date().toISOString()}\n\n`)
   } catch (error) {
-    console.error(`Failed to initialize log file: ${error.message}`)
+    log(`Failed to initialize log file: ${error.message}`)
   }
 
   const server = new McpServer({
