@@ -1101,16 +1101,24 @@ You MUST use interactive development before creating tests. This is not optional
 4. \`helpmetest_upsert_test\` - Create the test with your PROVEN sequence
 
 **Usage:**
-- **Create new test:** Omit 'id' (or use id="new"). Provide 'name' (required) and optional content/description/tags. Backend will auto-generate ID.
-- **Update existing test:** Provide 'id' (required), 'name' (required), and any fields to update (content/description/tags).
+- **Create new test:** Provide 'id' (required - stable URL-safe identifier), 'name' (required), and optional content/description/tags.
+- **Update existing test:** Provide 'id' (required - existing test identifier), 'name' (required), and any fields to update (content/description/tags).
 
-**Backend Convention:** When id is omitted or set to "new", the backend creates a new test with an auto-generated ID.
+**Important:**
+- You MUST always provide an 'id' parameter
+- ID should be a stable, URL-safe identifier (no spaces - use hyphens: 'login-flow', 'checkout-process')
+- NEVER include the word "test" in name or ID (it's already a test by default)
+- Name should be human-readable version of the ID
 
-**Security Note:** When creating tests, IDs are automatically generated and cannot be manually specified.
+**Examples:**
+- ✅ id: 'iphone13-emulation', name: 'iPhone 13 Emulation'
+- ✅ id: 'login-flow', name: 'Login Flow'
+- ❌ id: 'login-test', name: 'Login Test' (don't use "test" in the name)
+- ❌ id: 'Login Flow', name: 'Login Flow' (ID has spaces - not URL-safe)
 
 ${NAMING_CONVENTIONS}`,
       inputSchema: {
-        id: z.string().optional().describe('Test ID for updates (omit or use "new" to create new test with auto-generated ID)'),
+        id: z.string().describe('Test ID (required - stable URL-safe identifier, no spaces, use hyphens, never include "test" in the name)'),
         name: z.string().describe('Test name (required)'),
         content: z.string().optional().describe('Robot Framework keywords only (no test case structure needed - just the keywords to execute)'),
         description: z.string().optional().describe('Test description'),
