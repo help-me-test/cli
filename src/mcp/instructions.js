@@ -148,10 +148,20 @@ export function registerInstructionTools(server) {
 These instructions define agent behavior, workflow loops, and best practices.
 Prompts are stored on the server and can be updated independently of platform code.
 
+**🚀 WHEN USER SAYS "go test <URL>" or "test <URL>":**
+Call how_to({ type: "full_test_automation" }) to get the COMPLETE workflow:
+- Landing page discovery
+- Authentication acquisition (search for credentials OR register)
+- Create auth test with "Save As"
+- Enumerate all accessible pages
+- For each page: PageInventory → generate tests → link → run → coverage
+- NO bullshit tests (5+ steps, verify outcomes, test features not pages)
+
 **⚠️ MANDATORY BEFORE CREATING TESTS:**
 - test_quality_guardrails: Test quality criteria, structure, and evaluation (READ THIS FIRST)
 
 **Available instruction types:**
+- full_test_automation: Complete workflow for "go test <URL>" (🚀 USE THIS FOR FULL SITE TESTING)
 - test_quality_guardrails: Mandatory test quality mechanisms and guardrails (⚠️ READ BEFORE CREATING TESTS)
 - test_creation_guidance: How to create tests
 - test_modification_guidance: How to modify tests
