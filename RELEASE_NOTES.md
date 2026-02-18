@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.29.4 (2026-02-18)
+
+### Bug Fixes
+
+- **CI/CD Output Formatting**: Fixed test command output when piped or redirected (e.g., `helpmetest test | cat`, `> file`, CI/CD pipelines). Tests now stream clean sequential output without cursor positioning escape codes or "NOT RUN" noise, making logs readable and automation-friendly.
+- **Real-time Streaming**: Fixed stdout buffering in non-TTY environments to ensure test progress appears in real-time when piped, not just after completion.
+
+### Improvements
+
+- **Smart TTY Detection**: Automatically disables dynamic tables and in-place progress updates when output is piped or redirected, while preserving interactive features in terminal mode.
+- **Debug Logging**: Added debug output for test execution status tracking to help troubleshoot test result issues.
+
 ## v1.29.3 (2026-02-18)
 
 ### Bug Fixes
