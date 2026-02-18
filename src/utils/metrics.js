@@ -8,7 +8,8 @@
 import os from 'os'
 import { execSync } from 'child_process'
 import { output } from './colors.js'
-import { debug, config, getEnvironmentConfig } from './config.js'
+import { config, getEnvironmentConfig } from './config.js'
+import { debug } from './log.js'
 
 /**
  * Get system hostname

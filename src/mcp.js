@@ -15,10 +15,9 @@ import http from 'http'
 import fs from 'fs'
 import path from 'path'
 import { output } from './utils/colors.js'
-import { config, debug } from './utils/config.js'
+import { config } from './utils/config.js'
 import { getMcpServerConfig, validateMcpConfig } from './utils/mcp-config.js'
 import { debug } from './utils/log.js'
-import { debug as configDebug } from './utils/config.js'
 
 // Import all tool categories
 import { registerHealthTools } from './mcp/healthchecks.js'
@@ -96,12 +95,12 @@ Go To  https://app.example.com/dashboard
   // Add message logging
   server.onrequest = (request, extra) => {
     debug(`INREQUEST: ${JSON.stringify({ type: 'request', ...request, extra }, null, 2)}`)
-    configDebug(config, `Received request: ${request.method}`)
+    debug(`Received request: ${request.method}`)
   }
 
   server.onnotification = (notification, extra) => {
     debug(`INNOTIFICATION: ${JSON.stringify({ type: 'notification', ...notification, extra }, null, 2)}`)
-    configDebug(config, `Received notification: ${notification.method}`)
+    debug(`Received notification: ${notification.method}`)
   }
 
   // Register all tool categories
@@ -154,7 +153,7 @@ export async function startStdioServer(server) {
   // start reading from stdin, causing the MCP server to hang
   if (process.stdin && typeof process.stdin.resume === 'function') {
     process.stdin.resume()
-    configDebug(config, 'Resumed stdin for Bun compatibility')
+    debug('Resumed stdin for Bun compatibility')
   }
 
   const transport = new StdioServerTransport()
@@ -213,7 +212,7 @@ export async function startHttpServer(server, port = 31337) {
         // Handle SSE connection
         const transport = new SSEServerTransport(req, res)
         server.connect(transport).catch(error => {
-          configDebug(config, `SSE connection error: ${error.message}`)
+          debug(`SSE connection error: ${error.message}`)
         })
       } else if (req.url === '/health' && req.method === 'GET') {
         // Simple health check endpoint

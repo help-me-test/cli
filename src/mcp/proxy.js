@@ -4,9 +4,10 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { spawn } from 'bun'
 import { listProxies as cliListProxies } from '../commands/proxy.js'
+import { debug } from '../utils/log.js'
 
 // Store subprocess references by domain
 const activeProxies = new Map()

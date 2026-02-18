@@ -6,8 +6,9 @@
  */
 
 import { output } from '../utils/colors.js'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { undoUpdate, displayApiError } from '../utils/api.js'
+import { debug } from '../utils/log.js'
 
 /**
  * Handle undo command execution

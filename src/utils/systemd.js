@@ -8,9 +8,10 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import timespanParser from 'timespan-parser'
+import { debug } from './log.js'
 const { parse: parseTimespan } = timespanParser
 import { output } from './colors.js'
-import { debug, config } from './config.js'
+import { config } from './config.js'
 
 /**
  * Parse systemd timer file and extract OnCalendar configuration

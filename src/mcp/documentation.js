@@ -4,8 +4,9 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { apiGet } from '../utils/api.js'
+import { debug } from '../utils/log.js'
 
 /**
  * Convert HTML documentation to markdown

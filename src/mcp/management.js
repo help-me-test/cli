@@ -4,12 +4,13 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { deleteHealthCheck, undoUpdate } from '../utils/api.js'
 import deployCommand from '../commands/deploy.js'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { debug } from '../utils/log.js'
 
 /**
  * Get path to MCP state file

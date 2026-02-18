@@ -257,16 +257,6 @@ const isDebugMode = (config) => {
   return config.debug === true
 }
 
-/**
- * Log debug message if debug mode is enabled
- * @param {Object} config - Configuration object
- * @param {string} message - Debug message
- */
-const debug = (config, message) => {
-  if (isDebugMode(config)) {
-    output.verbose(message)
-  }
-}
 
 /**
  * Ensure configuration is valid, exit if not
@@ -313,7 +303,6 @@ export {
   getRequestConfig,
   getEnvironmentConfig,
   isDebugMode,
-  debug,
   validateOrExit,
   setUserSubdomain,
   getUserSubdomain,

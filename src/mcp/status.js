@@ -4,11 +4,12 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { getTestRuns, getDeployments } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
 import { formatTestsAsTable } from './tests.js'
 import { formatHealthchecksAsTable } from './healthchecks.js'
+import { debug } from '../utils/log.js'
 
 /**
  * Handle comprehensive status tool call

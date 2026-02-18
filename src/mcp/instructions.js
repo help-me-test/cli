@@ -4,9 +4,10 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { apiGet, detectApiAndAuth } from '../utils/api.js'
 import { log } from '../utils/log.js'
+import { debug } from '../utils/log.js'
 
 // Cache all prompts in memory after first fetch
 let promptsCache = null

@@ -9,8 +9,7 @@ import { output } from '../utils/colors.js'
 import { config, isDebugMode } from '../utils/config.js'
 import { createMcpServer, startStdioServer, startHttpServer } from '../mcp.js'
 import { getMcpServerInfo } from '../utils/version.js'
-import { debug } from '../utils/log.js'
-import { debug as configDebug } from '../utils/config.js'
+import { debug, log } from '../utils/log.js'
 
 /**
  * Handle MCP command execution
@@ -37,13 +36,13 @@ export default async function mcpCommand(token, options) {
     config.debug = verbose
 
     // Debug configuration to see what we have
-    configDebug(config, `MCP Server Configuration:`)
-    configDebug(config, `  API URL: ${config.apiBaseUrl}`)
-    configDebug(config, `  Has Token: ${!!config.apiToken}`)
-    configDebug(config, `  Token: ${config.apiToken ? config.apiToken.substring(0, 10) + '...' : 'none'}`)
-    configDebug(config, `  Debug Mode: ${config.debug}`)
+    debug(`MCP Server Configuration:`)
+    debug(`  API URL: ${config.apiBaseUrl}`)
+    debug(`  Has Token: ${!!config.apiToken}`)
+    debug(`  Token: ${config.apiToken ? config.apiToken.substring(0, 10) + '...' : 'none'}`)
+    debug(`  Debug Mode: ${config.debug}`)
 
-    configDebug(config, `Starting MCP server with ${sse ? 'SSE' : 'stdio'} transport`)
+    debug(`Starting MCP server with ${sse ? 'SSE' : 'stdio'} transport`)
 
     // Create MCP server instance
     const serverInfo = getMcpServerInfo()
@@ -58,7 +57,7 @@ export default async function mcpCommand(token, options) {
       try {
         const { detectApiAndAuth } = await import('../utils/api.js')
         await detectApiAndAuth(false, true)
-        configDebug(config, 'Authentication verified in background')
+        debug('Authentication verified in background')
       } catch (error) {
         output.error(`Authentication failed: ${error.message}`)
         output.error('MCP server cannot function without valid authentication')
@@ -89,7 +88,7 @@ export default async function mcpCommand(token, options) {
 
     // Set up graceful shutdown
     const shutdown = async (signal) => {
-      configDebug(config, `Received ${signal}, shutting down MCP server`)
+      debug(`Received ${signal}, shutting down MCP server`)
       try {
         if (server && typeof server.close === 'function') {
           await server.close()
@@ -129,7 +128,7 @@ export default async function mcpCommand(token, options) {
     // Keep the process alive for stdio transport
     if (sse) {
       // For SSE transport, keep the process alive
-      configDebug(config, `MCP server running on http://localhost:${port}`)
+      debug(`MCP server running on http://localhost:${port}`)
       
       // Keep process alive
       setInterval(() => {
@@ -137,7 +136,7 @@ export default async function mcpCommand(token, options) {
       }, 1000)
     } else {
       // For stdio transport, the server will handle the process lifecycle
-      configDebug(config, 'MCP server running with stdio transport')
+      debug('MCP server running with stdio transport')
     }
 
   } catch (error) {

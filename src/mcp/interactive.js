@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { runInteractiveCommand, detectApiAndAuth } from '../utils/api.js'
 import { formatResultAsMarkdown, extractScreenshots } from './formatResultAsMarkdown.js'
 import { formatAndSendToUI, state, registerInteractiveSession, injectPromptsByType, formatResponse } from './command-queue.js'
@@ -230,11 +230,11 @@ async function handleRunInteractiveCommand(args) {
     let timestamp
     if (currentSessionTimestamp) {
       timestamp = currentSessionTimestamp
-      debug(`[Interactive]`, { debugOnly: true } Continuing session: ${timestamp}`)
+      debug(`[Interactive] Continuing session: ${timestamp}`)
     } else {
       timestamp = new Date().toISOString()
       currentSessionTimestamp = timestamp
-      debug(`[Interactive]`, { debugOnly: true } Created new session: ${timestamp}`)
+      debug(`[Interactive] Created new session: ${timestamp}`)
       registerInteractiveSession(timestamp)
 
       // Inject prompts on first interactive command
@@ -249,7 +249,7 @@ async function handleRunInteractiveCommand(args) {
     // If message or tasks provided, send properly formatted UI update to clear blocking flag
     if (message || tasks) {
       await formatAndSendToUI({ message, tasks, room })
-      debug(`[Interactive]`, { debugOnly: true } Sent UI update before command execution`)
+      debug(`[Interactive] Sent UI update before command execution`)
     }
 
     // Check if blocked - must communicate state/plan/expectations before running next command

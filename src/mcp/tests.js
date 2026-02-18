@@ -4,11 +4,12 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { runTestMarkdown, createTest, deleteTest, getAllTests, detectApiAndAuth } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
 import open from 'open'
 import { injectPromptsByType, formatResponse } from './command-queue.js'
+import { debug } from '../utils/log.js'
 
 /**
  * Tag system configuration - SINGLE SOURCE OF TRUTH

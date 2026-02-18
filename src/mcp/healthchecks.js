@@ -3,11 +3,12 @@
  * Provides health monitoring tools for the helpmetest system
  */
 
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { performHttpHealthCheck } from '../commands/health.js'
 import { getAllHealthChecks } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
 import { TOOL_CONFIGS } from '../utils/mcp-config.js'
+import { debug } from '../utils/log.js'
 
 /**
  * Handle single health check tool call

@@ -4,7 +4,8 @@
  * Replicates the STREAM function from frontend CRUD.js for real-time streaming
  */
 
-import { config, debug } from './config.js'
+import { config } from './config.js'
+import { debug } from './log.js'
 
 // Ensure fetch is available (Node.js 18+ has it built-in)
 const ensureFetch = async () => {

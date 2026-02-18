@@ -6,8 +6,9 @@
  */
 
 import { getAllHealthChecks, getAllTests, getTestStatus } from './api.js'
-import { debug, config } from './config.js'
+import { config } from './config.js'
 import * as R from 'ramda'
+import { debug } from './log.js'
 
 /**
  * Format duration since last heartbeat

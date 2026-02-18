@@ -6,7 +6,7 @@
  */
 
 import { output } from './colors.js'
-import { config, getRequestConfig, debug, getUserSubdomain } from './config.js'
+import { config, getRequestConfig, getUserSubdomain } from './config.js'
 
 /**
  * API Error class for structured error handling
@@ -42,7 +42,7 @@ const createApiClient = (enableDebug = false, subdomain = null) => {
     const method = options.method || 'GET'
 
     if (enableDebug) {
-      debug(config, `Making ${method} request to ${url}`)
+      debug(`Making ${method} request to ${url}`)
     }
 
     try {
@@ -56,7 +56,7 @@ const createApiClient = (enableDebug = false, subdomain = null) => {
       })
 
       if (enableDebug) {
-        debug(config, `Response ${response.status} from ${url}`)
+        debug(`Response ${response.status} from ${url}`)
       }
 
       // Parse response based on content type
@@ -78,7 +78,7 @@ const createApiClient = (enableDebug = false, subdomain = null) => {
       return { status: response.status, data, headers: response.headers }
     } catch (error) {
       if (enableDebug) {
-        debug(config, `Request error: ${error.message}`)
+        debug(`Request error: ${error.message}`)
       }
       throw error
     }
@@ -153,7 +153,7 @@ const retryWithBackoff = async (fn, retries = config.retries, delay = 1000) => {
     return await fn()
   } catch (error) {
     if (retries > 0 && shouldRetry(error)) {
-      debug(config, `Retrying request in ${delay}ms (${retries} retries left)`)
+      debug(`Retrying request in ${delay}ms (${retries} retries left)`)
       await new Promise(resolve => setTimeout(resolve, delay))
       return retryWithBackoff(fn, retries - 1, delay * 2)
     }
@@ -213,7 +213,7 @@ const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}, e
     })
 
     if (enableDebug) {
-      debug(config, `Heartbeat sent successfully: ${response.status}`)
+      debug(`Heartbeat sent successfully: ${response.status}`)
     }
     return response.data
   } catch (error) {
@@ -247,7 +247,7 @@ const apiGet = async (endpoint, params = {}, debugMessage = '', enableDebug = fa
     })
 
     if (enableDebug) {
-      debug(config, `Request successful: ${response.status}`)
+      debug(`Request successful: ${response.status}`)
     }
     return response.data
   } catch (error) {
@@ -316,7 +316,7 @@ const apiPost = async (endpoint, data = {}, debugMessage = '', enableDebug = fal
     })
 
     if (enableDebug) {
-      debug(config, `Request successful: ${response.status}`)
+      debug(`Request successful: ${response.status}`)
     }
     return response.data
   } catch (error) {
@@ -350,7 +350,7 @@ const apiPut = async (endpoint, data = {}, debugMessage = '', enableDebug = fals
     })
 
     if (enableDebug) {
-      debug(config, `Request successful: ${response.status}`)
+      debug(`Request successful: ${response.status}`)
     }
     return response.data
   } catch (error) {
@@ -599,7 +599,7 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
     try {
       config.apiBaseUrl = endpoint
       if (enableDebug) {
-        debug(config, `Trying authentication with ${endpoint}`)
+        debug(`Trying authentication with ${endpoint}`)
       }
       
       const userInfo = await getUserInfo(enableDebug, fastFail)
@@ -624,7 +624,7 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
       return cachedUserInfo
     } catch (error) {
       if (enableDebug) {
-        debug(config, `Authentication failed with ${endpoint}: ${error.message}`)
+        debug(`Authentication failed with ${endpoint}: ${error.message}`)
       }
       // Continue to next endpoint unless it's the last one
       if (endpoint === endpoints[endpoints.length - 1]) {
@@ -851,7 +851,7 @@ const validateResponse = (response, requiredFields = []) => {
   return requiredFields.every(field => {
     const hasField = field in response
     if (!hasField) {
-      debug(config, `Missing required field in response: ${field}`)
+      debug(`Missing required field in response: ${field}`)
     }
     return hasField
   })

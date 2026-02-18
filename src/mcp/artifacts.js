@@ -4,8 +4,9 @@
  */
 
 import { z } from 'zod'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import { apiGet, apiPost, apiDelete, detectApiAndAuth } from '../utils/api.js'
+import { debug } from '../utils/log.js'
 
 // NO hardcoded types - let the AI service validate
 // This way MCP never gets out of sync when new artifact types are added

@@ -1,7 +1,8 @@
 import { runTest, getAllTests, displayApiError } from '../utils/api.js'
 import { output, colors } from '../utils/colors.js'
-import { config, debug } from '../utils/config.js'
+import { config } from '../utils/config.js'
 import Table from 'cli-table3'
+import { debug } from '../utils/log.js'
 
 // Track active progress lines for in-place updates
 const activeProgressLines = new Map()
