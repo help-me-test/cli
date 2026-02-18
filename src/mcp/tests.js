@@ -308,6 +308,8 @@ async function handleRunTest(args) {
   try {
     const markdownOutput = await runTestMarkdown(id)
 
+    debug(config, `Test output received: ${markdownOutput.length} chars`)
+
     // Check if output indicates failure
     const hasFailures = markdownOutput.includes('❌') || markdownOutput.includes('FAIL')
 
@@ -712,11 +714,17 @@ ${isCreate ? '' : `\n**Changed:** ${changes.join(', ')}`}`
     debug(config, `Running test after upsert: ${result.id}`)
     const runResult = await handleRunTest({ id: result.id })
 
+    debug(config, `Test run result length: ${runResult.content[0].text.length} chars`)
+
     // Append test run results
     responseText += `\n\n---\n\n## 🧪 Test Run Results\n\n${runResult.content[0].text}`
 
+    debug(config, `Final response before formatResponse: ${responseText.length} chars`)
+
     // Append pending events (system messages)
     responseText = formatResponse(responseText)
+
+    debug(config, `Final response after formatResponse: ${responseText.length} chars`)
 
     return {
       content: [

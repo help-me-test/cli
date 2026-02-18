@@ -36,16 +36,21 @@ function formatTime(duration) {
  * @param {string} keyword - The keyword being executed
  */
 function startProgressCounter(keyword) {
+  // Don't use in-place updates in non-TTY environments
+  if (!process.stdout.isTTY) {
+    return
+  }
+
   if (progressTimers.has(keyword)) {
     clearInterval(progressTimers.get(keyword))
   }
-  
+
   const startTime = Date.now()
   const timer = setInterval(() => {
     if (activeProgressLines.has(keyword)) {
       const elapsed = (Date.now() - startTime) / 1000
       const timeStr = colors.dim(`${formatTime(elapsed)}s `)
-      
+
       // Move cursor up and clear line, then write updated content
       process.stdout.write('\x1b[1A\x1b[2K')
       console.log(`  ${timeStr}⏳ ${keyword}`)
@@ -54,7 +59,7 @@ function startProgressCounter(keyword) {
       progressTimers.delete(keyword)
     }
   }, 50) // Update every 50ms
-  
+
   progressTimers.set(keyword, timer)
 }
 
@@ -140,7 +145,12 @@ function initializeDynamicTable(testIds, testNames) {
   if (testIds.length <= 1) {
     return // Don't use dynamic table for single tests
   }
-  
+
+  // Disable dynamic table in non-TTY environments (pipes, redirects, CI/CD)
+  if (!process.stdout.isTTY) {
+    return
+  }
+
   dynamicTableActive = true
   
   // Clear any existing data
@@ -238,13 +248,13 @@ const handleStreamingEvent = (event, verbose = false, testNames = new Map()) => 
     const keyword = event.keyword
     const status = event.status
     const duration = event.elapsed_time || event.elapsedtime
-    
+
     if (dynamicTableActive) {
       // Update current step in dynamic table
       // Find which test this keyword belongs to by looking at recent start_test events
       const runningTests = Array.from(testExecutionData.entries())
         .filter(([_, data]) => data.status === 'RUNNING')
-      
+
       if (runningTests.length > 0) {
         const [testId, testData] = runningTests[runningTests.length - 1] // Most recent running test
         if (status === 'NOT SET') {
@@ -257,9 +267,11 @@ const handleStreamingEvent = (event, verbose = false, testNames = new Map()) => 
         updateDynamicTable()
       }
     } else {
+      const isTTY = process.stdout.isTTY
+
       if (status === 'PASS') {
-        // Update the progress line in place
-        if (activeProgressLines.has(keyword)) {
+        // Update the progress line in place (only in TTY mode)
+        if (activeProgressLines.has(keyword) && isTTY) {
           // Move cursor up and clear line, then write new content
           process.stdout.write('\x1b[1A\x1b[2K')
           activeProgressLines.delete(keyword)
@@ -268,7 +280,7 @@ const handleStreamingEvent = (event, verbose = false, testNames = new Map()) => 
         const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
         console.log(`  ${timeStr}${colors.success('✓')} ${keyword}`)
       } else if (status === 'FAIL') {
-        if (activeProgressLines.has(keyword)) {
+        if (activeProgressLines.has(keyword) && isTTY) {
           process.stdout.write('\x1b[1A\x1b[2K')
           activeProgressLines.delete(keyword)
           stopProgressCounter(keyword)
@@ -276,20 +288,16 @@ const handleStreamingEvent = (event, verbose = false, testNames = new Map()) => 
         const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
         console.log(`  ${timeStr}${colors.error('✗')} ${keyword}`)
       } else if (status === 'NOT SET') {
-        // This is a progress line - start with initial display and counter
-        const timeStr = colors.dim('0.000s ')
-        console.log(`  ${timeStr}⏳ ${keyword}`)
-        activeProgressLines.set(keyword, Date.now())
-        startProgressCounter(keyword)
-      } else {
-        if (activeProgressLines.has(keyword)) {
-          process.stdout.write('\x1b[1A\x1b[2K')
-          activeProgressLines.delete(keyword)
-          stopProgressCounter(keyword)
+        // This is a progress line - start with initial display and counter (only in TTY mode)
+        if (isTTY) {
+          const timeStr = colors.dim('0.000s ')
+          console.log(`  ${timeStr}⏳ ${keyword}`)
+          activeProgressLines.set(keyword, Date.now())
+          startProgressCounter(keyword)
         }
-        const timeStr = duration ? colors.dim(`${formatTime(duration)}s `) : ''
-        console.log(`  ${timeStr}${colors.info('📋')} ${keyword}: ${status}`)
+        // In non-TTY mode, don't show progress lines at all - wait for completion
       }
+      // Skip all other statuses (NOT RUN, SKIP, etc.) - they're noise
     }
   } else if (verbose && !dynamicTableActive) {
     // Only show verbose events when not using dynamic table
@@ -459,6 +467,11 @@ const displayTestSummary = (events, identifier) => {
 export const runTestCommand = async (identifier, options = {}) => {
   let finalStatus = null
 
+  // Disable stdout buffering in non-TTY mode for real-time streaming
+  if (!process.stdout.isTTY && process.stdout._handle && process.stdout._handle.setBlocking) {
+    process.stdout._handle.setBlocking(true)
+  }
+
   // Handle process interruption (Ctrl+C)
   const handleInterrupt = () => {
     cleanupTimers()
@@ -515,14 +528,18 @@ export const runTestCommand = async (identifier, options = {}) => {
     // Execute the test with real-time streaming
     const events = await runTest(identifier, (event) => {
       handleStreamingEvent(event, options.verbose, testNames)
-      
+
       // Track final status for exit code
       if (event && ((event.type === 'end_test' || event.type === 'end_suite') && event.attrs?.status)) {
         finalStatus = event.attrs.status
+        debug(config, `Got finalStatus from streaming event: ${finalStatus}`)
       } else if (event && (event.type === 'result' || event.status)) {
         finalStatus = event.status
+        debug(config, `Got finalStatus from result/status event: ${finalStatus}`)
       }
     })
+
+    debug(config, `runTest completed with ${events.length} events`)
     
     // Finalize dynamic table or display static results
     if (dynamicTableActive) {
@@ -532,20 +549,26 @@ export const runTestCommand = async (identifier, options = {}) => {
     }
     
     // Determine final status if not captured during streaming
+    debug(config, `Received ${events.length} events, finalStatus=${finalStatus}`)
     if (!finalStatus && events.length > 0) {
-      const resultEvent = events.find(e => 
+      const resultEvent = events.find(e =>
         (e.type === 'end_test' || e.type === 'end_suite') && e.attrs?.status
       ) || events.find(e => e.type === 'result' || e.status)
       finalStatus = resultEvent?.attrs?.status || resultEvent?.status
+      debug(config, `Found finalStatus from events: ${finalStatus}`)
     }
-    
+
     // Exit with appropriate code based on test result (no redundant message)
     if (finalStatus === 'FAIL') {
+      debug(config, 'Exiting with code 1 (FAIL)')
       process.exit(1)
     } else if (finalStatus === 'PASS') {
+      debug(config, 'Exiting with code 0 (PASS)')
       process.exit(0)
     } else {
-      process.exit(0)
+      debug(config, `Exiting with code 0 (no status) - events: ${JSON.stringify(events.slice(-3))}`)
+      console.log('\n⚠️  Test execution incomplete - no final status received')
+      process.exit(1)  // Exit with error if no status
     }
     
   } catch (error) {

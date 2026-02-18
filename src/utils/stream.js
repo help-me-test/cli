@@ -148,6 +148,7 @@ export const STREAM = (
           }
         }
 
+        debug(`Final result: ${result.length} events`)
         return resolve(result)
       } catch (streamError) {
         debug(config, `Stream error: ${streamError.message}`)
