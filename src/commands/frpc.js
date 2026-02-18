@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import { output } from '../utils/colors.js'
+import { debug } from '../utils/log.js'
 
 /**
  * Get path to frpc binary in helpmetest bin directory
@@ -132,9 +133,9 @@ export async function spawnFrpc(config, options = {}) {
 
   // Debug: print config
   if (process.env.DEBUG) {
-    console.log('Generated TOML config:')
-    console.log(configToml)
-    console.log('Config file:', configPath)
+    debug('Generated TOML config:')
+    debug(configToml)
+    debug('Config file:', configPath)
   }
 
   // Spawn frpc using Bun.spawn

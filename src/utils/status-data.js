@@ -71,7 +71,7 @@ export function getStatusFormat(status) {
 export function multiSort(items, sortFields) {
   // Ensure items is an array
   if (!Array.isArray(items)) {
-    console.warn('multiSort: items is not an array, returning empty array:', items)
+    debug('multiSort: items is not an array, returning empty array:', items)
     return []
   }
   

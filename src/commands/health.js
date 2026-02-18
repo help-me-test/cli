@@ -25,6 +25,7 @@ import {
   displayGracePeriodInfo,
   isSystemdTimerFile,
 } from '../utils/systemd.js'
+import { debug, error, log } from '../utils/log.js'
 
 /**
  * Health check command handler
@@ -172,7 +173,7 @@ async function healthCommand(name, gracePeriod, command, options) {
         output.warning(`⚠ Failed to send heartbeat to API: ${apiError.message}`)
         if (options.verbose) {
           output.section('API Error Details:')
-          console.error(apiError)
+          error(apiError)
         }
       }
     } else if (!options.dryRun && !configValid) {
@@ -197,7 +198,7 @@ async function healthCommand(name, gracePeriod, command, options) {
 
     if (options.verbose) {
       output.section('Error Details:')
-      console.error(error)
+      error(error)
     }
 
     process.exit(1)
@@ -376,7 +377,7 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
       }
       
       if (index < heartbeatData.commands_info.length - 1) {
-        console.log() // Add spacing between commands
+        log('') // Add spacing between commands
       }
     })
     

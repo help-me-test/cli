@@ -1,5 +1,6 @@
 import { spawn } from "child_process"
 import { toUpper, test, trim } from "ramda"
+import { log, error, debug } from "./utils/log.js"
 
 export const shell = (
   command,
@@ -29,7 +30,7 @@ export const shell = (
 
     childProcess.on("close", (code) => {
       if (code !== 0) {
-        console.error({ stderr, stdout })
+        error({ stderr, stdout })
         reject(new Error(`Command failed with code ${code}`))
       } else {
         resolve({ stdout, stderr })
@@ -38,7 +39,7 @@ export const shell = (
   })
 }
 const logRequest = (method, host, uri, data) => {
-  console.log(`${toUpper(method)} ${host}${uri}`, data)
+  debug(`${toUpper(method)} ${host}${uri}`, data)
 }
 
 export const STREAM = async (host, uri, data = {}, onToken = console.log, headers = {}) => {
@@ -125,7 +126,7 @@ export const GET = (uri, params = {}, responseFormat = "json", auth = null) => {
 }
 
 export const POST = (uri, body) => {
-  console.log(uri, body)
+  debug(uri, body)
   return fetch(`${uri}`, {
     method: "POST",
     headers: {
@@ -150,7 +151,7 @@ export const POST = (uri, body) => {
 }
 
 export const PUT = (uri, body) => {
-  console.log(uri, body)
+  debug(uri, body)
   return fetch(`${uri}`, {
     method: "PUT",
     headers: {
