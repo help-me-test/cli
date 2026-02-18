@@ -638,7 +638,7 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
 /**
  * Create a new test
  * @param {Object} testData - Test data
- * @param {string} testData.id - Test ID (use "new" for auto-generated)
+ * @param {string} testData.id - Test ID (required - stable URL-safe identifier)
  * @param {string} testData.name - Test name
  * @param {string} [testData.description] - Test description
  * @param {Array<string>} [testData.tags] - Test tags

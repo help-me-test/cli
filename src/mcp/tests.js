@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod'
+import { reject, isNil } from 'ramda'
 import { config } from '../utils/config.js'
 import { runTestMarkdown, createTest, deleteTest, getAllTests, detectApiAndAuth } from '../utils/api.js'
 import { getFormattedStatusData } from '../utils/status-data.js'
@@ -672,14 +673,13 @@ async function handleUpsertTest(args) {
 
   try {
     // Build payload - only include provided fields
-    // Use "new" as id for creates (backend convention)
-    const testPayload = {
-      id: id || "new",
-      ...(name !== undefined && { name }),
-      ...(content !== undefined && { content }),
-      ...(description !== undefined && { description }),
-      ...(tags !== undefined && { tags }),
-    }
+    const testPayload = reject(isNil, {
+      id,
+      name,
+      content,
+      description,
+      tags,
+    })
 
     const result = await createTest(testPayload)
     debug(config, `Test ${isCreate ? 'creation' : 'update'} result: ${JSON.stringify(result)}`)
