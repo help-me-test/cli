@@ -11,6 +11,7 @@
 
 // Load environment variables from .env file
 import { Command } from 'commander'
+import { log, error, debug } from './utils/log.js'
 import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'
 import metricsCommand from './commands/metrics.js'
@@ -703,7 +704,7 @@ ${colors.subtitle('More Information:')}
 // Handle unknown commands
 program.on('command:*', function (operands) {
   output.error(`Unknown command: ${colors.highlight(operands[0])}`)
-  console.error(colors.dim('See --help for a list of available commands.'))
+  error(colors.dim('See --help for a list of available commands.'))
   process.exit(1)
 })
 

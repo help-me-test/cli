@@ -7,6 +7,7 @@
 
 import { colors, output } from '../utils/colors.js'
 import { getVersion, getPackageName } from '../utils/version.js'
+import { log } from '../utils/log.js'
 
 /**
  * Version command handler
@@ -24,6 +25,6 @@ export default function versionCommand(options = {}) {
     output.dim(`Repository: https://github.com/help-me-test/cli`)
   } else {
     // Simple version output for -V flag compatibility
-    console.log(version)
+    log(version)
   }
 }

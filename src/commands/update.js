@@ -8,6 +8,7 @@
 import { spawn } from 'child_process'
 import { colors, output } from '../utils/colors.js'
 import { getVersion } from '../utils/version.js'
+import { log } from '../utils/log.js'
 
 /**
  * Update command handler
@@ -18,7 +19,7 @@ export default async function updateCommand(options = {}) {
   
   output.info(`${colors.brand('HelpMeTest CLI')} Update`)
   output.dim(`Current version: ${colors.highlight(currentVersion)}`)
-  console.log()
+  log('')
   
   if (options.dryRun) {
     output.info('Dry run mode - showing what would be executed:')
@@ -30,7 +31,7 @@ export default async function updateCommand(options = {}) {
   if (options.verbose) {
     output.info('Downloading and running the official HelpMeTest installer...')
     output.dim('Script URL: https://helpmetest.com/install')
-    console.log()
+    log('')
   }
   
   try {
@@ -45,7 +46,7 @@ export default async function updateCommand(options = {}) {
     })
     
     installProcess.on('close', (code) => {
-      console.log()
+      log('')
       if (code === 0) {
         output.success('✅ Update completed successfully!')
         output.info('You may need to restart your terminal or run:')

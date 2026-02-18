@@ -8,6 +8,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { colors, output } from '../utils/colors.js'
 import { apiPost, detectApiAndAuth } from '../utils/api.js'
+import { log, error } from '../utils/log.js'
 
 const execAsync = promisify(exec)
 
@@ -65,7 +66,7 @@ export default async function deployCommand(app, options = {}) {
     output.keyValue('Description', description)
   }
 
-  console.log()
+  log('')
 
   if (options.dryRun) {
     output.info('Dry run mode - showing what would be created:')
@@ -101,15 +102,15 @@ export default async function deployCommand(app, options = {}) {
     output.keyValue('Timestamp', result.update.timestamp)
 
     if (options.verbose) {
-      console.log()
+      log('')
       output.section('Full Update:')
-      console.log(JSON.stringify(result.update, null, 2))
+      log(JSON.stringify(result.update, null, 2))
     }
   } catch (error) {
     output.error(`❌ Failed to create deployment update: ${error.message}`)
 
     if (options.verbose) {
-      console.error(error)
+      error(error)
     }
 
     process.exit(1)

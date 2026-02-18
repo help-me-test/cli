@@ -8,6 +8,7 @@
 import { output } from '../utils/colors.js'
 import { config, configUtils } from '../utils/config.js'
 import { collectSystemMetrics, collectBasicMetrics, displaySystemMetrics } from '../utils/metrics.js'
+import { log, error } from '../utils/log.js'
 
 /**
  * Metrics command handler
@@ -28,7 +29,7 @@ async function metricsCommand(options) {
         output.keyValue('Mode', options.basic ? 'Basic' : 'Full')
         output.keyValue('Format', options.json ? 'JSON' : 'Formatted')
         output.keyValue('Debug', config.debug ? 'Enabled' : 'Disabled')
-        console.log()
+        log('')
       }
     }
     
@@ -39,13 +40,13 @@ async function metricsCommand(options) {
     
     if (options.json) {
       // Output raw JSON for programmatic use
-      console.log(JSON.stringify(metrics, null, 2))
+      log(JSON.stringify(metrics, null, 2))
     } else {
       // Display formatted metrics
       displaySystemMetrics(metrics, !options.basic)
       
       if (options.verbose && !options.json) {
-        console.log()
+        log('')
         output.section('Collection Performance:')
         output.keyValue('Collection Time', `${collectionTime}ms`)
         output.keyValue('Metrics Count', Object.keys(metrics).length)
@@ -65,7 +66,7 @@ async function metricsCommand(options) {
     
     if (options.verbose) {
       output.section('Error Details:')
-      console.error(error)
+      error(error)
     }
     
     process.exit(1)
