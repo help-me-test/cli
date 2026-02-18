@@ -11,6 +11,7 @@
 import { output } from '../utils/colors.js'
 import { spawnFrpc } from './frpc.js'
 import { config } from '../utils/config.js'
+import { log, debug } from '../utils/log.js'
 
 // Global cleanup registry
 const cleanupHandlers = []
@@ -25,10 +26,10 @@ async function runCleanup() {
   if (isShuttingDown) return
   isShuttingDown = true
 
-  console.error('[DEBUG] Running cleanup handlers...')
+  debug('[DEBUG] Running cleanup handlers...')
   await Promise.all(
     cleanupHandlers.map(handler =>
-      handler().catch(err => console.error('[DEBUG] Cleanup handler error:', err.message))
+      handler().catch(err => debug('[DEBUG] Cleanup handler error:', err.message))
     )
   )
   process.exit(0)
@@ -39,16 +40,16 @@ function ensureSignalHandlers() {
   signalHandlersRegistered = true
 
   process.on('SIGINT', () => {
-    console.error('[DEBUG] SIGINT received')
+    debug('[DEBUG] SIGINT received')
     runCleanup()
   })
 
   process.on('SIGTERM', () => {
-    console.error('[DEBUG] SIGTERM received')
+    debug('[DEBUG] SIGTERM received')
     runCleanup()
   })
 
-  console.error('[DEBUG] Signal handlers registered')
+  debug('[DEBUG] Signal handlers registered')
 }
 
 /**
@@ -195,7 +196,7 @@ export async function startProxy(target, options = {}) {
   // Cleanup task: kill frpc process
   const killFrpc = async () => {
     if (!frpc || localShutdown) return
-    console.error(`[DEBUG] Killing frpc for ${domain}`)
+    debug(`[DEBUG] Killing frpc for ${domain}`)
     frpc.kill('SIGTERM')
   }
 
@@ -207,14 +208,14 @@ export async function startProxy(target, options = {}) {
     const token = config.apiToken || process.env.HELPMETEST_API_TOKEN
     if (!token) return
 
-    console.error(`[DEBUG] Deregistering tunnel ${domain}`)
+    debug(`[DEBUG] Deregistering tunnel ${domain}`)
     try {
       await fetch(`${proxyUrl}/tunnels/deregister?domain=${domain}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      console.error(`[DEBUG] Deregistered ${domain}`)
+      debug(`[DEBUG] Deregistered ${domain}`)
     } catch (err) {
-      console.error(`[DEBUG] Failed to deregister ${domain}:`, err.message)
+      debug(`[DEBUG] Failed to deregister ${domain}:`, err.message)
     }
   }
 
@@ -272,7 +273,7 @@ export async function startProxy(target, options = {}) {
     const exitCode = await frpc.exited
 
     if (exitCode === 0) {
-      console.error('[DEBUG] frpc exited normally, cleaning up')
+      debug('[DEBUG] frpc exited normally, cleaning up')
       await runCleanup()
     }
 
@@ -467,12 +468,12 @@ export async function listProxies(options = {}) {
     output.success(`Found ${data.tunnels.length} active tunnel(s):\n`)
 
     data.tunnels.forEach((tunnel, i) => {
-      console.log(`${i + 1}. ${tunnel.domain} -> localhost:${tunnel.port}`)
-      console.log(`   Name: ${tunnel.name}`)
+      log(`${i + 1}. ${tunnel.domain} -> localhost:${tunnel.port}`)
+      log(`   Name: ${tunnel.name}`)
       if (tunnel.created_at) {
-        console.log(`   Created: ${new Date(tunnel.created_at).toLocaleString()}`)
+        log(`   Created: ${new Date(tunnel.created_at).toLocaleString()}`)
       }
-      console.log()
+      log('')
     })
   } catch (err) {
     output.error(`Failed to list tunnels: ${err.message}`)

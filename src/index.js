@@ -712,7 +712,8 @@ const args = process.argv.slice(2)
 const command = args[0]
 
 if (process.env.HELPMETEST_DEBUG) {
-  console.error(`[DEBUG] Command: ${command}`)
+  const { debug } = await import('./utils/log.js')
+  debug(`[DEBUG] Command: ${command}`)
 }
 
 // For MCP command, token is passed as argument - set it in config

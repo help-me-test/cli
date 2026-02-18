@@ -17,7 +17,8 @@ import path from 'path'
 import { output } from './utils/colors.js'
 import { config, debug } from './utils/config.js'
 import { getMcpServerConfig, validateMcpConfig } from './utils/mcp-config.js'
-import { log } from './utils/log.js'
+import { debug } from './utils/log.js'
+import { debug as configDebug } from './utils/config.js'
 
 // Import all tool categories
 import { registerHealthTools } from './mcp/healthchecks.js'
@@ -32,24 +33,6 @@ import { registerProxyTools } from './mcp/proxy.js'
 import { registerInstructionTools } from './mcp/instructions.js'
 
 /**
- * Log MCP messages to file for debugging
- * @param {string} direction - 'IN' or 'OUT'
- * @param {Object} message - The message object
- */
-function logMcpMessage(direction, message) {
-  const logFile = path.join(process.cwd(), 'mcp-debug.log')
-  const timestamp = new Date().toISOString()
-  const logEntry = `[${timestamp}] ${direction}: ${JSON.stringify(message, null, 2)}\n\n`
-
-  try {
-    fs.appendFileSync(logFile, logEntry)
-  } catch (error) {
-    // Ignore logging errors to avoid breaking the server
-    log(`Failed to log MCP message: ${error.message}`)
-  }
-}
-
-/**
  * Create and configure the MCP server with all tools
  * @param {Object} options - Server configuration options
  * @returns {Object} Configured MCP server instance
@@ -58,13 +41,7 @@ export function createMcpServer(options = {}) {
   const serverConfig = getMcpServerConfig(options)
   validateMcpConfig(serverConfig)
 
-  // Clear previous log file
-  const logFile = path.join(process.cwd(), 'mcp-debug.log')
-  try {
-    fs.writeFileSync(logFile, `MCP Server Debug Log - Started at ${new Date().toISOString()}\n\n`)
-  } catch (error) {
-    log(`Failed to initialize log file: ${error.message}`)
-  }
+  debug(`MCP Server Debug Log - Started at ${new Date().toISOString()}`)
 
   const server = new McpServer({
     name: serverConfig.name,
@@ -118,13 +95,13 @@ Go To  https://app.example.com/dashboard
 
   // Add message logging
   server.onrequest = (request, extra) => {
-    logMcpMessage('IN', { type: 'request', ...request, extra })
-    debug(config, `Received request: ${request.method}`)
+    debug(`INREQUEST: ${JSON.stringify({ type: 'request', ...request, extra }, null, 2)}`)
+    configDebug(config, `Received request: ${request.method}`)
   }
 
   server.onnotification = (notification, extra) => {
-    logMcpMessage('IN', { type: 'notification', ...notification, extra })
-    debug(config, `Received notification: ${notification.method}`)
+    debug(`INNOTIFICATION: ${JSON.stringify({ type: 'notification', ...notification, extra }, null, 2)}`)
+    configDebug(config, `Received notification: ${notification.method}`)
   }
 
   // Register all tool categories
@@ -177,43 +154,45 @@ export async function startStdioServer(server) {
   // start reading from stdin, causing the MCP server to hang
   if (process.stdin && typeof process.stdin.resume === 'function') {
     process.stdin.resume()
-    debug(config, 'Resumed stdin for Bun compatibility')
+    configDebug(config, 'Resumed stdin for Bun compatibility')
   }
 
   const transport = new StdioServerTransport()
 
-  // Log transport-level messages
-  const originalOnMessage = transport.onmessage
-  if (originalOnMessage) {
-    transport.onmessage = (message) => {
-      logMcpMessage('TRANSPORT_IN', message)
-      return originalOnMessage.call(transport, message)
-    }
-  }
-
-  // Try to intercept stdin data
-  const originalStdin = process.stdin
-  if (originalStdin && originalStdin.on) {
-    originalStdin.on('data', (data) => {
-      try {
-        const message = JSON.parse(data.toString().trim())
-        logMcpMessage('STDIN_RAW', message)
-      } catch (e) {
-        logMcpMessage('STDIN_RAW', { raw: data.toString(), parseError: e.message })
+  // Log transport-level messages (only if debug mode enabled)
+  if (config.debug) {
+    const originalOnMessage = transport.onmessage
+    if (originalOnMessage) {
+      transport.onmessage = (message) => {
+        debug(`TRANSPORT_IN: ${JSON.stringify(message, null, 2)}`)
+        return originalOnMessage.call(transport, message)
       }
-    })
-  }
-
-  // Try to intercept stdout data
-  const originalWrite = process.stdout.write
-  process.stdout.write = function(chunk, encoding, callback) {
-    try {
-      const message = JSON.parse(chunk.toString().trim())
-      logMcpMessage('STDOUT_RAW', message)
-    } catch (e) {
-      logMcpMessage('STDOUT_RAW', { raw: chunk.toString(), parseError: e.message })
     }
-    return originalWrite.call(this, chunk, encoding, callback)
+
+    // Try to intercept stdin data
+    const originalStdin = process.stdin
+    if (originalStdin && originalStdin.on) {
+      originalStdin.on('data', (data) => {
+        try {
+          const message = JSON.parse(data.toString().trim())
+          debug(`STDIN_RAW: ${JSON.stringify(message, null, 2)}`)
+        } catch (e) {
+          debug(`STDIN_RAW: ${data.toString()} (parseError: ${e.message})`)
+        }
+      })
+    }
+
+    // Try to intercept stdout data
+    const originalWrite = process.stdout.write
+    process.stdout.write = function(chunk, encoding, callback) {
+      try {
+        const message = JSON.parse(chunk.toString().trim())
+        debug(`STDOUT_RAW: ${JSON.stringify(message, null, 2)}`)
+      } catch (e) {
+        debug(`STDOUT_RAW: ${chunk.toString()} (parseError: ${e.message})`)
+      }
+      return originalWrite.call(this, chunk, encoding, callback)
+    }
   }
 
   await server.connect(transport)
@@ -234,7 +213,7 @@ export async function startHttpServer(server, port = 31337) {
         // Handle SSE connection
         const transport = new SSEServerTransport(req, res)
         server.connect(transport).catch(error => {
-          debug(config, `SSE connection error: ${error.message}`)
+          configDebug(config, `SSE connection error: ${error.message}`)
         })
       } else if (req.url === '/health' && req.method === 'GET') {
         // Simple health check endpoint

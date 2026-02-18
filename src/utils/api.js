@@ -430,7 +430,7 @@ const runTest = async (identifier, onEvent = () => {}) => {
  * @param {string} identifier - Test name, tag (with tag: prefix), or ID
  * @returns {Promise<string>} Markdown formatted test output
  */
-import { log } from './log.js'
+import { log, debug } from './log.js'
 
 const runTestMarkdown = async (identifier) => {
   const startTime = Date.now()
@@ -577,13 +577,13 @@ const detectApiAndAuth = async (enableDebug = false, fastFail = false) => {
   // Return cached user info if already authenticated
   if (authInitialized && cachedUserInfo) {
     if (enableDebug) {
-      console.error('[DEBUG] Using cached user info, skipping /api/user call')
+      debug('[DEBUG] Using cached user info, skipping /api/user call')
     }
     return cachedUserInfo
   }
 
   if (enableDebug) {
-    console.error('[DEBUG] No cache, making /api/user call')
+    debug('[DEBUG] No cache, making /api/user call')
   }
 
   const { config } = await import('./config.js')
@@ -820,7 +820,7 @@ const displayApiError = (error, verbose = false) => {
 
   if (verbose && error.response) {
     output.section('Response Details:')
-    console.log(JSON.stringify(error.response, null, 2))
+    log(JSON.stringify(error.response, null, 2))
   }
 
   // Provide helpful suggestions based on error type
@@ -910,6 +910,7 @@ export {
   handleApiError,
   retryWithBackoff,
   shouldRetry,
+  cachedUserInfo,
 }
 
 // Export default object for convenience
