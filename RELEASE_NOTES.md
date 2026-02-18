@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.29.3 (2026-02-18)
+
+### Bug Fixes
+
+- **Test ID Validation**: Fixed critical bug where MCP tool sent literal "new" as test ID when ID was undefined, causing tests to be created with ID "new" instead of requiring explicit IDs. Backend requires stable URL-safe identifiers - no auto-generation logic exists.
+
+### Improvements
+
+- **Code Quality**: Replaced conditional spread pattern with proper ramda `reject(isNil)` for cleaner object filtering when building test payloads.
+- **Logging System**: Unified debug logging with company-specific log files, replaced console.* calls with proper log/error/debug functions throughout CLI commands.
+- **Test Automation Workflow**: Added comprehensive instructions for full site testing automation including landing page discovery, auth acquisition, page enumeration, and test generation.
+
 ## v1.29.2 (2026-02-16)
 
 ### Bug Fixes
