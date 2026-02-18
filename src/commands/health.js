@@ -25,7 +25,7 @@ import {
   displayGracePeriodInfo,
   isSystemdTimerFile,
 } from '../utils/systemd.js'
-import { debug, error, log } from '../utils/log.js'
+import { error, log } from '../utils/log.js'
 
 /**
  * Health check command handler

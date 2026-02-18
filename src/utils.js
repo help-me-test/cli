@@ -1,6 +1,6 @@
 import { spawn } from "child_process"
 import { toUpper, test, trim } from "ramda"
-import { log, error, debug } from "./utils/log.js"
+import { error, debug } from "./utils/log.js"
 
 export const shell = (
   command,

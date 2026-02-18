@@ -11,7 +11,7 @@
 
 // Load environment variables from .env file
 import { Command } from 'commander'
-import { log, error, debug } from './utils/log.js'
+import { error } from './utils/log.js'
 import healthCommand from './commands/health.js'
 import statusCommand from './commands/status.js'
 import metricsCommand from './commands/metrics.js'
@@ -721,6 +721,13 @@ if (process.env.HELPMETEST_DEBUG) {
 if (command === 'mcp' && args[1] && args[1].startsWith('HELP-')) {
   const { config } = await import('./utils/config.js')
   config.apiToken = args[1]
+}
+
+// Detect API URL and authenticate once at app init (except for MCP, version, update, install, mcp commands)
+const noAuthCommands = ['mcp', 'version', 'update', 'install']
+if (command && !noAuthCommands.includes(command)) {
+  const { detectApiAndAuth } = await import('./utils/api.js')
+  await detectApiAndAuth(false, false)
 }
 
 // Parse command line arguments

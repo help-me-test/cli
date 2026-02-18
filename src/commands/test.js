@@ -458,17 +458,17 @@ const displayTestSummary = (events, identifier) => {
  */
 export const runTestCommand = async (identifier, options = {}) => {
   let finalStatus = null
-  
+
   // Handle process interruption (Ctrl+C)
   const handleInterrupt = () => {
     cleanupTimers()
     console.log('\n\nTest execution interrupted')
     process.exit(130) // Standard exit code for SIGINT
   }
-  
+
   process.on('SIGINT', handleInterrupt)
   process.on('SIGTERM', handleInterrupt)
-  
+
   try {
     debug(config, `Running test with identifier: ${identifier}`)
 

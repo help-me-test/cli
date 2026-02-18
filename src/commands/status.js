@@ -14,7 +14,7 @@ import {
   getFormattedStatusData
 } from '../utils/status-data.js'
 import Table from 'cli-table3'
-import { log, error } from '../utils/log.js'
+import { log } from '../utils/log.js'
 
 
 

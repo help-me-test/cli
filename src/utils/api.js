@@ -196,7 +196,7 @@ const shouldRetry = (error) => {
  */
 const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}, enableDebug = false) => {
   const client = createApiClient(enableDebug, getUserSubdomain())
-  
+
   const requestInfo = {
     name,
     gracePeriod,
@@ -231,7 +231,7 @@ const sendHealthCheckHeartbeat = async (name, gracePeriod, heartbeatData = {}, e
  */
 const apiGet = async (endpoint, params = {}, debugMessage = '', enableDebug = false) => {
   const client = createApiClient(enableDebug)
-  
+
   const requestInfo = {
     endpoint,
     params,
@@ -372,7 +372,7 @@ const apiStreamPost = async (endpoint, data = {}, onEvent = () => {}, debugMessa
   try {
     // Import streaming function dynamically to avoid circular imports
     const { STREAM } = await import('./stream.js')
-    
+
     const events = await STREAM(endpoint, data, onEvent)
     debug(config, `Streaming request completed with ${events.length} events`)
     return events
@@ -657,7 +657,7 @@ const createTest = async (testData) => {
  */
 const apiDelete = async (endpoint, debugMessage = '') => {
   const client = createApiClient()
-  
+
   const requestInfo = {
     endpoint,
   }

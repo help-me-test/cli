@@ -8,7 +8,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { colors, output } from '../utils/colors.js'
 import { apiPost, detectApiAndAuth } from '../utils/api.js'
-import { log, error } from '../utils/log.js'
+import { log } from '../utils/log.js'
 
 const execAsync = promisify(exec)
 

@@ -8,7 +8,7 @@
 import { output } from '../utils/colors.js'
 import { config, configUtils } from '../utils/config.js'
 import { collectSystemMetrics, collectBasicMetrics, displaySystemMetrics } from '../utils/metrics.js'
-import { log, error } from '../utils/log.js'
+import { log } from '../utils/log.js'
 
 /**
  * Metrics command handler
