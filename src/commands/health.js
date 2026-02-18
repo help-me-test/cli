@@ -381,7 +381,7 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
       }
     })
     
-    console.log()
+    log('')
   }
   
   output.section('Health Check Configuration:')
@@ -391,13 +391,13 @@ function displayHealthCheckInfo(processedArgs, heartbeatData, options) {
   
   // Display timer information if available
   if (processedArgs.timerConfig) {
-    console.log()
+    log('')
     displayTimerConfiguration(processedArgs.timerConfig, options.verbose)
   }
   
   // Display grace period validation
   if (options.verbose) {
-    console.log()
+    log('')
     displayGracePeriodInfo(processedArgs.gracePeriod, processedArgs.validation)
   }
   

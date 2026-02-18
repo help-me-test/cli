@@ -15,6 +15,7 @@ import os from 'os'
 import path from 'path'
 import fs from 'fs'
 import { getVersion } from '../utils/version.js'
+import { log } from '../utils/log.js'
 
 const execAsync = promisify(exec)
 
@@ -341,7 +342,7 @@ async function handleCursorInstall(apiToken, companyName) {
   } catch (error) {
     output.info('Could not open link automatically. Manual configuration:')
     const config = generateMcpConfig(apiToken, companyName)
-    console.log(JSON.stringify(config, null, 2))
+    log(JSON.stringify(config, null, 2))
   }
 }
 
@@ -367,7 +368,7 @@ async function handleVSCodeInstall(apiToken, companyName) {
   } catch (error) {
     output.info('Could not open link automatically. Manual configuration:')
     const config = generateMcpConfig(apiToken, companyName)
-    console.log(JSON.stringify(config, null, 2))
+    log(JSON.stringify(config, null, 2))
   }
 }
 
@@ -398,12 +399,12 @@ async function handleClaudeInstall(apiToken, companyName) {
         installed = true
       } catch (updateError) {
         output.info('Could not install automatically. Run this command:')
-        console.log(addCommand)
+        log(addCommand)
         return
       }
     } else {
       output.info('Could not install automatically. Run this command:')
-      console.log(addCommand)
+      log(addCommand)
       return
     }
   }
@@ -416,7 +417,7 @@ async function handleClaudeInstall(apiToken, companyName) {
   // Show the list after installation
   try {
     const listResult = await execAsync('claude mcp list')
-    console.log(listResult.stdout)
+    log(listResult.stdout)
   } catch (error) {
     // Ignore list errors
   }
@@ -484,7 +485,7 @@ async function handleMcpJsonInstall(apiToken, companyName) {
     }
     
     output.info('Manual configuration - create .mcp.json with:')
-    console.log(JSON.stringify(config, null, 2))
+    log(JSON.stringify(config, null, 2))
   }
 }
 

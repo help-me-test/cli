@@ -6,14 +6,15 @@
 
 import { output, colors } from '../utils/colors.js'
 import { config, validateConfiguration } from '../utils/config.js'
-import { 
-  formatTimeSince, 
-  getStatusFormat, 
+import {
+  formatTimeSince,
+  getStatusFormat,
   multiSort,
   collectStatusData,
   getFormattedStatusData
 } from '../utils/status-data.js'
 import Table from 'cli-table3'
+import { log, error } from '../utils/log.js'
 
 
 
@@ -53,9 +54,9 @@ function createCleanTable(headers, rows) {
  * @param {Object} options - Display options
  */
 function displayTestsSection(tests, testStatus, options) {
-  console.log(colors.subtitle('Tests'))
+  log(colors.subtitle('Tests'))
   if (tests.length === 0) {
-    console.log('No tests found')
+    log('No tests found')
   } else {
     // Sort tests by status priority (fail, pass, unknown) and then by last run time
     const sortedTests = multiSort(tests, [
@@ -126,7 +127,7 @@ function displayTestsSection(tests, testStatus, options) {
       return row
     })
     
-    console.log(createCleanTable(headers, testsRows))
+    log(createCleanTable(headers, testsRows))
   }
 }
 
@@ -136,9 +137,9 @@ function displayTestsSection(tests, testStatus, options) {
  * @param {Object} options - Display options
  */
 function displayHealthchecksSection(healthChecks, options) {
-  console.log(colors.subtitle('Healthchecks'))
+  log(colors.subtitle('Healthchecks'))
   if (healthChecks.length === 0) {
-    console.log('No healthchecks found')
+    log('No healthchecks found')
   } else {
     // Sort healthchecks by status priority (down, up, unknown) and then by last heartbeat
     const sortedHealthChecks = multiSort(healthChecks, [
@@ -213,7 +214,7 @@ function displayHealthchecksSection(healthChecks, options) {
       return row
     })
     
-    console.log(createCleanTable(headers, healthchecksRows))
+    log(createCleanTable(headers, healthchecksRows))
   }
 }
 
@@ -246,7 +247,7 @@ async function statusCommand(subcommand, options) {
           tests: jsonData.tests,
           timestamp: jsonData.timestamp
         }
-        console.log(JSON.stringify(filteredData, null, 2))
+        log(JSON.stringify(filteredData, null, 2))
       } else if (subcommand === 'health') {
         const filteredData = {
           company: jsonData.company,
@@ -254,9 +255,9 @@ async function statusCommand(subcommand, options) {
           healthchecks: jsonData.healthchecks,
           timestamp: jsonData.timestamp
         }
-        console.log(JSON.stringify(filteredData, null, 2))
+        log(JSON.stringify(filteredData, null, 2))
       } else {
-        console.log(JSON.stringify(jsonData, null, 2))
+        log(JSON.stringify(jsonData, null, 2))
       }
       return
     }
@@ -266,15 +267,15 @@ async function statusCommand(subcommand, options) {
     const { userInfo, healthChecks, tests, testStatus } = statusData
 
     // Show formatted output matching the desired style
-    console.log(colors.title(userInfo.requestCompany?.name || userInfo.companyName || userInfo.activeCompany))
-    console.log()
+    log(colors.title(userInfo.requestCompany?.name || userInfo.companyName || userInfo.activeCompany))
+    log()
 
     // Display sections based on subcommand
     if (!subcommand || subcommand === 'test') {
       displayTestsSection(tests, testStatus, options)
       
       if (!subcommand) {
-        console.log()
+        log()
       }
     }
     
@@ -284,13 +285,13 @@ async function statusCommand(subcommand, options) {
 
     // Show totals if verbose
     if (options.verbose) {
-      console.log()
+      log()
       if (subcommand === 'test') {
-        console.log(`Total: ${tests.length} tests`)
+        log(`Total: ${tests.length} tests`)
       } else if (subcommand === 'health') {
-        console.log(`Total: ${healthChecks.length} healthchecks`)
+        log(`Total: ${healthChecks.length} healthchecks`)
       } else {
-        console.log(`Total: ${tests.length} tests, ${healthChecks.length} healthchecks`)
+        log(`Total: ${tests.length} tests, ${healthChecks.length} healthchecks`)
       }
     }
 
@@ -299,7 +300,7 @@ async function statusCommand(subcommand, options) {
     
     if (options.verbose) {
       output.section('Error Details:')
-      console.error(error)
+      error(error)
     }
     
     process.exit(1)
