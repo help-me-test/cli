@@ -1,5 +1,93 @@
 # Release Notes
 
+## v1.32.1 (2026-02-23)
+
+### Bug Fixes
+
+- **Health Check URL Parsing**: Fixed health check command failing with `GET localhost:port/path` syntax. The URL parser now correctly handles hostname:port combinations with paths (e.g., `GET localhost:9000/health`), resolving 120-second timeouts in Kubernetes liveness probes.
+
+## v1.32.0 (2026-02-23)
+
+### New Features
+
+- **JSON Output Mode**: Added `--json` flag to `helpmetest test` command for streaming raw JSON events. This enables integration with other tools and scripts that need programmatic access to test execution data. Use `helpmetest test <test-name> --json` to get machine-readable output with all test events including start, keywords, and completion status.
+
+### Bug Fixes
+
+- **Test Completion Display**: Fixed issue where test completion status (✅ passed/❌ failed) was not displayed when tests completed. The CLI now properly handles both `end_test` and `end_suite` events to show final test results.
+- **Variable Assignment Progress**: Fixed duplicate progress lines appearing for Robot Framework variable assignments (e.g., `${results}= Get Elements`). Variable assignment wrappers are now filtered out to show only actual keyword execution.
+
+### Improvements
+
+- **Stream Parsing**: Improved JSON event stream parsing to handle single objects per chunk instead of attempting newline-based splitting. This eliminates parse errors and ensures all events are properly processed.
+- **Timer Cleanup**: Added proper cleanup of progress timers before process exit to prevent lingering timers in edge cases.
+- **Exit Codes**: Enhanced exit code handling to properly detect final test status from both `end_test` and `end_suite` events, ensuring correct exit codes (0 for pass, 1 for fail) in all scenarios.
+
+## v1.31.0 (2026-02-22)
+
+### New Features
+
+- **Interactive Skill Selection**: Added interactive agent selection when installing skills. Users can now choose which agent directories to install skills to, with preferences saved to `~/.helpmetest/agent-preferences.json` for future use.
+- **Canonical Skill Location**: Refactored skill installation to use `.agents/skills` as the single source of truth with symlinks to other agent directories. This eliminates duplicate indexing and ensures all agents reference the same skill definitions.
+
+### Bug Fixes
+
+- **Validation Error Documentation**: Fixed keyword documentation display when validation errors occur in interactive mode. Users now see helpful documentation immediately when encountering validation issues.
+- **Test Selector Validation**: Fixed # selector validation logic to properly handle test identifiers in various MCP operations.
+- **Auth Caching**: Improved authentication caching to prevent unnecessary re-authentication during MCP server operations.
+
+### Improvements
+
+- **Stream Processing**: Simplified stream reading in API utilities to match frontend pattern, improving reliability of test result streaming.
+- **Output Formatting**: Removed markdown formatting from MCP output to ensure clean, consistent display across different agent interfaces.
+- **Code Cleanup**: Removed unused imports and dead code paths from MCP command handlers.
+
+## v1.30.0 (2026-02-21)
+
+### New Features
+
+- **Claude Code MCP Integration**: MCP server now uses local scope when running in Claude Code, ensuring proper security context and .mcp.json configuration. This enables seamless integration with Claude Code's MCP client without manual configuration.
+
+### Improvements
+
+- **Simplified Test Tags**: Removed strict tag validation in favor of documentation-driven approach. Tests now only require `priority:` tag instead of both `type:` and `priority:`. This reduces friction when creating tests and eliminates sync issues between validation code and documentation. Tag categories simplified to: `project`, `role`, `feature`, `priority`, `url`.
+- **Test Status Display**: Fixed inconsistent test run display formatting to ensure consistent output across different views.
+- **Single Source of Truth**: Tag schema validation moved entirely to AI prompts, eliminating duplicate validation logic and ensuring documentation always matches behavior.
+
+### Breaking Changes
+
+None - tag schema changes are backwards compatible (less restrictive, not more).
+
+## v1.29.8 (2026-02-21)
+
+### Improvements
+
+- **Test Coverage**: Added comprehensive integration tests for authentication fallback logic. Tests verify multi-environment token handling, prod-to-dev fallback when no company association exists, URL construction, and include specific regression tests for the v1.29.7 bug fix. All tests use real API calls without mocking.
+
+## v1.29.7 (2026-02-21)
+
+### Bug Fixes
+
+- **Authentication Fallback**: Fixed authentication detection to continue trying endpoints when token is valid but has no company association. Previously, if a token existed in production without a company, it would stop there instead of trying dev environment. Now correctly falls back through all configured endpoints (prod → dev) until finding one with company association, ensuring tokens work across environments.
+
+## v1.29.6 (2026-02-21)
+
+### Bug Fixes
+
+- **Authentication Error Handling**: Fixed `detectApiAndAuth` to never throw errors. Now returns partial user info with warnings when company is missing or all endpoints fail, allowing `-V` flag and health commands to work without valid authentication.
+- **Debug Logging**: Fixed missing `debug` function import in config utilities, eliminating runtime errors during health check operations.
+
+## v1.29.5 (2026-02-19)
+
+### Bug Fixes
+
+- **Test Suite**: Fixed health checks filtering test to correctly validate section headers instead of matching test names.
+
+### Improvements
+
+- **Release Process**: Simplified publish script to mirror releases from private to public repository instead of duplicating asset uploads.
+- **CI/CD**: Restored GitHub Actions workflow for automated testing and releases.
+
 ## v1.29.4 (2026-02-18)
 
 ### Bug Fixes
