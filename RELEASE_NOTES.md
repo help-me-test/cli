@@ -1,5 +1,25 @@
 # Release Notes
 
+## v1.33.0 (2026-02-26)
+
+### New Features
+
+- **Browser-Based Authentication**: Added `helpmetest login` command for easy browser-based authentication. Instead of manually copying API tokens, simply run `helpmetest login` and the CLI opens your browser to authenticate. After signing in, your credentials are automatically saved and ready to use.
+- **Logout Command**: Added `helpmetest logout` to remove saved authentication credentials from `~/.helpmetest/config.json`.
+
+### Security Improvements
+
+- **Session Security**: CLI login sessions are now server-generated instead of client-generated, preventing session hijacking attacks. Sessions are validated and tracked with state management (pending → completed → consumed) to ensure one-time use.
+
+### Bug Fixes
+
+- **Status Command Output**: Fixed "undefined" appearing in `helpmetest status` output when displaying tests and health checks. The log function now properly handles empty calls.
+
+### Improvements
+
+- **Better Error Messages**: Commands now direct users to run `helpmetest login` when authentication fails, making it clearer how to resolve auth issues.
+- **Automatic Auth Handling**: Removed redundant configuration validation checks - authentication is now handled automatically when making API calls.
+
 ## v1.32.1 (2026-02-23)
 
 ### Bug Fixes
