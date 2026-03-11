@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.38.0 (2026-03-11)
+
+### Improvements
+
+- **Cleaner Delete Confirmation**: When a test is deleted via MCP, the confirmation message now shows a ready-to-use undo command with the exact `updateId` — no more raw JSON to dig through.
+
 ## v1.37.0 (2026-03-11)
 
 ### New Features
