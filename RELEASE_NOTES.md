@@ -1,5 +1,59 @@
 # Release Notes
 
+## v1.37.0 (2026-03-11)
+
+### New Features
+
+- **Automatic Login on Any Command**: All CLI commands now automatically open the browser login flow when no API token is found, instead of printing an error and exiting. After you sign in, your credentials are saved and the original command continues immediately — no need to re-run it.
+- **Pause and Unpause Tests**: You can now pause and unpause tests directly via the MCP `upsert_test` tool using the `disabled` field. Paused tests are shown with a ⏸️ indicator and are skipped during auto-run, so you can temporarily stop a test without deleting it.
+
+### Improvements
+
+- **Cleaner MCP Output**: Simplified how test results and status information are formatted in MCP responses, resulting in more concise and consistent output.
+
+### Bug Fixes
+
+- **Interactive Session Cleanup**: Fixed a bug where interactive debugging sessions were not properly cleaned up after closing. Stale session entries no longer accumulate, preventing invalid room names from appearing in subsequent sessions.
+
+## v1.36.0 (2026-03-08)
+
+### New Features
+
+- **Docker-Style Port Mapping**: Added support for Docker-style port mapping syntax in proxy configuration. You can now use familiar `-p host:container` notation for mapping ports, making proxy setup more intuitive for users familiar with Docker.
+- **Parallel Test Execution**: Test execution now runs in parallel for significantly faster completion times. Multiple tests can run concurrently, improving CI/CD pipeline performance and reducing wait times for test results.
+
+## v1.35.0 (2026-03-06)
+
+### New Features
+
+- **Skills Package Integration**: Refactored skills installation to use the standard skills package. Skills installation now provides a streamlined interactive experience with all prompts handled by the skills package itself, eliminating the need for custom agent selection logic.
+
+### Improvements
+
+- **Interactive MCP Output**: Enhanced interactive debugging session output with improved formatting. All browser tabs in the current context are now shown with an active tab marker, making it easier to understand which page is active. Removed redundant command execution titles for interactive sessions and verbose JSON summaries for cleaner, more focused output.
+- **MCP Interactive Parameters**: Simplified MCP interactive tool parameters for easier usage and better developer experience.
+- **Skills Installation Workflow**: Multiple refinements to skills installation including `--all` flag support for preselecting HelpMeTest skills and better interactive experience through dynamic imports.
+- **Agent Preference Migration**: Fixed agent preference migration to use agent names instead of file paths for more reliable configuration management.
+
+### Bug Fixes
+
+- **Test Coverage**: Added missing tests for install command and skills installation to improve test coverage and reliability.
+
+## v1.34.0 (2026-03-04)
+
+### New Features
+
+- **Antigravity Support**: Added support for Google DeepMind's Antigravity IDE. Run `helpmetest install mcp --antigravity` to install the MCP server configuration automatically.
+- **Non-Interactive Installation**: Added command-line flags for automated MCP installation in CI/CD and scripts. Use `--antigravity`, `--claude`, `--claude-desktop`, `--vscode`, `--cursor`, or `--mcp-json` to skip the interactive prompt.
+- **Automatic Login Flow**: When running `helpmetest install mcp` without a token in an interactive terminal, the CLI now automatically triggers the browser-based login flow instead of showing an error.
+
+### Improvements
+
+- **MCP Status Display**: Test stability is now displayed as "XX/100" instead of "XX/10" for clearer readability. Health check stability threshold increased from 10 to 100 runs.
+- **MCP Response Formatting**: Removed markdown formatting from MCP tool responses. Output is now plain text for better compatibility with AI tools and Claude Desktop.
+- **Code Signing**: Added proper code signing for macOS .pkg installers using Developer ID certificates, ensuring smooth installation on macOS without security warnings.
+- **CI/CD Improvements**: Enhanced GitHub Actions workflow with notarization support and integration tests. All tests now run automatically on every release.
+
 ## v1.33.0 (2026-02-26)
 
 ### New Features

@@ -1,6 +1,6 @@
 {
   "name": "helpmetest-cli",
-  "version": "1.33.0",
+  "version": "1.37.0",
   "description": "HelpMeTest CLI tool for health check monitoring",
   "main": "src/index.js",
   "type": "module",
@@ -51,6 +51,7 @@
     "multiplex": "^6.7.0",
     "open": "^10.1.2",
     "ramda": "^0.29.1",
+    "skills": "^1.4.4",
     "timespan-parser": "^1.2.0",
     "undici": "^7.22.0",
     "zod": "^3.25.67"
