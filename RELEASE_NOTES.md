@@ -1,5 +1,13 @@
 # Release Notes
 
+## v1.39.0 (2026-03-12)
+
+### New Features
+
+- **OpenCode MCP Support**: Added `helpmetest install mcp --opencode` command that writes to `~/.config/opencode/opencode.json` using OpenCode's native format (`"mcp"` root key, `"local"` type, command as array). Restart OpenCode after installation to load the MCP server.
+- **`helpmetest open` Command**: Open HelpMeTest dashboard pages directly in the browser. Supports `test`, `tests`, `artifact`, `artifacts`, `health`, `healthchecks`, `dashboard`, `updates`, and `achievements` as target types. Find tests by name (`--name`) or tag (`--tag`), and open specific runs with `--run`.
+- **Test History in Status**: Added `--history <n>` flag to the `status` command to show the last N runs per test inline, giving a quick overview of recent test execution trends.
+
 ## v1.38.0 (2026-03-11)
 
 ### Improvements
