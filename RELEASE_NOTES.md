@@ -1,5 +1,13 @@
 # Release Notes
 
+## v1.40.1 (2026-03-12)
+
+### Bug Fixes
+
+- **Proxy Tunnel Routing Broken**: Fixed `http://dev.local` returning frp 404 in tests. The tunnel registry was being registered with the local source port (e.g. 3099) instead of the external port (80). The server-side tunnel plugin rewrites `Host: dev.local` → `Host: dev.local.{port}.{company}` to route to frpc — so both the registry and frpc must agree on the same port (80). This was the root cause of all proxy-related test failures.
+- **MCP Proxy Uses Wrong Account**: The `helpmetest_proxy` MCP tool now passes the MCP server's own API token to the spawned proxy subprocess. Previously it inherited the local CLI credentials, registering the tunnel under the wrong company and making `http://dev.local` unreachable from tests on other accounts.
+- **MCP Proxy Cleanup on Disconnect**: All proxy tunnels opened via the MCP tool are now automatically killed when the MCP server process exits (SIGINT, SIGTERM, or normal exit). Previously, orphaned frpc processes kept running after the AI session ended.
+
 ## v1.40.0 (2026-03-12)
 
 ### New Features
