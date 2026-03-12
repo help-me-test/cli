@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.40.0 (2026-03-12)
+
+### New Features
+
+- **`helpmetest tests` Command**: List all your tests directly from the CLI with name, description, and tags. Use `--verbose` to include test IDs and `--json` for raw output.
+- **Keywords Pagination**: The `helpmetest keywords` command now supports `--limit <n>` and `--offset <n>` flags to page through large keyword lists instead of dumping everything at once.
+- **Proxy Guidance Output**: When starting a proxy tunnel, the CLI now prints a clear explanation of how the tunnel works before frpc logs begin — including the exact URL to use in tests, a verification step, and an explicit warning that the proxied URL is not accessible from your local browser or curl.
+
+### Improvements
+
+- **Shared Status Formatters**: The `helpmetest status` command and MCP `helpmetest_status` tool now use the same formatting code, so output is consistent whether you're reading from the terminal or an AI agent.
+- **Parallel Test Failure Tracking**: When running multiple tests in parallel via MCP, failures are now correctly detected and the overall result accurately reflects any failing test.
+- **MCP Proxy Tool Description**: The `helpmetest_proxy` MCP tool description now explicitly states that the proxied URL only works inside HelpMeTest test commands — preventing agents from wasting time trying to curl or browse it locally.
+
 ## v1.39.0 (2026-03-12)
 
 ### New Features
