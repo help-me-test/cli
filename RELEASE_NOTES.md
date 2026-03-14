@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.41.1 (2026-03-14)
+
+### Bug Fixes
+
+- **Silent MCP Startup**: Fixed `[HelpMeTest init]` log messages appearing on stderr during MCP server startup. Some MCP hosts (Cursor, Claude Desktop) treat unexpected stderr output as an error signal. Init messages are now only emitted in `--verbose` / debug mode.
+
 ## v1.41.0 (2026-03-14)
 
 ### New Features
