@@ -1,5 +1,16 @@
 # Release Notes
 
+## v1.41.0 (2026-03-14)
+
+### New Features
+
+- **CLAUDE.md and AGENTS.md Auto-Injection**: When an AI assistant starts an MCP session, the CLI now automatically injects your project's `CLAUDE.md` and `AGENTS.md` files into the context. AI agents get instant access to your project-specific instructions without any manual setup.
+- **Per-Project Local Config**: You can now place a `.helpmetest.yaml` file in your project root to set project-specific configuration (API URL, token, etc.) that overrides your global CLI config. Ideal for teams working across multiple environments or accounts.
+
+### Improvements
+
+- **Streamlined MCP Tools**: Removed the `list_tests` MCP tool and `helpmetest tests` CLI command. Test listing is now handled more efficiently through other MCP tools, reducing noise in AI assistant tool menus.
+
 ## v1.40.1 (2026-03-12)
 
 ### Bug Fixes
