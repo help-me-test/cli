@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.41.2 (2026-03-16)
+
+### Bug Fixes
+
+- **Proxy Tunnel Protocol Upgrade**: Switched proxy tunnels from HTTP vhost routing to dedicated TCP ports. The old approach required a fragile Host header rewriting hack on every keep-alive request. The new approach allocates a dedicated TCP port per tunnel (range 10000-15000), enabling clean raw TCP forwarding that works with HTTP, WebSocket (wss://), SSE streaming, and any other protocol out of the box.
+- **MCP Proxy Version Mismatch**: The MCP proxy tool was shelling out to the globally installed `helpmetest` binary, which could be an older version with the wrong tunnel configuration. It now calls the tunnel registration and frpc spawning functions directly, ensuring the correct code is always used regardless of which binary is installed globally.
+
 ## v1.41.1 (2026-03-14)
 
 ### Bug Fixes
