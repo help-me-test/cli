@@ -1,5 +1,14 @@
 # Release Notes
 
+## v1.41.3 (2026-03-17)
+
+### Bug Fixes
+
+- **MCP Install Token Reload**: Fixed a bug where running `helpmetest install mcp` in a terminal would successfully complete the browser login flow, but then immediately fail with "API token is required". The in-memory config was not refreshed after login saved the token to disk.
+- **Interactive Browser Catalog**: Fixed browser catalog not loading correctly in interactive MCP sessions after a recent security patch.
+- **Codex MCP Install**: Switched Codex integration to use the standard `codex mcp add` CLI command for a more reliable installation experience.
+- **Empty Result Formatting**: MCP tool results that are empty or unparsed now display a human-readable fallback message instead of raw output.
+
 ## v1.41.2 (2026-03-16)
 
 ### Bug Fixes
