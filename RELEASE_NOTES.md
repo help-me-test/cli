@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.42.0 (2026-03-18)
+
+### New Features
+
+- **Gemini CLI MCP Support**: You can now install the HelpMeTest MCP server into Google's Gemini CLI with a single command: `helpmetest install mcp --gemini`. The installer reads and merges `~/.gemini/settings.json`, preserving any existing MCP entries (e.g. pencil), and writes the correct `{ command, args, env }` format Gemini CLI expects.
+
+### Bug Fixes
+
+- **Screenshot MIME Type**: Fixed screenshot events declaring the wrong MIME type. The listener now reads `mimeType` directly from the event payload instead of guessing from magic bytes, ensuring screenshots are correctly decoded as JPEG or PNG regardless of encoding.
+
 ## v1.41.3 (2026-03-17)
 
 ### Bug Fixes
