@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.43.0 (2026-03-19)
+
+### New Features
+
+- **`helpmetest ai` Command Group**: A clean, intuitive shorthand for launching AI-powered testing workflows. Instead of remembering `helpmetest agent claude self-heal`, you can now run:
+  - `helpmetest ai loop` — starts the self-healing monitor that watches for test failures and fixes them automatically
+  - `helpmetest ai discover` — explores your website and generates Feature and Persona artifacts
+  - `helpmetest ai debug` — debugs a specific failing test and identifies whether it's a test issue or a real bug
+  - `helpmetest ai test` — generates Robot Framework tests for your features
+
+### Improvements
+
+- **Config File Location**: The CLI config file has moved from `.helpmetest.yaml` to `.helpmetest/config.yaml`. This keeps project-level HelpMeTest files organized in a single directory alongside other config. The old location is still read for backward compatibility.
+
 ## v1.42.0 (2026-03-18)
 
 ### New Features
