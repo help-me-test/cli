@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.44.0 (2026-03-20)
+
+### Improvements
+
+- **Smarter Test Status Display**: The `status` command now automatically surfaces error details for failing tests without needing extra flags. If a test is failing, the error message is shown immediately — no more hunting through logs to understand why a test is red.
+- **Test Outcome Visibility in AI Workflows**: When AI agents run and upsert tests, the response now includes a clear outcome badge (✅ PASSED, ❌ FAILED, or ⚠️ incomplete) as the first thing you see — even if the output is long or truncated.
+
 ## v1.43.0 (2026-03-19)
 
 ### New Features
