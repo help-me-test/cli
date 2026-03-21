@@ -1,5 +1,24 @@
 # Release Notes
 
+## v1.45.0 (2026-03-21)
+
+### New Features
+
+- **Redesigned Help Text**: Every CLI command now explains *why* you need it, not just what it does. Help output includes mental models, real-world examples, and the "getting started" flow so new users understand the whole system from the terminal.
+- **"How it all fits together" Guide**: Running `helpmetest --help` now shows a cohesive overview of the three pillars (Tests, Health Checks, AI Agents) and a recommended day-to-day workflow.
+
+### Improvements
+
+- **Smarter `helpmetest_open` Tool**: The MCP open tool now guides AI agents to use it when users say "show me", "open", or "let me see" — so the AI correctly opens the browser instead of just printing a URL.
+- **Cleaner Interactive Session Output**: Removed duplicate session URL that was appearing twice after every interactive command.
+- **Leaner MCP Surface**: Removed `helpmetest_upsert_health_check` from MCP tools — health checks are created automatically on the first heartbeat via the CLI, there is no separate "create" step. Tool count reduced from 22 to 21.
+- **Extracted Business Logic**: Moved artifact, interactive, and documentation logic out of MCP layer into reusable `commands/` modules with dedicated unit tests.
+
+### Bug Fixes
+
+- **Removed Misleading `health create` / `health update` Commands**: Health checks auto-upsert on the first heartbeat. Separate create and update subcommands gave the wrong impression that manual setup was needed.
+- **Fixed All Stale Tests**: Updated test assertions for new help text, correct MCP tool schema (Feature type, required fields), interactive command parameters, and install/uninstall behavior changes.
+
 ## v1.44.0 (2026-03-20)
 
 ### Improvements
