@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.46.0 (2026-03-22)
+
+### New Features
+
+- **Helpy — Your QA Agent's Personality**: Running `helpmetest login` now creates `.helpmetest/SOUL.md` in your project — a character document for your AI QA agent. Helpy is a kind, thorough QA engineer who roots for everyone to succeed. Edit the file to give your agent a different name, tone, or focus. It's safe to commit and share with your team.
+
+- **Orient First — No More Starting Blind**: The MCP system now injects a non-negotiable rule into every project's `CLAUDE.md`/`AGENTS.md`: before any QA work, call `helpmetest_status` and `helpmetest_search_artifacts` to understand what already exists. The agent now checks existing tests and artifacts before writing anything new, so it stops recreating work that's already been done.
+
+### Improvements
+
+- **Smarter Tool Descriptions**: `helpmetest_status` now says "call this first before any QA work" and `helpmetest_search_artifacts` says "never create an artifact without searching first" — guidance baked directly into the tool schema so agents see it even without reading docs.
+- **SOUL.md in llms.txt**: The public `helpmetest.com/llms.txt` now documents Helpy and SOUL.md so AI agents bootstrapping from scratch know the personality system exists.
+- **MCP Init v4**: Projects with stale `CLAUDE.md`/`AGENTS.md` blocks (v1–v3) get automatically upgraded to v4 on the next MCP start, picking up the orient-first rule and Helpy reference.
+
 ## v1.45.0 (2026-03-21)
 
 ### New Features
