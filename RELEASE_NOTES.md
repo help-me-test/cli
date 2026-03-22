@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.47.0 (2026-03-22)
+
+### Bug Fixes
+
+- **Search Artifacts Accepts `query` Parameter**: `helpmetest_search_artifacts` now accepts `query` as a search term (in addition to `search`). Previously, calling the tool with `query: "billing subscription"` silently ignored the parameter and returned all artifacts unfiltered — now it correctly filters results.
+
 ## v1.46.0 (2026-03-22)
 
 ### New Features
