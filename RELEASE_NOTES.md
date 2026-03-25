@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.48.0 (2026-03-25)
+
+### New Features
+
+- **Config Command**: New `helpmetest config` command to view and manage CLI configuration. Supports `show`, `get <key>`, `set <key> <value>`, and `unset <key>` subcommands. Also exposed as `helpmetest_config` MCP tool.
+- **Auto-Open Browser on Interactive Session**: Restores automatic browser opening when starting a new interactive session, so you don't have to manually navigate to the session URL.
+- **Smarter CLI Install Paths**: Installation now uses fully resolved paths in MCP configs, preventing issues when the CLI is installed via symlinks or version managers.
+
+### Bug Fixes
+
+- **Strongly-Typed Artifact Content**: The `helpmetest_upsert_artifact` MCP tool now enforces that `content` must be a plain JSON object matching the artifact type schema exactly. Previously, free-form content (invented fields like `flows`, `steps`, `principle`) could be saved silently — now rejected with a clear validation error listing exactly which fields are wrong.
+- **Artifact Search**: Fixed stale session file cleanup — all stale files are now cleaned in a single pass rather than only the newest one.
+- **Interactive Session IDs**: Added random suffix to interactive session run IDs to prevent collisions when sessions start within the same millisecond.
+
 ## v1.47.0 (2026-03-22)
 
 ### Bug Fixes
