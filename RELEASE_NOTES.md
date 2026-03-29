@@ -1,5 +1,27 @@
 # Release Notes
 
+## v1.49.0 (2026-03-30)
+
+### New Features
+
+- **Updates Command**: New `helpmetest updates` command streams real-time test failure notifications as newline-delimited JSON. Lets you monitor live test results from CI or a terminal without polling the dashboard.
+- **Upload Command**: New `helpmetest upload <file>` command uploads local files (screenshots, reports, attachments) to HelpMeTest storage. Also available as the `helpmetest_upload` MCP tool.
+- **Test Run Links**: `helpmetest test run` now prints a direct link to the run results page after launching a test. Pass `--open` to automatically open it in your browser.
+- **Screenshot Paths in MCP**: Screenshots taken during interactive sessions are now saved to disk and the file path is returned in the MCP response, making it easy for agents to reference screenshots in follow-up actions.
+
+### Improvements
+
+- **Cleaner Screenshot Messages**: Removed the noisy "Upload with: ..." hint from screenshot save messages in interactive sessions.
+- **Artifact Upsert Warnings**: Missing `test_ids` on scenarios now produces a clear warning surfaced in both CLI output and MCP responses, rather than silently succeeding.
+- **Shared Keyword Rendering**: Keyword display is now consistent between the CLI and MCP — both use the same rendering logic, so output looks identical regardless of how you invoke it.
+- **MCP Skill Workflow Guide**: Updated MCP init instructions (v6/v7) with a decision-tree workflow guide, updated skill names, and an instruction to always search for the Memory artifact before starting QA work.
+- **Interactive Session URLs**: Removed random suffix from session URL timestamps for cleaner, more predictable session identifiers.
+
+### Bug Fixes
+
+- **Skills Install in Binary**: Fixed `helpmetest install skills` failing when running from the compiled bun binary due to a module resolution issue.
+- **WARNING Severity Blocking**: Fixed `helpmetest_upsert_test` not treating WARNING-severity validation issues as blocking — warnings are now always presented to the user before proceeding.
+
 ## v1.48.0 (2026-03-25)
 
 ### New Features
