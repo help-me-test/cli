@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.49.1 (2026-03-30)
+
+### Bug Fixes
+
+- **Variable Assignments Now Visible**: Fixed a bug where keywords used as variable assignments (`${var}=  Keyword  args`) were silently dropped from CLI and MCP output. They now appear in full — showing the variable name alongside the keyword — so you can see exactly what was captured and what value was assigned.
+
 ## v1.49.0 (2026-03-30)
 
 ### New Features
