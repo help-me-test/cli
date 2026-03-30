@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.51.0 (2026-03-31)
+
+### New Features
+
+- **Extended JSON Path Selection**: The `select` parameter now reaches further. `helpmetest_get_artifact_schema` supports `select` to pull out just `"properties"` or `"required"` fields from a schema. `helpmetest_upsert_artifact` supports `select` to extract specific fields from the saved result (e.g. `"warnings[].message"`). In the CLI, `helpmetest test run --json --filter <type>` filters the NDJSON event stream to a single event type — use `--filter end_test` to see only final pass/fail results without the keyword noise.
+
+### Improvements
+
+- **Bun as test runner**: Switched the CLI test suite from Jest to `bun test`, which natively supports ES modules — tests can now import from source directly without workarounds.
+
 ## v1.50.0 (2026-03-31)
 
 ### New Features
