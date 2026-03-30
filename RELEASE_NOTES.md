@@ -1,5 +1,21 @@
 # Release Notes
 
+## v1.50.0 (2026-03-31)
+
+### New Features
+
+- **JSON Path Selection (`--select`)**: All `artifact` subcommands and the `status` command now accept a `--select <path>` option (with `--json`) to extract exactly the fields you need — no jq required. Examples: `helpmetest status --json --select "tests[].id"` returns a plain array of test IDs; `--select "tests[].{id,name,status}"` returns slim objects. Also available on MCP tools via the `select` parameter.
+
+### Improvements
+
+- **Tag Validation Error Details**: Tag validation errors now include the full list of specific violations as bullet points instead of a generic "Tag validation failed" message. You can see exactly which tag is wrong and why.
+- **Test Description Warnings**: Saving a test without a description, or with a description that reads like a step list instead of a goal statement, now shows a warning. Descriptions should explain what user behaviour the test verifies, not what it clicks.
+- **Tag Schema Enforcement Simplified**: Cross-reference lookups (validating `feature:X` against a Feature artifact) have been removed. Tags now describe the test — which persona runs it, which feature and project it covers — without requiring matching artifacts to pre-exist. `Feature` and `Persona` artifacts now require `project:X` for organizational filtering.
+
+### Bug Fixes
+
+- **Tags-Only Artifact Update**: Fixed a bug where updating only the tags on an existing artifact would send `undefined` for all other fields, corrupting the artifact. The existing name and content are now preserved correctly.
+
 ## v1.49.1 (2026-03-30)
 
 ### Bug Fixes
