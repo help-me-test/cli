@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.52.0 (2026-03-31)
+
+### New Features
+
+- **Bare Timeout Guard**: Writing `timeout=10000` in an interactive command now throws an immediate client-side error — before the command ever reaches the server. Robot Framework treats bare numbers as seconds, so `timeout=10000` means 2.7 hours. The error message tells you exactly what to use instead (`10000s` or `10000000ms`). This guard works in all three paths: `helpmetest interactive`, the MCP `helpmetest_run_interactive_command` tool, and `helpmetest_upsert_test`.
+
+### Improvements
+
+- **`helpmetest_run_test` description**: The tool description now mentions that it waits for the full result before returning, and points to the Bash alternative (`helpmetest test <id>`) when you need real-time keyword-by-keyword streaming output.
+
 ## v1.51.0 (2026-03-31)
 
 ### New Features
