@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.53.0 (2026-04-02)
+
+### New Features
+- **Login with token**: `helpmetest login --token HELP-abc123` saves a token directly without opening a browser — useful in CI/CD and headless environments.
+- **Run URL in test results**: After running a test, the MCP response now includes a direct link to the specific run result, not just the test dashboard page.
+- **Proxy domain validation**: `helpmetest proxy start` now rejects `localhost` and `127.0.0.1` as proxy domains with a clear error and suggestion. The proxy domain is the external name tests navigate to — it must be something meaningful like `myapp.local`.
+
+### Improvements
+- **Proxy setup guidance**: The proxy ready message now lists every common AI agent mistake with the correct fix — wrong URL in tests, 0.0.0.0 binding requirement, frpc auto-install.
+- **Interactive command resource analysis**: Resource usage is shown before page content in interactive command output so it's always visible.
+- **Tag handling**: Tags with leading `#` or extra whitespace are now accepted and normalized automatically.
+
+### Bug Fixes
+- **Test status display**: Fixed test run history when the API returns positional arrays instead of named objects.
+
 ## v1.52.0 (2026-03-31)
 
 ### New Features
