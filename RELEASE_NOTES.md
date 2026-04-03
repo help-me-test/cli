@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.54.0 (2026-04-04)
+
+### New Features
+- **Web Vitals and FPS monitoring in interactive output**: Interactive test sessions now report Web Vitals (LCP, CLS, INP) and FPS/jitter metrics in the output, giving you real performance data alongside functional test results.
+- **Test descriptions shown by default in status**: `helpmetest status` now shows test descriptions inline so you can see what each test does without opening the dashboard.
+- **Headless/AI agent login guidance**: Running `helpmetest login` in a non-interactive environment (CI, piped stdin, AI agent) now detects the situation and shows clear guidance — including where to find programmatic registration docs and how to use `--token` to skip the browser flow.
+- **Code annotation rules injected into CLAUDE.md/AGENTS.md**: The MCP init step (v8) now injects `@helpmetest` annotation rules into your project's system prompts, so AI agents automatically know how to link code to tests and what to do when annotated code changes.
+
+### Improvements
+- **FPS output uses timestamps instead of aggregates**: Interactive FPS reporting now emits per-sample timestamps for more accurate jitter analysis.
+- **Mandatory artifact update check after test runs**: The `upsert_test` MCP instruction now explicitly reminds agents to update the Feature artifact after each test run, preventing stale artifact state.
+- **Given/When/Then/Risk description format enforced**: Test and validation descriptions now follow a structured BDD format for consistency across projects.
+
 ## v1.53.0 (2026-04-02)
 
 ### New Features
