@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.55.0 (2026-04-05)
+
+### Improvements
+- **Narration required after every test run**: After `helpmetest_run_test` completes (single or parallel), the MCP response now includes a mandatory reminder that the agent must explain the results in plain language before making the next tool call. This fixes the "silent agent" pattern where the agent would run a batch of tests and report nothing meaningful.
+- **Explain-your-actions mantra in system prompt**: The MCP init step (v10) now injects a stronger explain-your-actions rule directly into CLAUDE.md/AGENTS.md with concrete examples of wrong vs correct behavior, and adds `/onboard` and 8 more skills to the skill workflow table.
+
 ## v1.54.0 (2026-04-04)
 
 ### New Features
