@@ -1,5 +1,25 @@
 # Release Notes
 
+## v1.57.0 (2026-04-22)
+
+### New Features
+- **Offline keyword search**: The `helpmetest keywords` command and `helpmetest_keywords` MCP tool now resolve all keyword data from a bundled local library — no server connection required. Results are instant and work fully offline.
+
+### Improvements
+- **Disable automatic test runs via schedule**: Pass `schedule: "never"` or `schedule: "none"` to `helpmetest_upsert_test` to pause automatic scheduling for a test. Previously this required a separate `disabled` boolean field; the `schedule` field now covers both enabling and disabling runs in one place.
+
+### Bug Fixes
+- **Release builds no longer block on single-arch failure**: Both macOS architectures (arm64, x64) are now compiled before notarization begins. A build failure in one arch no longer prevents the other from being notarized and published.
+
+## v1.56.0 (2026-04-22)
+
+### New Features
+- **Test schedule field in upsertTest**: Tests can now carry a `schedule` field when created or updated via the MCP, enabling per-test cron schedules to be set directly from the agent workflow.
+
+### Improvements
+- **Code Change Gate in system prompt (v11)**: The MCP init step now injects a hard pre-edit gate into CLAUDE.md/AGENTS.md. Before changing any file, the agent must scan for `@helpmetest` annotations, classify which tests are affected, present a test impact plan to the user, and wait for explicit approval — before writing a single line of code. This closes the loop where agents would silently change code without updating tests first.
+- **Interactive session reliability**: Fixed stdout corruption in interactive MCP sessions and added base64 validation for screenshots, preventing garbled output when large images are returned.
+
 ## v1.55.0 (2026-04-05)
 
 ### Improvements
