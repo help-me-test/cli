@@ -1,5 +1,40 @@
 # Release Notes
 
+## v1.59.0 (2026-05-12)
+
+### New Features
+- **Rich agent cards**: When running `helpmetest agent`, the CLI now posts TestResult, ArtifactLink, and Screenshot cards to the run transcript — giving you a visual summary of test outcomes, artifact links, and screenshots inline in the agent session.
+- **Resume agent runs**: `helpmetest agent --continue <runId>` resumes a previous agent run, picking up where it left off rather than starting a new session from scratch.
+- **BrowserState MCP tool**: New detailed browser state inspection available via the MCP server — reports cookies, localStorage, WebSocket/SSE connections, pending fetches, viewport size, IndexedDB contents, service workers, performance marks, iframes, and unhandled rejections.
+- **Structured output everywhere**: All CLI commands and MCP tools now accept `--json`, `--yaml`, `--csv`, and `--select` flags for machine-readable output, making it easy to pipe results into other tools or scripts.
+- **Agent eval harness**: New `launchHarness` mode for `helpmetest agent` — mirrors run events to a ZMQ room for real-time eval pipelines.
+
+### Improvements
+- **Parallel test display**: Keyword events are now routed to the correct test column via `event.id` when running tests in parallel, fixing scrambled output in the dynamic table.
+- **Accurate run status**: Final test run status is now computed from all `end_test` events rather than just the last one — prevents false passes when one test in a batch fails.
+- **Tag-based test runs**: `#tag` shorthand is now normalized to `tag:` prefix automatically, so `helpmetest run #smoke` and `helpmetest run tag:smoke` behave identically.
+- **Config token priority**: Environment variable tokens always take precedence over file-based config, with a home directory fallback added for config file resolution.
+- **Agent transparency**: Tool latency, kill-signal polling details, and model name are now included in the agent's initial message for easier debugging.
+
+### Bug Fixes
+- **Status command no longer queries your Kubernetes cluster**: `helpmetest status` was silently running `kubectl-hetzner1` on every invocation, querying node metrics from a hardcoded cluster. Removed entirely — the CLI has no business touching your infrastructure.
+- **Correct test name display during streaming**: Test names now resolve from the structured `event.id` field first, preventing "unknown" labels appearing in the progress table for multi-test runs.
+- **MCP config token used for room posting**: The harness now correctly uses the MCP config token (not the CLI config token) when posting events to a ZMQ room.
+
+## v1.58.0 (2026-04-28)
+
+### New Features
+- **Agent harness commands**: New `agent` subcommands for running agent sessions with a harness — includes `run-events`, `skill-bundle`, and `stream-json` utilities for structured agent output handling.
+- **Opt-in test run after save**: `helpmetest_upsert_test` now accepts a `run: true` option to trigger a test run immediately after saving. Default is `false` — saves are instant and show a hint to call `helpmetest_run_test` manually. This replaces the previous auto-run-always and no-run-ever behaviors.
+
+### Improvements
+- **Faster MCP tool calls**: Auth-states prompt data is now cached for the session. `injectPromptsByType` skips the network call entirely if the prompt type is already injected, eliminating a redundant round-trip on every `upsert_test` call.
+- **Improved history param documentation**: The `history` parameter description for MCP tools now includes concrete use cases and examples.
+
+### Bug Fixes
+- **Progress indicator replaces in place**: Fixed a display issue where nested keyword events (e.g. `Go To` wrapped in a resource keyword) caused the spinning indicator to remain on screen alongside the checkmark. Outermost-keyword-only tracking and line-number-keyed state ensure clean in-place replacement.
+- **upsert_test no longer throws on run failure**: When `run: true` is passed and the test run fails, the error is captured and returned as `runError` in the response instead of surfacing a raw exception — the save still succeeds and the test ID is included for manual retry.
+
 ## v1.57.0 (2026-04-22)
 
 ### New Features
