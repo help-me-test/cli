@@ -3,12 +3,12 @@
 ## v1.60.0 (2026-05-13)
 
 ### New Features
-- **Story mode for `test run`**: Test output now groups keywords under their `# comment` headings as named sections — each section shows its elapsed time and ✅/❌ status. Individual keywords display with timings and return values beneath their section. Use `--short` to show only section headings (no individual keywords), or `--full` for the traditional flat keyword list.
-- **MCP grouped test output**: When running tests via the MCP server (`helpmetest_run_test`), results for tests with `# comments` are automatically shown in the same grouped narration format — sections with ✅/❌, times, and per-keyword detail on failures. No flag required.
+- **Grouped test output**: When a test has `# comment` headings, keywords are automatically grouped under their section. Each section shows elapsed time and ✅/❌ status with individual keyword timings beneath. Use `--short` to show only section headings without the keyword detail.
+- **MCP grouped output**: Tests run via the MCP server (`helpmetest_run_test`) automatically use the same grouped format when the test has `# comments` — no flag required.
 
 ### Improvements
-- **Section heading alignment**: Pending sections show a dim `0.000s` time placeholder so the layout doesn't shift when a section transitions from pending to running.
-- **Bold section headings**: Comment group headings are bold in all states (pending, running, pass, fail) for easy scanning.
+- **Bold section headings**: Comment group headings are bold in all states for easy scanning.
+- **Consistent column layout**: Pending sections use a dim time placeholder so the layout stays stable as sections transition from pending to running.
 
 ## v1.59.0 (2026-05-12)
 
