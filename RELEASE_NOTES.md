@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.61.0 (2026-05-14)
+
+### Improvements
+- **Stable live test output**: The live test progress view no longer corrupts itself when the terminal is resized, when output scrolls, or when lines wrap. Sections, keyword timings, and the ⏳/✅/❌ indicators stay aligned through the whole run.
+- **Streaming output through pipes**: Running `helpmetest test ... | tee log.txt` (or any pipe / CI environment) now streams progress as each section runs — section heading appears immediately when the section starts, each keyword appears as it completes, and the summary line appears when the section finishes. Previously the whole section batched at the end.
+
 ## v1.60.0 (2026-05-13)
 
 ### New Features
