@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.62.0 (2026-05-17)
+
+### New Features
+- **`--debug` flag for interactive sessions**: By default, `helpmetest interactive` now returns only the essentials — interactive elements, page content, browser state, and open tabs. Pass `--debug` to get the full analysis: DOM diff, OpenReplay events, performance metrics, resource timings, and FPS sampling. Keeps everyday use fast and focused.
+- **Live phase timings**: Each analysis phase (TabsInfo, Context, DomChanges, etc.) now streams its elapsed time as it completes, so you can see exactly which step is slow without log scraping.
+
+### Improvements
+- **`--open` now works on every command**: Previously `--open` only opened the browser on the first command of a new session. It now opens the session URL every time it is passed.
+- **Replay link on every command**: The session replay URL is now printed as the last line after every interactive command, not only on session start.
+- **Cleaner output format**: Section headers are now bold without emojis. Content is indented under its header. Sections are separated by exactly one blank line instead of two. Interactive Elements appears before Content; Content appears last.
+- **No browser prompt**: `helpmetest interactive` no longer asks "Open in browser?" after starting a session. Use `--open` explicitly when you want it.
+
 ## v1.61.0 (2026-05-14)
 
 ### Improvements
