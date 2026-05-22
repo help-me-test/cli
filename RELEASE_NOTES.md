@@ -1,5 +1,16 @@
 # Release Notes
 
+## v1.63.0 (2026-05-22)
+
+### New Features
+- **Live VM progress while waiting for test slots**: While a test is queued or waiting for a VM to start, the CLI now shows real-time status (`Queued → Starting → Ready`) so you can see exactly where your test is in the pipeline instead of staring at a blank screen.
+- **Per-keyword output with timing in interactive sessions**: `helpmetest interactive` now streams each keyword result as it completes, with elapsed time shown per step. You no longer have to wait for the full command to finish before seeing what happened.
+- **Session URL shown at the top of interactive output**: The replay/session URL is now printed as a header before output begins, so you can open the browser view immediately without scrolling to the end.
+
+### Bug Fixes
+- **Clear error when tag or test is not found**: Running `helpmetest test "#nonexistent-tag"` previously showed the confusing message "Test execution incomplete — no final status received". It now shows the actual error ("No tests found with tag: …") followed by a list of all available tags. Running `helpmetest test "nonexistent name"` similarly shows a list of all available tests. In a TTY you get an interactive picker to run one immediately.
+- **Test frame preserved on incomplete execution**: Fixed a bug where story frame data was lost when a test ended without a final status event, causing incomplete replay recordings.
+
 ## v1.62.0 (2026-05-17)
 
 ### New Features
