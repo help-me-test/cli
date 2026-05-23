@@ -1,5 +1,14 @@
 # Release Notes
 
+## v1.64.0 (2026-05-23)
+
+### New Features
+- **Interactive session output unified across CLI and MCP**: The MCP tool (`helpmetest_run_interactive_command`) now produces the same output format as the CLI — keyword lines with timing and status icon first, followed by browser state, interactive elements, and page content. Both interfaces now use the same code path for consistent, readable output.
+- **CLI and MCP sessions are fully isolated**: Running an interactive session in the CLI terminal no longer interferes with MCP-driven sessions (Claude/Cursor). Each source gets its own session directory (`.helpmetest/sessions/cli/` vs `.helpmetest/sessions/mcp/`), so they never accidentally share or steal each other's browser sessions.
+
+### Bug Fixes
+- **Exit no longer creates a ghost session file**: Sending `Exit` as the first command in a new session (or after a context reset) no longer creates a session file that is immediately deleted.
+
 ## v1.63.0 (2026-05-22)
 
 ### New Features
