@@ -1,5 +1,13 @@
 # Release Notes
 
+## v1.65.0 (2026-05-23)
+
+### New Features
+
+- **Keyword Return Values**: Running `helpmetest test --verbose` (or `-v`) now shows the return value of each keyword directly below its output line — useful for inspecting what `Get Text`, `SSL Certificate Info`, `Go To`, and other getter keywords actually returned.
+- **`-v` shorthand**: `--verbose` on the `test` command can now be written as `-v`.
+- **Interactive return values**: `helpmetest interactive "My Keyword  arg"` now prints the keyword's return value in the terminal output, matching the `--json` format.
+
 ## v1.64.0 (2026-05-23)
 
 ### New Features
