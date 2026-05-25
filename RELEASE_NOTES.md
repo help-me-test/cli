@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.67.0 (2026-05-25)
+
+### New Features
+
+- **Proxy Stop Commands**: Added `helpmetest proxy stop <domain>` and `helpmetest proxy stop-all` commands. These call the server API directly, so they work even when the original `proxy start` process is no longer running — useful for cleaning up stale tunnels from previous sessions or other machines.
+
+### Bug Fixes
+
+- **Test exit code**: `helpmetest test` now returns a non-zero exit code when any test fails, making it usable in CI pipelines and scripts.
+
 ## v1.66.0 (2026-05-25)
 
 ### Improvements
