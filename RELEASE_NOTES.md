@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.66.0 (2026-05-25)
+
+### Improvements
+
+- **Cleaner interactive output**: When running `helpmetest interactive`, the page content and browser state now appear first, with keyword results (and their return values) shown at the bottom just before the success/failure line — so the important outcome is always at the end where you're reading.
+- **Dimmed return values**: Multi-line return values from keywords like `Get Text` are now visually dimmed in the terminal, making it easier to distinguish the page content you captured from the keyword that fetched it. Full multi-line values are dimmed end-to-end, not just the first line.
+- **MCP output order**: The `helpmetest_run_interactive_command` MCP tool now uses the same layout — browser state and page content first, keyword results last, success status final.
+
+### Bug Fixes
+
+- **Multi-line return value dimming**: Previously only the first line of a multi-line keyword return value was dimmed; all continuation lines are now consistently dimmed.
+
 ## v1.65.0 (2026-05-23)
 
 ### New Features
