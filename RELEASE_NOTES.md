@@ -1,5 +1,32 @@
 # Release Notes
 
+## v1.68.0 (2026-05-30)
+
+### New Features
+
+- **Redesigned Interactive Output**: The `interactive` command output is now structured and readable. Sections appear in a logical order — page content first, then interactive elements, browser state, network requests, performance events, and keywords — each separated by a clean rule. Uses `marked-terminal` for consistent markdown rendering throughout.
+
+- **Full OpenReplay Event Coverage**: The Performance section now renders all meaningful OpenReplay events with appropriate icons: `🌐` for page navigation and fetch requests, `📊` for network requests with full request/response bodies and HTTP status, `🖱` for mouse clicks with hesitation time, `⌨️` for input changes, `👤` for user identity, `⚠` for custom issues, `⬡` for GraphQL queries, `🐢` for long tasks, `🎨` for render timing, `💥` for exceptions, and `📋/⚠️/🔴` for console output.
+
+- **Live Streaming Performance Data**: The server now keeps the connection open after initial context collection and polls for new OpenReplay events for up to 2.5 seconds. Network requests, console logs, and other events that fire after page load (e.g. fetches at t=200ms) now appear in the output instead of being silently missed.
+
+- **Browser State Completeness**: Browser State now shows the full navigation timing breakdown (DNS, TCP, TLS, TTFB, domInteractive, domComplete, load), performance marks with timestamps, cookies with SameSite attribute, localStorage (filtered for internal keys), service worker state, DOM mutation counts, unhandled rejections, and slow events.
+
+- **Interactive Elements — No Cap**: All interactive elements on the page are shown (was previously capped at 6).
+
+### Improvements
+
+- **`--screenshot` Flag Redesigned**: `--screenshot` now appends `Take Screenshot` as the last keyword in the sequence. The screenshot appears in the keyword list with its timing, is saved to `.helpmetest/screenshots/`, and the saved path is shown at the end of the output.
+
+- **Keyword Return Values**: Return values now appear on the next line below each keyword (as dimmed text) instead of inline. Multi-line return values are shown in full — no 60-character truncation. Timing for each keyword (e.g. `(78ms)`) appears at the end of the keyword line.
+
+### Bug Fixes
+
+- **`@undefinedx` in Viewport**: Browser State viewport line was showing `@undefinedx` instead of the actual device pixel ratio (`@2x`). Fixed by reading `devicePixelRatio` instead of the non-existent `deviceScaleFactor` field.
+- **Screenshots Never Saved**: `extractScreenshots` was reading `.screenshots` on an array (always `[]`). Now correctly filters the event stream for `TakeScreenshot` events.
+- **`--json` Output Contamination**: The incremental renderer was writing plain text to stdout in `--json` mode. Fixed by gating all incremental rendering on `!formatted && !streamMode`.
+- **Performance Section Missing in Multi-Keyword Runs**: Initial OR event batch was being discarded before `printInitialOutput` ran. Fixed by including the accumulated OR events in the first render.
+
 ## v1.67.0 (2026-05-25)
 
 ### New Features

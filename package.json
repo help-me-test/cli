@@ -1,6 +1,6 @@
 {
   "name": "helpmetest-cli",
-  "version": "1.67.0",
+  "version": "1.68.0",
   "description": "HelpMeTest CLI tool for health check monitoring",
   "main": "src/index.js",
   "type": "module",
@@ -49,6 +49,8 @@
     "inquirer": "^12.9.6",
     "localtunnel": "^2.0.2",
     "log-update": "^8.0.0",
+    "marked": "^15.0.12",
+    "marked-terminal": "^7.3.0",
     "multiplex": "^6.7.0",
     "open": "^10.1.2",
     "ramda": "^0.29.1",
