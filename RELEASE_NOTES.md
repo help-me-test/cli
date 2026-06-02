@@ -1,5 +1,22 @@
 # Release Notes
 
+## v1.69.0 (2026-06-02)
+
+### New Features
+
+- **Shell Tab Completion**: `helpmetest completion bash|zsh|fish` generates a completion script for your shell. Run `helpmetest completion fish --install` to install permanently. Completes subcommands, test names (live from API), tags (`#feature:...`), artifact IDs, and all `--flags` with descriptions. Fish inserts `'Test Name'` (single-quoted, no backslash escaping). Bash inserts `"Test Name"`. All flags and their descriptions come directly from the CLI declarations — always in sync as new commands are added.
+
+- **Interactive: Active Browser Tabs**: The `interactive` command now shows a Tabs section when multiple tabs are open, listing each tab's title, URL, and highlighting the currently active one. The current URL is also shown in the Browser State summary.
+
+- **Interactive: Keywords in `test run` Format**: The Keywords section in `interactive` output now renders exactly like `helpmetest test run` — consistent timing, step icons, and formatting so you can copy keywords directly into tests.
+
+- **`test create` / `test update` Auto-Run**: After saving a test, the CLI automatically runs it so you can immediately see results. Pass `--no-run` to save without running.
+
+### Bug Fixes
+
+- **Interactive: Keyword Return Values**: Fixed keyword return values not appearing in interactive output (was reading wrong field name).
+- **Interactive: Current Tab Detection**: Fixed tab detection always returning empty in interactive mode — now correctly falls back to the current URL when tab enumeration is unavailable.
+
 ## v1.68.0 (2026-05-30)
 
 ### New Features
