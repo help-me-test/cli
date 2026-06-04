@@ -17,8 +17,8 @@ helpmetest health "my-service" "5m"
 # Check HTTP endpoint
 helpmetest health "api" "1m" "GET localhost:3000/health"
 
-# Set up AI integration
-helpmetest install mcp YOUR-API-TOKEN
+# Install skills (AI agent workflows)
+helpmetest install skills
 ```
 
 ## 📚 Documentation

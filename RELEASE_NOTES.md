@@ -1,5 +1,16 @@
 # Release Notes
 
+## v1.70.0 (2026-06-04)
+
+### New Features
+
+- **`helpmetest test view <name>`**: Inspect any test's source without running it — shows status, tags, description (Given/When/Then/Risk), and syntax-highlighted keywords. Useful for reviewing what a test actually does before running it.
+- **`helpmetest chaos <duration>`**: Chaos testing command that generates a randomised execution plan — parallel bursts, feature-tag sweeps, and sequential singles — then runs until the time budget expires. Reports a flakiness table at the end showing which tests crack under concurrent load.
+
+### Improvements
+
+- **All keywords shown upfront in TTY**: When running a test in an interactive terminal, all keywords now appear immediately as pending and update live as they execute — no more waiting for keywords to print one by one.
+
 ## v1.69.0 (2026-06-02)
 
 ### New Features
