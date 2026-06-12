@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.72.0 (2026-06-12)
+
+### New Features
+
+- **`helpmetest notification`**: Manage your notification channels from the CLI. Add Telegram, Slack, or Discord with one command — `helpmetest notification add slack` opens your browser to connect, and the channel appears automatically once authorized. Add ntfy, email, or webhook channels directly with `helpmetest notification add ntfy <topic>`. List, test, and delete channels too. All channel credentials are encrypted at rest.
+
+### Improvements
+
+- **Leaner CLI**: Removed the embedded MCP server and its commands. The CLI is now focused on the core testing and monitoring workflow.
+
 ## v1.71.0 (2026-06-12)
 
 ### New Features
