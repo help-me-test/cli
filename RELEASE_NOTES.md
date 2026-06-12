@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.71.0 (2026-06-12)
+
+### New Features
+
+- **`helpmetest billing`**: New billing commands mirroring the Settings billing page — view your current plan, usage, and manage subscriptions directly from the CLI.
+- **`helpmetest test --open`**: New flag that automatically opens the test run URL in your browser as soon as the run starts.
+
+### Bug Fixes
+
+- **Test run URL corrected**: Fixed a bug where the run link printed by `helpmetest test run` was malformed (e.g. `helpmetest.slava.helpmetest.com`) when authenticated against a subdomain-specific instance. The URL now correctly points to the right dashboard.
+- **Bare `helpmetest test` shows help**: Running `helpmetest test` without a subcommand now shows the help text instead of erroring.
+
 ## v1.70.0 (2026-06-04)
 
 ### New Features
