@@ -1,5 +1,16 @@
 # Release Notes
 
+## v1.73.0 (2026-06-12)
+
+### New Features
+
+- **`helpmetest register`**: Create a new HelpMeTest workspace right from the terminal — `helpmetest register "My Company" mycompany` opens your browser to log in and sets up a free workspace, no credit card required. Your API token is saved automatically.
+- **`helpmetest billing setup`**: Add a payment method and start your subscription when you're ready — opens Stripe checkout. New workspaces are free for a 14-day trial; `billing setup` keeps you running after that.
+
+### Improvements
+
+- **Leaner CLI**: Removed the embedded MCP server and related commands. The CLI is the single, focused interface; AI agents drive it directly.
+
 ## v1.72.0 (2026-06-12)
 
 ### New Features
