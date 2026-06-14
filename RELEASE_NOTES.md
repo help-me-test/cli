@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.74.0 (2026-06-14)
+
+### New Features
+
+- **`config token get <name>`**: Print a token's value by name — useful for scripting: `export TOKEN=$(helpmetest config token get claude)`.
+
+### Improvements
+
+- **Richer help text**: Top-level `helpmetest --help` now shows real-world usage examples and lists available AI skills, making it easier to discover what the CLI can do.
+
 ## v1.73.0 (2026-06-12)
 
 ### New Features
