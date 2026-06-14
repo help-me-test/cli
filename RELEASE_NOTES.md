@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.74.1 (2026-06-14)
+
+### Bug Fixes
+
+- **Correct dashboard link in `--open` and test run output**: When the CLI was configured to use the dev instance (`slava.helpmetest.com`), the link printed at test start was missing your company prefix — showing `https://slava.helpmetest.com/test/...` instead of the correct `https://helpmetest.slava.helpmetest.com/test/...`. Fixed: the company subdomain is now always prepended to the API host, regardless of which endpoint is active.
+
 ## v1.74.0 (2026-06-14)
 
 ### New Features
