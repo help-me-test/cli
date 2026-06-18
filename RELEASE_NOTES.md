@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.74.5 (2026-06-18)
+
+### Bug Fixes
+
+- **Remove `No Operation` from interactive output**: This internal VM flush keyword no longer appears in live keyword lines or the Keywords section of the context dump.
+
+
 ## v1.74.4 (2026-06-18)
 
 ### Improvements
