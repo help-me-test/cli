@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.74.4 (2026-06-18)
+
+### Improvements
+
+- **Live keyword output in `helpmetest interactive`**: Each keyword now prints immediately as it completes — with timing and ✓/✗ — while the full context (page content, browser state, tabs, performance) still appears after. Uses the exact same renderer as `helpmetest test run`.
+
+
 ## v1.74.3 (2026-06-18)
 
 ### Bug Fixes
