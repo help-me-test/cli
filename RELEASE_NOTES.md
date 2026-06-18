@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.74.3 (2026-06-18)
+
+### Bug Fixes
+
+- **Interactive output restored**: v1.74.2 accidentally removed the page content, browser state, tabs, and interactive elements from `helpmetest interactive` output. Restored: keywords now stream live during execution, then the full page context appears after — giving you both live status and the full picture.
+
+
 
 ## v1.74.2 (2026-06-18)
 
