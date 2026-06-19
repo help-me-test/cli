@@ -1,5 +1,17 @@
 # Release Notes
 
+
+## v1.75.0 (2026-06-19)
+
+### Bug Fixes
+
+- **Fix installer xattr warning on Linux**: Tarballs packaged on macOS no longer embed Apple extended attributes (`com.apple.provenance`), eliminating the `LIBARCHIVE.xattr` warning that appeared on Linux when installing the CLI.
+
+### New Features
+
+- **`secret`, `otp`, `token` as top-level commands**: These were previously nested under subcommands; they now live at the top level for faster access.
+- **`helpmetest test delete`**: New subcommand to delete a test by name or ID directly from the CLI.
+- **Cleaner command surface**: Fixed six interface irregularities across the CLI for more consistent behaviour.
 ## v1.74.5 (2026-06-18)
 
 ### Bug Fixes
