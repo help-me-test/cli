@@ -1,6 +1,12 @@
 # Release Notes
 
 
+## v1.75.1 (2026-06-19)
+
+### Bug Fixes
+
+- **`helpmetest status` is fast now**: Auth probe in `detectApiAndAuth` was using the full 30s timeout with 3 retries. It now always uses the fast path (3s, no retries) since it's endpoint discovery, not user-visible work.
+
 ## v1.75.0 (2026-06-19)
 
 ### Bug Fixes
