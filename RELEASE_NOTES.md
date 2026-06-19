@@ -1,6 +1,12 @@
 # Release Notes
 
 
+## v1.75.2 (2026-06-19)
+
+### Bug Fixes
+
+- **Fix `LIBARCHIVE.xattr.com.apple.provenance` warning on Linux**: macOS Ventura embeds provenance xattrs into tarballs via PAX headers. Added `--no-xattr` to the tar creation command (alongside the existing `COPYFILE_DISABLE=1`) to strip them at archive time.
+
 ## v1.75.1 (2026-06-19)
 
 ### Bug Fixes
