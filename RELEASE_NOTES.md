@@ -1,6 +1,19 @@
 # Release Notes
 
 
+## v1.76.0 (2026-06-20)
+
+### New Features
+
+- **Tab completion for `test open`, `test view`, `test runs`, `test history`, `test delete`**: All test subcommands now complete with your test names and tags on TAB — previously only `test run` and `test update` had this.
+- **Tab completion for `artifact view`, `artifact open`, `artifact generate`**: Artifact subcommands now complete with artifact IDs. `artifact generate` completes with available type options.
+- **Tab completion for `health delete`**: Health check names now complete on TAB.
+- **Did-you-mean on wrong test name**: When you mistype a test name, the CLI instantly shows the closest matches by similarity and opens an interactive search prompt so you can pick and re-run without retyping. Works for test names, tags, and `test view`/`test open`.
+
+### Improvements
+
+- **Instant tab completion via stale-while-revalidate cache**: Test and health check lists are now cached in `.helpmetest/tests-cache.json` and `.helpmetest/healthchecks-cache.json`. TAB is served from disk immediately; the cache revalidates in the background when older than 10 seconds. No more waiting on a network fetch every time you hit TAB.
+
 ## v1.75.2 (2026-06-19)
 
 ### Bug Fixes
