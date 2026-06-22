@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.77.0 (2026-06-22)
+
+### New Features
+
+- **Live test renderer**: Running `helpmetest test <name>` in an interactive terminal now shows all keywords upfront as pending and updates them in place as they execute — with a braille spinner and elapsed timing per keyword. Sub-keywords (e.g. individual unit tests) are indented beneath their parent.
+- **Parallel test renderer**: Running a tag (`helpmetest test '#feature:smoke'`) now shows a live table of all tests with spinners, updating in place as they complete.
+- **Fuzzy test picker**: When the identifier you type doesn't exactly match a test name, an interactive picker appears immediately — before hitting the server — so you can select from the closest matches with arrow keys.
+- **Replay URLs on `--verbose`**: Pass `--verbose` to see the dashboard replay URL inline with each test result. Hidden by default to keep output clean.
+
+### Improvements
+
+- **Consistent timing format**: Running tests show `1.234s` (3 decimal places) to match completed test timing — previously running rows showed a truncated `1.9s`.
+- **Unified renderer system**: All CLI output (test runs, interactive, parallel) now shares a common palette and primitives — consistent colors, spinner style, and layout across every command.
+
+
 
 ## v1.76.0 (2026-06-20)
 

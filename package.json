@@ -1,6 +1,6 @@
 {
   "name": "helpmetest-cli",
-  "version": "1.76.0",
+  "version": "1.77.0",
   "description": "HelpMeTest CLI tool for health check monitoring",
   "main": "src/index.js",
   "type": "module",
@@ -46,6 +46,8 @@
     "dotenv": "^16.5.0",
     "fastmcp": "^3.4.0",
     "http-proxy": "^1.18.1",
+    "ink": "^7.1.0",
+    "ink-markdown": "^1.0.4",
     "inquirer": "^12.9.6",
     "localtunnel": "^2.0.2",
     "log-update": "^8.0.0",
