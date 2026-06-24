@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.79.0 (2026-06-24)
+
+### New Features
+
+- **Windows support**: HelpMeTest now ships a native Windows build. Install it from PowerShell with `irm https://helpmetest.com/install.ps1 | iex` — no WSL or Git Bash required. (The interactive tab-completion feature is not yet available on Windows; every other command works.)
+
 ## v1.78.0 (2026-06-24)
 
 ### New Features
