@@ -1,5 +1,22 @@
 # Release Notes
 
+## v1.78.0 (2026-06-24)
+
+### New Features
+
+- **Smarter tab completion for `interactive`**: Pressing TAB on a partial keyword now lists every matching keyword (e.g. `Cl` shows Click, Close, Clear…) instead of completing only when there's a single match. A unique prefix still auto-completes, and the common prefix is filled in up to a clean word boundary.
+- **Completion from the live page**: While an interactive session is open, TAB after a keyword like `Click  ` lists the clickable elements on the current page as ready-to-run selectors. The list refreshes automatically as you navigate from page to page.
+- **Type any part of a label to find a selector**: Selector completion now matches anywhere in the label, not just the start — type `ARPA` to jump straight to `a >> ".ARPA Registry"`, or `Registry` to see every Registry link. A trailing space no longer breaks the match.
+
+### Bug Fixes
+
+- **No more hang after a command finishes**: `helpmetest interactive` (and other streaming commands) sometimes appeared to freeze for up to 20 seconds after printing the result before returning to your prompt. Commands now exit immediately once the result is in.
+- **Piped output no longer hangs**: Redirecting CLI output to a file or another command (a non-interactive terminal) could hang; fixed.
+- **Stale sessions no longer wedge interactive**: Resuming after an old session expired could hang or reuse a dead session; interactive now starts cleanly every time.
+- **Fewer false "browser crashed" reports**: Failed navigations (expired TLS certs, DNS failures, network errors) and blank new-session pages are no longer misreported as browser crashes.
+- **Clearer error messages**: The CLI now distinguishes "service unavailable" from "authentication failed", and reports the right exit code when a test fails.
+- **Correct URLs behind proxies and subdomains**: Fixed dashboard/replay links being built with a doubled or missing subdomain, and proxy URLs keeping a stray `app.` prefix.
+
 ## v1.77.0 (2026-06-22)
 
 ### New Features
