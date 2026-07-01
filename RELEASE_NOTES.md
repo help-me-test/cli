@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.80.0 (2026-07-01)
+
+### Improvements
+
+- **Server URL always saved on register**: After `helpmetest register`, the config file now always includes `apiBaseUrl` — so all subsequent commands (`billing setup`, `test run`, etc.) automatically talk to the correct server. Fixes silent failures when using non-default servers.
+- **Login respects existing server config**: `helpmetest login --token` now reads `apiBaseUrl` from the existing config before validating the token, so it hits the right server instead of always defaulting to helpmetest.com.
+- **Config command expanded**: All config keys are now accessible via `helpmetest config get/set` with validation and `--json` output.
+- **Skills auto-install before agent launch**: Skills are automatically installed when launching an agent session if not already present.
+
+### Bug Fixes
+
+- **Session persists on test failure**: Interactive sessions no longer drop when a test keyword fails — pass/fail is now determined only by keyword outcomes, not session state.
+
 ## v1.79.0 (2026-06-24)
 
 ### New Features
