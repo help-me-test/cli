@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.80.1 (2026-07-01)
+
+### Bug Fixes
+
+- **`install skills` now actually installs**: Running `helpmetest install skills` with no flags in a non-interactive environment (any coding agent, CI) previously just printed help text and exited successfully without installing anything — the exact command our own onboarding docs tell every new user to run. It now correctly auto-detects your installed agents and installs skills as intended.
+
 ## v1.80.0 (2026-07-01)
 
 ### Improvements
