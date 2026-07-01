@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.80.2 (2026-07-01)
+
+### Bug Fixes
+
+- **`test run`/`test update --run` no longer hangs after completion**: the CLI could sit for up to 90 seconds after a test finished (PASS or FAIL had already printed) before actually exiting. It now exits immediately once the run's final result arrives instead of waiting on the network connection to fully close.
+
 ## v1.80.1 (2026-07-01)
 
 ### Bug Fixes
