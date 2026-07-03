@@ -1,5 +1,24 @@
 # Release Notes
 
+## v1.81.0 (2026-07-03)
+
+### New Features
+
+- **`helpmetest sync`**: Manage your tests and artifacts as version-controlled YAML files. `sync pull` writes every test and artifact to `.helpmetest/sync/`, `sync push` diffs your local YAML against the server and applies changes (including deletes), and `sync watch` auto-pushes as you save — Infrastructure-as-Code for your test suite.
+- **`helpmetest files`**: Upload, list, and delete company-scoped files (e.g. mobile app builds) directly from the CLI — `files upload ./app.apk`, `files list`, `files delete app.apk`.
+- **Schema validation**: New `helpmetest schema` support for validating artifact structure before upload, catching malformed data earlier.
+
+### Improvements
+
+- **Parallel test runs now show queued vs. running tests separately**: tests waiting for a free VM slot render as dimmed "queued" rows instead of looking identical to actively running tests, and queue wait time is no longer counted toward a test's elapsed run time.
+- **Replay links always shown**: every passed or failed test now prints its dashboard replay link, not just in verbose mode. On terminals that support it (kitty, iTerm, WezTerm, etc.), the link renders as clickable text ("replay") colored green or red to match the result; other terminals still get the full plain URL.
+- **Consistent, correct dashboard links everywhere**: every link the CLI prints (test replay, artifact, interactive session, health check, etc.) now goes through one shared builder, fixing a bug where some dashboard URLs were double-prefixed with the company name and rendered as broken links.
+- Row alignment in parallel test output is now consistent across queued, running, passed, and failed tests.
+
+### Bug Fixes
+
+- Fixed interactive session links silently pointing to the wrong page when a required parameter was missing, instead of failing clearly.
+
 ## v1.80.2 (2026-07-01)
 
 ### Bug Fixes
