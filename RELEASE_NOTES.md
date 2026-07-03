@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.81.1 (2026-07-03)
+
+### Bug Fixes
+
+- **Fixed silent failure when a tag or test name doesn't match anything**: `helpmetest test '#feature:some-typo'` used to print nothing and exit successfully (code 0) when no tests matched — making a typo look like a passing run. It now prints the actual error ("No tests found with tag: ...") and exits with a failure code, so CI pipelines and scripts correctly catch the mistake instead of silently skipping tests.
+
 ## v1.81.0 (2026-07-03)
 
 ### New Features
