@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.82.0 (2026-07-05)
+
+### New Features
+
+- **Independent interactive sessions for concurrent agents/terminals**: `helpmetest interactive` no longer shares one session state across every process running in the same folder. Two agents (or two terminal tabs) running interactive commands in the same working directory at the same time used to silently read and write each other's browser session — commands from one could navigate or click on the other's page. Sessions are now automatically scoped per machine/day/terminal, so this just works with no flag or setup required. Running commands one after another in the same terminal still continues the same session exactly as before.
+- **HTTP request history for interactive sessions**: Every `helpmetest interactive` session now keeps a lightweight log of the HTTP requests the browser made during that session (method, URL, status, timing) — useful for reviewing what a session actually did without re-running commands. Request/response bodies and headers are never stored, only the summary.
+
+### Bug Fixes
+
+- **Fixed missing/duplicate rows in interactive command output**: Several rendering glitches in `helpmetest interactive` output are fixed — a keyword that never got a final result could vanish from the output entirely, object-shaped return values could print as `[object Object]` instead of their actual content, a previous command's leftover return value could bleed into a later skipped keyword, and a keyword skipped after a failure could appear twice in the output.
+- **Fixed incorrect pass/fail on some interactive sequences**: A trailing internal step or an unusual error shape from the test runner could cause `helpmetest interactive` to report the wrong overall pass/fail result even though every visible keyword behaved correctly.
+- **Fixed silent no-op on an empty command**: Running `helpmetest interactive` with a blank command string now reports a clear error instead of doing nothing.
+
 ## v1.81.1 (2026-07-03)
 
 ### Bug Fixes
