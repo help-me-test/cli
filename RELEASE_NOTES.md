@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.83.0 (2026-07-05)
+
+### New Features
+
+- **Queue wait time in parallel test output**: When running multiple tests in parallel, each test now shows how long it sat queued before starting, not just its running time — makes it obvious whether a slow batch is bottlenecked on queueing or on the tests themselves.
+
+### Bug Fixes
+
+- **Tab-completion for interactive selectors was silently broken**: `helpmetest interactive` shell tab-completion for element selectors (e.g. pressing TAB after `Click  ` to see clickable elements on the page) never returned any results, in any shell. The completion oracle was looking for session data in the wrong directory. Now works as intended.
+
 ## v1.82.0 (2026-07-05)
 
 ### New Features
