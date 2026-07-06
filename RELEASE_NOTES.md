@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.84.0 (2026-07-05)
+
+### New Features
+
+- **Standalone bug reports**: Agents can now file bugs as their own first-class artifact instead of burying them inside a feature's notes. A new `bug-report` skill covers severity, reproduction steps, expected vs. actual behavior, root cause, and evidence — and the QA orchestrator, test-writing, and test-fixing skills all hand off to it automatically when they find something broken, plus a new "Report a bug" option in the `/helpmetest` menu.
+
 ## v1.83.0 (2026-07-05)
 
 ### New Features
