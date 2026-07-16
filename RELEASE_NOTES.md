@@ -1,5 +1,21 @@
 # Release Notes
 
+## v1.85.0 (2026-07-16)
+
+### New Features
+
+- **`--screenshots` shorthand filter**: `helpmetest test run` and `helpmetest updates` now accept `--screenshots` to show only screenshot events, matching the existing `--keywords`/`--errors`/`--results` shorthand pattern — no need to remember the underlying filter syntax.
+- **DOM diff for interactive sessions**: `helpmetest interactive --dom-diff` (and `interactive review --dom-diff`) can now summarize exactly what changed on the page between commands — elements added, removed, or with attribute/text changes — reusing the same mutation stream already recorded for session replay.
+
+### Improvements
+
+- **Parallel test runs preview what's about to happen**: While a test is still queued for a VM slot, its row now shows the first step it will run (e.g. the URL it will navigate to) instead of a bare "queued" label with no context.
+
+### Bug Fixes
+
+- **First keyword row could get stuck showing no result**: In a single test run, the first step (commonly `Go To`) could intermittently stay frozen on its initial placeholder — no checkmark, no elapsed time — even though the step had actually finished successfully. Caused by a rare startup race where the keyword list was reset right after a step had already started; the fix makes result updates match on the step itself instead of requiring it to still be in a specific in-progress state.
+- **Duplicate internal bookkeeping in the terminal test renderer**: removed a copy-pasted code block that could double-count nested keyword depth and misclassify some keyword events.
+
 ## v1.84.0 (2026-07-05)
 
 ### New Features
