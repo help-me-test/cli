@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.87.0 (2026-07-31)
+
+### New Features
+
+- **More CLI usage signals**: `helpmetest test run`, `helpmetest login`, `helpmetest billing setup`, and `helpmetest update` now each send the same lightweight, anonymous usage signal as `register` — no content included, just the action and outcome (e.g. a test run's pass/fail verdict). Rounds out the CLI activation funnel (install → register → login → first test run → billing) so we can see where people actually get stuck.
+
 ## v1.86.0 (2026-07-31)
 
 ### New Features
