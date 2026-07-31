@@ -1,5 +1,16 @@
 # Release Notes
 
+## v1.86.0 (2026-07-31)
+
+### New Features
+
+- **Register now accepts attribution flags**: `helpmetest register` supports `--utm-source`/`--utm-campaign`, so a workspace created via a tagged link (e.g. from llms.txt) can be traced back to the campaign that drove it.
+- **CLI actions now send lightweight, anonymous usage signals**: creating a test, installing skills, or registering a new workspace now sends a small event back to HelpMeTest so we can see which parts of the CLI people actually use. No content is included — just the action name and a couple of identifiers (e.g. which test was created). This helps us prioritize what to build next.
+
+### Bug Fixes
+
+- **Attribution for API-token-created tests**: tests created via an API token were being attributed to the token string itself instead of the human who owns it — fixed so usage signals and audit trails point at the right person.
+
 ## v1.85.0 (2026-07-16)
 
 ### New Features
