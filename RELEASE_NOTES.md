@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.87.1 (2026-08-07)
+
+### Bug Fixes
+
+- **`helpmetest test` no longer hangs after tests finish**: running a tagged batch (e.g. `helpmetest test '#feature:uptime'`) could print every test's result and then sit forever with the terminal unresponsive, requiring Ctrl+C. Caused by the CLI waiting on a server signal that isn't always sent, and a keepalive-ping bug that could mask a truly stuck test forever instead of timing out. Both fixed — the CLI now exits as soon as results are in, and bounds out safely even in the rare case where a test never reports back.
+
 ## v1.87.0 (2026-07-31)
 
 ### New Features
