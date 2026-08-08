@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.88.0 (2026-08-08)
+
+### New Features
+
+- **Friendly session aliases for `interactive`**: starting a new `helpmetest interactive` session now prints a short, memorable alias (e.g. `silver-glacier`) you can reuse directly as `--session <alias>` or `interactive review <alias>` — no more copying the full timestamped session URL. Aliases are unique and reserved by the server, so they work the same from any machine or terminal.
+- **`helpmetest test update` now takes `--schedule`**: replaces the old `--disable`/`--enable` flags with a single `--schedule` option that accepts a duration (`30m`), a cron expression, or `never`. Invalid schedules are now rejected up front by the CLI instead of silently no-opping in the test runner later.
+
+### Bug Fixes
+
+- **`interactive review <session-name>` no longer fails with "Room is not in your company namespace"**: reviewing a session you named with `--session <name>` used to 403 outright, or say "No session to review" even right after a successful run. Both cases now resolve correctly to the real session.
+- **Cleaner error when a session can't be found**: a failed session lookup used to dump a wall of internal error text to the terminal; it now prints one clear line explaining what went wrong.
+- **`interactive review`'s keyword timeline no longer shows every step twice**: each command you ran now appears once with its final pass/fail result, instead of once as "pending" and again as "done."
+
 ## v1.87.1 (2026-08-07)
 
 ### Bug Fixes
