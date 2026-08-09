@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.89.0 (2026-08-08)
+
+### New Features
+
+- **`helpmetest test history` now shows the full structured review, not just raw JSON or a bare keyword list**: it now renders keywords, network requests, auth events, errors, results, and screenshots — the same view `interactive history` shows — and supports the same shortcuts (`--keywords`, `--network-requests`, `--auth`, `--errors`, `--results`, `--screenshots`, `--select`).
+- **`interactive review` is now `interactive history`**: renamed for consistency with `test history` — same command, same output, just a clearer name shared across both.
+
+### Bug Fixes
+
+- **`helpmetest interactive` was missing its Content, Interactive, Browser State, and Tabs sections from the terminal output**: the CLI closed the connection the instant a command finished, before the browser-state and page-content data that arrives right after it could be read — those sections are back.
+- **Error messages from a failed request no longer sometimes show up as a bare `{`**: if the server's error response was a JSON object, the CLI occasionally displayed the raw, unparsed JSON as the error text instead of the actual message inside it — now shows the real reason.
+
 ## v1.88.0 (2026-08-08)
 
 ### New Features
