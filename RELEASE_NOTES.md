@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.90.0 (2026-08-10)
+
+### New Features
+
+- **`interactive history` and `test history` now break browser activity into focused categories instead of one flat request list**: new `--network` (HTTP requests, GraphQL operations, and WebSocket messages together), `--metrics` (page load timing, web vitals, long tasks, rage clicks), `--interactions` (clicks, typed input, text selection, tab switches), `--console` (console output and JS exceptions), `--events` (Redux/Zustand/Vuex/NgRx state changes and custom app events), and `--navigation` (page visits) — same flags, same output shape, on both commands.
+- **`test history` now surfaces real browser activity, not just an empty request list**: previously `--network`/`--metrics`/etc. always came back empty for a completed test run because that data is stored differently than for a live interactive session — now both are decoded the same way, so a completed test run shows its actual page loads, timing, and network activity.
+
 ## v1.89.0 (2026-08-08)
 
 ### New Features
