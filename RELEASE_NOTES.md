@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.91.0 (2026-08-14)
+
+### New Features
+
+- **`interactive --session <name>` links now actually work when pasted into a browser**: previously only auto-generated session names (like "mellow-comet") could be opened as a live `/interactive/<name>` URL — a name you chose yourself with `--session your-name` looked identical in the CLI's output but silently failed to open (permanent black screen) if shared or clicked. Your own chosen session names are now registered the same way, so any `--session <name>` you pick is a real, shareable link.
+
 ## v1.90.1 (2026-08-14)
 
 ### Bug Fixes
