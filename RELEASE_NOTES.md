@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.90.1 (2026-08-14)
+
+### Bug Fixes
+
+- **`interactive --session <name>` no longer permanently locks a made-up name to one browser room**: reusing a `--session` name that hadn't been minted as a real alias yet used to bake that literal text into the session's permanent room id — every future run with that same name, on any machine, any day, silently rejoined the exact same room forever, accumulating unrelated history and making the session viewer slow to load. An unresolved `--session` name now always starts a genuinely fresh session, and your own chosen name is reused correctly as its alias going forward.
+- **A session left dangling for more than 20 minutes no longer gets silently reattached**: `--session <name>`/resumed sessions now detect when the underlying room has already expired server-side and start a clean new session instead of hanging until the connection times out.
+- **A command that never finishes (browser crash or disconnect mid-run) is now correctly reported as a failure**: previously the keyword showed as failed in the detail view but the overall result still printed PASS.
+- **Default command timeout raised from 5s to 15s**: short-lived commands were more likely than they should be to hit the timeout on slower pages.
+- **`interactive history` / `test history` gained a `--warnings` flag**: surfaces server-side recovery signals (e.g. a chrome-error page auto-recovering to about:blank, 4xx/5xx navigation responses) that previously weren't visible from the CLI.
+
 ## v1.90.0 (2026-08-10)
 
 ### New Features
