@@ -1,5 +1,13 @@
 # Release Notes
 
+## v1.91.1 (2026-08-16)
+
+### Bug Fixes
+
+- **Concurrent `interactive` sessions no longer collide**: Under heavy concurrent use (e.g. parallel subagent lanes), two brand-new sessions could land on the same millisecond timestamp and mint an identical session id, silently merging two distinct sessions into one — commands from one leaking into the other's history. Session ids are now guaranteed unique even under heavy concurrent load.
+- **No more silent partial results**: If the connection to a session stalled mid-response, the CLI could previously return a truncated result and report it as a complete success with no indication anything was wrong. It now correctly reports an error instead — for both a single command and a multi-command batch, so a batch that stalls partway through a queue of commands is no longer silently reported as fully successful.
+- **Consistent error output across `--json`/`--stream`/`--yaml`/`--csv`**: These output modes used to return failures in up to 5 different, sometimes non-JSON, shapes — breaking any script or agent trying to parse them. All failure output now uses one consistent, documented, parseable error shape across every output mode.
+
 ## v1.91.0 (2026-08-14)
 
 ### New Features
