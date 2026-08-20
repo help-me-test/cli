@@ -1,5 +1,26 @@
 # Release Notes
 
+## v2.0.0 (2026-08-20)
+
+### Breaking Changes
+
+- **`helpmetest test view`, `test open`, `test history`, and `test runs`/`test errors` are now one command: `helpmetest test view`**: viewing a test, viewing one specific run's full detail, listing a filtered run history, and opening a test in the browser were four separate commands that all did "look at this test." They're now one: `helpmetest test view <id>` shows the source plus the last 10 runs by default; add `--since`/`--errors` for a filtered run list (what `test runs`/`test errors` used to do); pass a timestamp as a second argument for one run's full detail (what `test history` used to do); add `--open` to open it in the browser (what `test open` used to do). Scripts or CI jobs calling `test open`, `test history`, or `test runs`/`test errors` directly need to switch to the equivalent `test view` form above — those subcommands no longer exist.
+
+### New Features
+
+- **`helpmetest test view` now shows recent run history inline**: previously it only showed a test's source, tags, and content. It now also shows the last 10 runs (pass/fail, timestamp, duration) right below the test, so you don't need a second command to see if a test has been reliable. Use `--limit N` to see more or fewer runs.
+
+### Improvements
+
+- **`helpmetest test view` is much faster for a single test**: it used to fetch and search the entire company's test list (and, for status, an even larger multi-megabyte history payload covering every test) just to show one test. It now fetches that one test directly, cutting typical response time from several seconds to well under a second.
+- **Newly created or deleted tests show up immediately**: creating, deleting, or syncing a test used to leave the local test list cache stale for up to a few minutes, so a just-created test could appear missing from search/list output right after creation. The cache now updates immediately on any write.
+
+### Bug Fixes
+
+- **Clearer fix for the "unquoted `#`" Robot Framework syntax error**: the error used to suggest wrapping the argument in quotes, which silences the syntax error but can break selector arguments (a quoted value gets read as literal text instead of a CSS selector). It now recommends a backslash escape instead, which fixes the syntax error without changing how the argument is interpreted.
+- **`helpmetest interactive` no longer prints a stray backslash for escaped punctuation** in rendered output (e.g. `\.`, `\-`) picked up during markdown round-tripping.
+- **Streamed output (`--stream`/agent callbacks) no longer exits before an in-flight callback finishes**, which could previously cut off a dashboard link or other async output before it was written.
+
 ## v1.91.1 (2026-08-16)
 
 ### Bug Fixes
