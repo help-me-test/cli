@@ -1,5 +1,14 @@
 # Release Notes
 
+## v2.1.0 (2026-08-20)
+
+### Improvements
+
+- **`helpmetest artifact get` now covers view and open in one command**: `artifact get <id>` gains `--open` (view it in the browser) and keeps `--include-linked`. `artifact view` and `artifact open` still resolve the same way conceptually — use `artifact get <id>` and `artifact get <id> --open`.
+- **`helpmetest token unset` replaces `token delete`**: renamed for consistency with `secret unset` and `otp unset`, which do the same thing (permanently remove a stored value by name).
+- **Removed `helpmetest health list`**: it was an undocumented duplicate of `helpmetest status health`, which does the same thing and is the one covered in the docs. Use `status health` instead.
+- **Removed the top-level `helpmetest upload <file>` command**: it was dead code — imported but never actually wired up, so it always fell through to the generic "unknown command" error. The working command was always `helpmetest files upload <file>`; any docs pointing at the broken one now point at the real one.
+
 ## v2.0.0 (2026-08-20)
 
 ### Breaking Changes
