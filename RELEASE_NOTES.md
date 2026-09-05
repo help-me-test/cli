@@ -1,5 +1,14 @@
 # Release Notes
 
+## v2.1.1 (2026-09-05)
+
+### Bug Fixes
+
+- **Full failure details for `helpmetest test`**: a failing keyword's error message (e.g. an ambiguous keyword name) used to get cut off after its first line and shown dimmed. It's now printed in full, in bright red, directly under the keyword that failed. A separate, redundant "Invalid keyword X" notice that used to print once per usage before the real run even started has been removed — the detailed error under the failing step already covers it.
+- **`helpmetest interactive` suggests keywords that actually exist**: element suggestions for clickable/typeable/selectable elements used to just capitalize the raw element category, producing keywords like `Type <selector>` or `Check <selector>` that don't exist and fail immediately if pasted. Suggestions now map to the real keyword (`Fill Text`, `Check Checkbox`, `Select Options By`, `Drag And Drop`, etc.), including `Type Text` for autocomplete/combobox inputs that need real keystroke events instead of a fast value-set.
+- **Clearer bare-timeout suggestion**: the error for a bare numeric `timeout=` value (which Robot Framework reads as seconds, not milliseconds) now suggests the millisecond form first, matching this CLI's own `--timeout <ms>` convention, instead of a confusing multiplied-by-1000 suggestion.
+- **More resilient reconnects**: a dropped session reconnecting after a transient network blip no longer requires a manual retry — the CLI now retries once automatically if the initial connection attempt times out.
+
 ## v2.1.0 (2026-08-20)
 
 ### Improvements
