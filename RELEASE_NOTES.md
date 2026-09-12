@@ -1,5 +1,14 @@
 # Release Notes
 
+## v2.1.2 (2026-09-12)
+
+### Bug Fixes
+
+- **Reliable `helpmetest test` output**: step lines (and sometimes the final pass/fail summary) could intermittently go missing from `helpmetest test <id>` output in a real terminal — the same run would look complete one time and cut off the next. The renderer was tearing down before the terminal frame finished writing; it now waits for the actual write to complete before closing, so output is consistent every run.
+- **More resilient reconnects on flaky networks**: connection retries after a dropped or slow connection now try a third time before giving up, and error messages during `test create`/`test update`/`test run` no longer suggest a `--session` flag that doesn't apply to those commands.
+- **CLI works from any subdirectory of your project**: running a command from inside a nested folder no longer loses your saved login — the CLI now searches upward for your project config the same way `git`/`npm` do, instead of only checking the current directory. When a config can't be found, the message now says exactly where it looked.
+- **Partial artifact updates work again**: updating just one field on an artifact (e.g. `--content '{"description": "..."}'`) used to fail with a confusing "missing required fields" error demanding `name`/`type`/`content` you never intended to set. Partial updates with a plain field name now work as expected.
+
 ## v2.1.1 (2026-09-05)
 
 ### Bug Fixes
