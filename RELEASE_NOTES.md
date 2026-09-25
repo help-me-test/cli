@@ -1,5 +1,28 @@
 # Release Notes
 
+## v2.2.0 (2026-09-25)
+
+### New Features
+
+- **Unknown-keyword errors now tell you about the two-space rule**: Robot Framework needs TWO spaces between a keyword name and its first argument. Typing `Go To https://example.com` with one space makes RF treat the whole string as the keyword name and report the same generic "No keyword with name" error you'd get from any typo — with no hint that spacing was the problem. The CLI now checks what you typed against the real keyword list it already caches for tab-completion, and when it recognises a genuine keyword with the wrong spacing it tells you exactly what to type instead.
+- **`helpmetest` is now the entry point for AI agents**: running the bare skill reads your project, probes it live, tells you what it found, and proposes what to test first, instead of interviewing you about things it can read from your repo. The separate `onboard` skill is gone — new projects start from the same place as everything else.
+
+### Improvements
+
+- **Live streaming output for `helpmetest interactive`**: results stream as they happen instead of arriving in one batch at the end, the Performance section is back, and a trailing-buffer bug that could silently drop the last chunk of output is fixed.
+- **The MCP-era skill bundle has been removed**: the CLI shipped nine skills written for an integration that no longer exists, instructing agents to call tools (`helpmetest_status()`, `how_to()`) that aren't there. They're deleted. Everything is a CLI command, as documented at helpmetest.com/llms.txt.
+- **`helpmetest --help` no longer advertises removed commands or a project contract file that is no longer used.**
+
+### Bug Fixes
+
+- **API tokens no longer leak into debug logs**: token values could appear in debug output from the streaming, metrics, systemd and config paths, and in `login`/`update` output. They're redacted everywhere now.
+- **`helpmetest delete` validates before it deletes**: identifiers are checked first, and `--dry-run` now respects your `--json`/format flags instead of ignoring them.
+- **Errors display consistently**: a bug where the API error handler never actually constructed a real error object meant some failures surfaced with unhelpful or missing messages.
+- **No more dropped output on exit**: pending writes could be lost when the process exited during `test` and `agent` runs, so a command could appear to finish with less output than it produced.
+- **`helpmetest uninstall` actually uninstalls**, and a version-reporting bug in the installer path is fixed.
+- **Fixes to `health`, `proxy` and `frpc`**: a crash, an incorrect exit code, and a cleanup-ordering bug on exit.
+- **Correct URL encoding** in links the CLI prints, plus fixes to event serialization and a missing event code in history output.
+
 ## v2.1.2 (2026-09-12)
 
 ### Bug Fixes
