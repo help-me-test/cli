@@ -1,5 +1,16 @@
 # Release Notes
 
+## v2.3.0 (2026-09-26)
+
+### New Features
+
+- **Artifacts written from the shell now show up in the agent's results**: when an agent ran `helpmetest artifact upsert` or `helpmetest test create` through its own shell instead of a built-in tool, the write happened but left no trace in the run — no link, no card, nothing to click. Those writes are now collected and shown as links alongside everything else, so you can see what a run actually produced regardless of how it got there.
+- **You decide when the browser opens**: `helpmetest test create`, `test update`, and `artifact upsert` now print the URL of what they just created, and take `--open` to launch it or `--no-open` to stay in the terminal. The new `autoOpenCreated` config key sets the default for when you pass neither — off, unless you turn it on with `helpmetest config set autoOpenCreated true`. `helpmetest notification add` takes `--no-open` too, so you can copy a connect link instead of having a tab thrown at you.
+
+### Bug Fixes
+
+- **The test suite no longer hijacks your screen**: running the CLI's own tests opened six browser tabs — three at live Slack/Discord/Telegram OAuth pages, three at a mock server's links. The live ones now only run when you explicitly ask for them, and the rest never open a browser at all.
+
 ## v2.2.0 (2026-09-25)
 
 ### New Features
