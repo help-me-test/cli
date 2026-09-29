@@ -1,5 +1,17 @@
 # Release Notes
 
+## v2.4.0 (2026-09-29)
+
+### New Features
+
+- **Install skills once for every project**: `helpmetest install skills --global` (or `-g`) puts the skills in your home directory instead of the project you happen to be standing in. `-y`/`--yes` is accepted too. Both flags were already being suggested in a tip printed on every install, but neither existed — typing what the tip told you to type produced `unknown option`.
+
+### Bug Fixes
+
+- **`helpmetest install skills` no longer says it worked when it didn't**: it printed `✓ Installed HelpMeTest skills` and then installed nothing at all — there was no skills directory afterwards. It now reports what is actually on disk, tells you the path it installed to, and fails loudly instead of quietly doing nothing.
+- **An expired token no longer aborts an install that was working**: the install itself needs no login, but a background analytics call did, and it took the whole command down mid-download. Installing skills now works with an expired token, or no token at all.
+- **The skills list in `install skills --help` no longer advertises a workflow that was removed.**
+
 ## v2.3.0 (2026-09-26)
 
 ### New Features
